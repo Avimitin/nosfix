@@ -108,6 +108,231 @@ bool StressReceive(void* context, const KeysoundDispatch& dispatch) noexcept {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Frame-gated cue array (round 2 model of nostalgia sub_180304F30)
+// ---------------------------------------------------------------------------
+
+using nosfix::audio::FrameGateDecision;
+using nosfix::audio::FrameGateOutcome;
+using nosfix::audio::FrameGateReady;
+using nosfix::audio::FrameGateRecord;
+using nosfix::audio::FrameGateRequest;
+using nosfix::audio::FrameGateSchedule;
+
+FrameGateRequest GateRequest(std::int32_t id, std::uint64_t handle,
+                             std::uint8_t param, std::int32_t defer) {
+    FrameGateRequest request;
+    request.sound_id = id;
+    request.handle = handle;
+    request.param = param;
+    request.param2 = 3;
+    request.defer_frames = defer;
+    return request;
+}
+
+void TestFrameGateLayout() {
+    using namespace nosfix::audio;
+    CHECK(sizeof(FrameGateRecord) == 24);
+    CHECK(offsetof(FrameGateRecord, sound_id) == 0);
+    CHECK(offsetof(FrameGateRecord, param) == 5);
+    CHECK(offsetof(FrameGateRecord, param2) == 6);
+    CHECK(offsetof(FrameGateRecord, start_frame) == 8);
+    CHECK(offsetof(FrameGateRecord, end_frame) == 12);
+    CHECK(offsetof(FrameGateRecord, handle) == 16);
+    // (0x1813E56D8 - 0x1813E4AD8) / 24 = 0xC00 / 24 = 128, which is the dedupe
+    // bound at 0x1803050DB as well.
+    CHECK(kFrameGateCapacity == 128);
+    CHECK(kFrameGateRecordBytes == 24);
+    CHECK(kFrameGateNoFrame == 0xFFFFFFFFu);
+}
+
+void TestFrameGateDeferred() {
+    using namespace nosfix::audio;
+    FrameGateSchedule gate;
+    CHECK(!gate.Enabled());
+    // word_1813E472C clear: the original function returns immediately.
+    const FrameGateOutcome refused = gate.Schedule(GateRequest(7, 100, 5, 0), 100);
+    CHECK(refused.decision == FrameGateDecision::Refused);
+    CHECK(gate.Stats().refused_disabled == 1);
+    CHECK(gate.LiveCount() == 0);
+    CHECK(gate.RecordAt(0).sound_id == -1);
+
+    gate.SetEnabled(true);
+    CHECK(gate.Enabled());
+    const FrameGateOutcome stored = gate.Schedule(GateRequest(7, 100, 5, 5), 100);
+    CHECK(stored.decision == FrameGateDecision::Deferred);
+    CHECK(stored.slot == 0);
+    CHECK(stored.start_frame == 105); // current + a6
+    CHECK(!stored.replaced_existing);
+    CHECK(gate.LiveCount() == 1);
+    CHECK(gate.Stats().deferred == 1);
+    const FrameGateRecord& record = gate.RecordAt(0);
+    CHECK(record.sound_id == 7);
+    CHECK(record.handle == 100);
+    CHECK(record.param == 5);
+    CHECK(record.param2 == 3);
+    CHECK(record.start_frame == 105);
+    CHECK(record.end_frame == kFrameGateNoFrame);
+
+    FrameGateReady ready[4]{};
+    CHECK(gate.RetireDue(104, ready, 4) == 0);
+    CHECK(gate.LiveCount() == 1);
+    CHECK(gate.RetireDue(105, ready, 4) == 1);
+    CHECK(ready[0].slot == 0);
+    CHECK(ready[0].sound_id == 7);
+    CHECK(ready[0].handle == 100);
+    CHECK(ready[0].start_frame == 105);
+    CHECK(gate.RecordAt(0).sound_id == -1);
+    CHECK(gate.RecordAt(0).handle == 0);
+    CHECK(gate.RecordAt(0).start_frame == kFrameGateNoFrame);
+    CHECK(gate.LiveCount() == 0);
+    CHECK(gate.Stats().retired == 1);
+    CHECK(gate.RetireDue(1000, ready, 4) == 0); // never fires twice
+
+    // a5 is added to the start frame when it is not -1.
+    FrameGateRequest with_end = GateRequest(8, 101, 6, 10);
+    with_end.extra = 20;
+    const FrameGateOutcome end_outcome = gate.Schedule(with_end, 200);
+    CHECK(end_outcome.decision == FrameGateDecision::Deferred);
+    CHECK(end_outcome.start_frame == 210);
+    CHECK(end_outcome.end_frame == 230);
+    CHECK(gate.RecordAt(0).end_frame == 230);
+
+    // a6 == 0 with a positive frame counter still defers to that frame: the
+    // original tests `a6 + current > 0`, not `a6 > 0`.
+    CHECK(gate.Schedule(GateRequest(9, 102, 7, 0), 300).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(gate.RecordAt(1).start_frame == 300);
+}
+
+void TestFrameGateImmediate() {
+    using namespace nosfix::audio;
+    FrameGateSchedule gate;
+    gate.SetEnabled(true);
+    // The immediate path is `current + a6 <= 0` only.
+    const FrameGateOutcome immediate = gate.Schedule(GateRequest(11, 200, 5, -100), 100);
+    CHECK(immediate.decision == FrameGateDecision::ImmediateRecorded);
+    CHECK(gate.Stats().immediate == 1);
+    CHECK(gate.RecordAt(0).sound_id == 11);
+    CHECK(gate.RecordAt(0).start_frame == kFrameGateNoFrame); // "already started"
+    FrameGateReady ready[4]{};
+    CHECK(gate.RetireDue(0xFFFFFFF0u, ready, 4) == 0); // the marker never fires
+    CHECK(gate.LiveCount() == 1);
+
+    // Dedupe: a stored pending record with the same a3 byte and the same handle
+    // is found and its sound is stopped (sub_1802BCAD0), and it is counted.
+    FrameGateSchedule dedupe;
+    dedupe.SetEnabled(true);
+    CHECK(dedupe.Schedule(GateRequest(21, 900, 5, 10), 100).decision ==
+          FrameGateDecision::Deferred); // start 110
+    const FrameGateOutcome hit = dedupe.Schedule(GateRequest(22, 900, 5, -100), 100);
+    CHECK(hit.decision == FrameGateDecision::ImmediateRecorded);
+    CHECK(hit.dedupe_stopped);
+    CHECK(dedupe.Stats().dedupe_stopped == 1);
+    // A different handle, a param outside 1..0x58 and an already-started marker
+    // do not match.
+    CHECK(dedupe.Schedule(GateRequest(23, 901, 5, -100), 100).dedupe_stopped == false);
+    CHECK(dedupe.Schedule(GateRequest(24, 900, 0, -100), 100).dedupe_stopped == false);
+    CHECK(dedupe.Schedule(GateRequest(25, 900, 0x59, -100), 100).dedupe_stopped == false);
+    CHECK(dedupe.Stats().dedupe_stopped == 1);
+
+    // Replacement: the same id is faded out and cleared before the new record is
+    // written, so the slot is reused and only one record exists.
+    FrameGateSchedule replace;
+    replace.SetEnabled(true);
+    CHECK(replace.Schedule(GateRequest(31, 500, 5, 10), 100).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(replace.LiveCount() == 1);
+    const FrameGateOutcome replaced = replace.Schedule(GateRequest(31, 501, 5, 20), 100);
+    CHECK(replaced.decision == FrameGateDecision::Deferred);
+    CHECK(replaced.replaced_existing);
+    CHECK(replaced.slot == 0);
+    CHECK(replace.LiveCount() == 1);
+    CHECK(replace.Stats().replaced_same_id == 1);
+    CHECK(replace.RecordAt(0).handle == 501);
+    CHECK(replace.RecordAt(0).start_frame == 120);
+    CHECK(replace.Schedule(GateRequest(32, 502, 5, 5), 100).slot == 1);
+    // A same-id immediate request also replaces before it plays.
+    CHECK(replace.Schedule(GateRequest(32, 503, 5, -1000), 100).replaced_existing);
+    CHECK(replace.LiveCount() == 2);
+
+    // The immediate path's dedupe hit does not remove the pending record: the
+    // original's action on that record is unresolved, so the model only counts
+    // it. It still retires on its own frame.
+    CHECK(dedupe.RetireDue(110, ready, 4) == 1);
+    CHECK(ready[0].sound_id == 21);
+}
+
+void TestFrameGateOverflowAndGeneration() {
+    using namespace nosfix::audio;
+    FrameGateSchedule gate;
+    gate.SetEnabled(true);
+    for (std::uint32_t index = 0; index < kFrameGateCapacity; ++index) {
+        const FrameGateOutcome outcome = gate.Schedule(
+            GateRequest(static_cast<std::int32_t>(index), 1000 + index, 5, 10), 500);
+        CHECK(outcome.decision == FrameGateDecision::Deferred);
+        CHECK(outcome.slot == index);
+    }
+    CHECK(gate.LiveCount() == kFrameGateCapacity);
+    CHECK(gate.Stats().high_watermark == kFrameGateCapacity);
+
+    // A full array drops a deferred request: the original returns without
+    // storing it.
+    const FrameGateOutcome full = gate.Schedule(GateRequest(500, 5000, 5, 10), 500);
+    CHECK(full.decision == FrameGateDecision::TableFull);
+    CHECK(full.slot == kFrameGateInvalidSlot);
+    CHECK(gate.Stats().table_full == 1);
+    CHECK(gate.LiveCount() == kFrameGateCapacity);
+    // An immediate request has already started, so only its marker is lost.
+    const FrameGateOutcome played = gate.Schedule(GateRequest(501, 5001, 5, -1000), 500);
+    CHECK(played.decision == FrameGateDecision::ImmediateUnrecorded);
+    CHECK(gate.Stats().immediate == 1);
+    CHECK(gate.Stats().table_full == 2);
+
+    // A generation change drops every stored cue without retiring it.
+    gate.SetGeneration(1);
+    CHECK(gate.LiveCount() == 0);
+    CHECK(gate.Stats().abandoned_generation == kFrameGateCapacity);
+    CHECK(gate.Stats().generation_changes == 1);
+    CHECK(gate.RecordAt(0).sound_id == -1);
+    FrameGateReady ready[4]{};
+    CHECK(gate.RetireDue(100000, ready, 4) == 0);
+    gate.SetGeneration(1); // no-op
+    CHECK(gate.Stats().generation_changes == 1);
+    CHECK(gate.Schedule(GateRequest(1, 1, 5, 0), 10).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(gate.Generation() == 1);
+
+    // -1 is the free marker and 0 is the cleared handle: both are refused.
+    CHECK(gate.Schedule(GateRequest(-1, 1, 5, 10), 10).decision ==
+          FrameGateDecision::Invalid);
+    CHECK(gate.Schedule(GateRequest(2, 0, 5, 10), 10).decision ==
+          FrameGateDecision::Invalid);
+    CHECK(gate.Stats().invalid == 2);
+
+    // The 32-bit signed add wraps like the original: 0xFFFFFFFE + 5 == 3.
+    CHECK(gate.Schedule(GateRequest(3, 3, 5, 5), 0xFFFFFFFEu).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(gate.RecordAt(1).start_frame == 3);
+
+    // A too-small out array leaves the rest stored and counts them.
+    FrameGateSchedule small;
+    small.SetEnabled(true);
+    CHECK(small.Schedule(GateRequest(41, 41, 5, 0), 10).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(small.Schedule(GateRequest(42, 42, 5, 0), 10).decision ==
+          FrameGateDecision::Deferred);
+    CHECK(small.LiveCount() == 2);
+    FrameGateReady one[1]{};
+    CHECK(small.RetireDue(10, one, 1) == 1);
+    CHECK(small.Stats().retire_unreported == 1);
+    CHECK(small.LiveCount() == 1);
+    CHECK(small.RetireDue(10, one, 1) == 1);
+    CHECK(small.LiveCount() == 0);
+    CHECK(small.RetireDue(10, nullptr, 4) == 0);
+    CHECK(small.RetireDue(10, one, 0) == 0);
+}
+
 } // namespace
 
 int main() {
@@ -450,6 +675,11 @@ int main() {
         CHECK(broken_mixer_sink.rejected == 1);
         CHECK(mix_queue.Pending() == 0);
     }
+
+    TestFrameGateLayout();
+    TestFrameGateDeferred();
+    TestFrameGateImmediate();
+    TestFrameGateOverflowAndGeneration();
 
     return test::Finish("keysound_dispatch");
 }

@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 // These tests behave like a compiled XAudio2 2.7 client: they never call a
@@ -1026,6 +1027,343 @@ void TestInvalidConfiguration() {
     Xa2BridgeDestroy(engine);
 }
 
+// ---------------------------------------------------------------------------
+// libxact cue table and command handoff (round 2)
+// ---------------------------------------------------------------------------
+
+// A CLibXact-shaped object: 1024 cue records at +8, then the event, waiter and
+// lock words. Only the cue table is ever written by this model.
+struct CueBuffer {
+    std::unique_ptr<std::uint8_t[]> bytes;
+    std::size_t size = xact::kObjectMinBytes;
+
+    explicit CueBuffer(std::size_t requested = xact::kObjectMinBytes)
+        : bytes(new std::uint8_t[requested]), size(requested) {
+        std::memset(bytes.get(), 0, size);
+    }
+
+    [[nodiscard]] std::uint8_t* data() const noexcept { return bytes.get(); }
+};
+
+struct CueSinkLog {
+    int calls = 0;
+    bool accept = true;
+    xact::XactCommandEvent last{};
+    int completions = 0;
+    std::int32_t last_status = -1;
+};
+
+bool CueSink(void* context, const xact::XactCommandEvent& event) noexcept {
+    auto* log = static_cast<CueSinkLog*>(context);
+    log->last = event;
+    ++log->calls;
+    return log->accept;
+}
+
+void CueCompletion(void* context, const xact::XactCommandEvent&, std::int32_t status) noexcept {
+    auto* log = static_cast<CueSinkLog*>(context);
+    ++log->completions;
+    log->last_status = status;
+}
+
+xact::XactCueRecord MakeCue(std::int32_t cmd, std::int32_t p1, const char* s1) {
+    xact::XactCueRecord record;
+    record.cmd = cmd;
+    record.p1 = p1;
+    record.p2 = 2;
+    record.p3 = 1.5F;
+    record.p4 = -2.5F;
+    record.p5 = 3.0F;
+    record.p6 = 4.0F;
+    record.p7 = 0x1122334455667788ULL;
+    std::memcpy(record.s1, s1, std::strlen(s1) + 1);
+    return record;
+}
+
+void TestXactCueTableLayout() {
+    // Every constant below is proven from bytes (ABI_COMPLETION.md E17).
+    CHECK(xact::kCueCount == 1024);
+    CHECK(xact::kCueRecordBytes == 568);
+    CHECK(xact::kCueTableOffset == 8);
+    CHECK(xact::kCueTableBytes == 581632);
+    CHECK(xact::kCueTableEnd == 581640);
+    CHECK(xact::kCueCommandOffset == 4);
+    CHECK(xact::kStatusWordOffset == 581640);
+    CHECK(xact::kEventWordOffset == 581644);
+    CHECK(xact::kWaiterWordOffset == 581648);
+    CHECK(xact::kLockWordOffset == 581652);
+    CHECK(xact::kObjectMinBytes == 581656);
+    CHECK(xact::kCommandWaiterItemBytes == 16);
+    CHECK(xact::kCommandFree == 0);
+    CHECK(xact::kCommandShutdown == 2);
+    // FinishCommand's status dword offset is not consistent with the table
+    // extent, so the model never uses one.
+    CHECK(!xact::kStatusWordProven);
+
+    CHECK(sizeof(xact::XactCueRecord) == 568);
+    CHECK(offsetof(xact::XactCueRecord, flag) == 0);
+    CHECK(offsetof(xact::XactCueRecord, cmd) == 4);
+    CHECK(offsetof(xact::XactCueRecord, p1) == 8);
+    CHECK(offsetof(xact::XactCueRecord, p2) == 0x0C);
+    CHECK(offsetof(xact::XactCueRecord, p3) == 0x10);
+    CHECK(offsetof(xact::XactCueRecord, p6) == 0x1C);
+    CHECK(offsetof(xact::XactCueRecord, p7) == 0x20);
+    CHECK(offsetof(xact::XactCueRecord, s1) == 0x28);
+    CHECK(offsetof(xact::XactCueRecord, s2) == 0x12C);
+    CHECK(offsetof(xact::XactCueRecord, tail) == 0x230);
+    // this+12 is literally cue[0].cmd.
+    CHECK(xact::kCueTableOffset + xact::kCueCommandOffset == 12);
+
+    CueBuffer buffer;
+    xact::XactCueTable table;
+    CHECK(!table.Attached());
+    CHECK(!table.Attach(nullptr, xact::kObjectMinBytes));
+    CHECK(!table.Attached());
+    // Fail closed on a short or misaligned object.
+    CHECK(!table.Attach(buffer.data(), xact::kObjectMinBytes - 1));
+    CHECK(!table.Attach(buffer.data() + 4, xact::kObjectMinBytes - 4));
+    CHECK(!table.Attached());
+    CHECK(table.Record(0) == nullptr);
+    CHECK(table.Command(0) == 0);
+    CHECK(table.FindFree() == xact::kInvalidCue);
+
+    CHECK(table.Attach(buffer.data(), xact::kObjectMinBytes));
+    CHECK(table.Attached());
+    CHECK(table.Base() == buffer.data());
+    CHECK(table.BaseBytes() == xact::kObjectMinBytes);
+
+    const auto* base = buffer.data();
+    CHECK(reinterpret_cast<const std::uint8_t*>(table.Record(0)) == base + 8);
+    CHECK(reinterpret_cast<const std::uint8_t*>(table.Record(1)) == base + 8 + 568);
+    CHECK(reinterpret_cast<const std::uint8_t*>(table.Record(1023)) ==
+          base + 8 + 1023 * 568);
+    CHECK(reinterpret_cast<const std::uint8_t*>(&table.Record(0)->cmd) == base + 12);
+    CHECK(reinterpret_cast<const std::uint8_t*>(&table.Record(0)->s2) == base + 8 + 0x12C);
+    // The last record ends exactly at the table end, before the event slot.
+    CHECK(reinterpret_cast<const std::uint8_t*>(table.Record(1023)) + 568 ==
+          base + xact::kCueTableEnd);
+    CHECK(table.Record(1024) == nullptr);
+
+    // A nonzero command word makes exactly that slot busy.
+    table.SetCommand(0, 7);
+    CHECK(table.Command(0) == 7);
+    std::int32_t raw = 0;
+    std::memcpy(&raw, base + 12, sizeof(raw));
+    CHECK(raw == 7);
+    CHECK(table.Command(1) == 0);
+    CHECK(table.FindFree() == 1);
+    table.SetCommand(5, 3);
+    CHECK(table.FindFree() == 1);
+    CHECK(table.FindFree(6) == 6);
+    CHECK(table.FindFree(1024) == xact::kInvalidCue);
+    table.SetCommand(0, 0);
+    CHECK(table.FindFree() == 0);
+
+    // A record written through the view lands at the proven offsets.
+    xact::XactCueRecord record = MakeCue(9, 77, "se_test");
+    *table.Record(2) = record;
+    CHECK(table.Record(2)->cmd == 9);
+    CHECK(table.Record(2)->p1 == 77);
+    CHECK(reinterpret_cast<const std::uint8_t*>(table.Record(2)) == base + 8 + 2 * 568);
+    std::int32_t cmd2 = 0;
+    std::memcpy(&cmd2, base + 8 + 2 * 568 + 4, sizeof(cmd2));
+    CHECK(cmd2 == 9);
+
+    table.Detach();
+    CHECK(!table.Attached());
+    CHECK(table.Record(0) == nullptr);
+    CHECK(table.FindFree() == xact::kInvalidCue);
+}
+
+void TestXactCommandHandoff() {
+    CueBuffer buffer;
+    xact::XactCueTable table;
+    CHECK(table.Attach(buffer.data(), xact::kObjectMinBytes));
+
+    xact::XactCommandRing ring;
+    CHECK(!ring.Prepare(nullptr));
+    CHECK(!ring.Prepared());
+    CHECK(ring.Prepare(&table));
+    CHECK(ring.Prepared());
+    CHECK(ring.Generation() == 0);
+    CHECK(!ring.ShutdownReceived());
+
+    // A ring without a table refuses and counts; the table is untouched.
+    xact::XactCommandRing orphan;
+    CHECK(orphan.Post(MakeCue(5, 0, "x")) ==
+          xact::XactCommandRing::PostStatus::Invalid);
+    CHECK(orphan.Stats().invalid == 1);
+
+    xact::XactCueRecord record = MakeCue(5, 41, "se_bgm");
+    std::memcpy(record.s2, "second", 7);
+    CHECK(ring.Post(record) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(table.Command(0) == 5); // published into cue[0].cmd
+    CHECK(ring.Pending() == 1);
+    CHECK(ring.Stats().posted == 1);
+    CHECK(ring.Stats().high_watermark == 1);
+
+    CueSinkLog log;
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 1);
+    CHECK(log.calls == 1);
+    CHECK(log.last.cmd == 5);
+    CHECK(log.last.slot == 0);
+    CHECK(log.last.p1 == 41);
+    CHECK(log.last.p2 == 2);
+    CHECK(log.last.p3 == 1.5F);
+    CHECK(log.last.p4 == -2.5F);
+    CHECK(log.last.p5 == 3.0F);
+    CHECK(log.last.p6 == 4.0F);
+    CHECK(log.last.p7 == 0x1122334455667788ULL);
+    CHECK(std::memcmp(log.last.s1, "se_bgm", 7) == 0);
+    CHECK(std::memcmp(log.last.s2, "second", 7) == 0);
+    CHECK(log.last.sequence == 1);
+    CHECK(log.last.generation == 0);
+    CHECK(log.last.latency_blocks == xact::kHandoffLatencyBlocks);
+    CHECK(log.completions == 1);
+    CHECK(log.last_status == 0);
+    CHECK(table.Command(0) == 0); // slot released after the completion
+    CHECK(ring.Pending() == 0);
+    CHECK(ring.Stats().applied == 1);
+    CHECK(ring.Stats().drains == 1);
+    // 5 is not a proven command value: transported, applied, and counted.
+    CHECK(ring.Stats().unknown_command == 1);
+
+    // Once only: a second drain in the same block sees nothing.
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 0);
+    CHECK(log.calls == 1);
+
+    // One block of latency: Post alone applies nothing, exactly one drain does.
+    CHECK(ring.Post(MakeCue(1, 7, "se_a")) ==
+          xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(log.calls == 1);
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 1);
+    CHECK(log.calls == 2);
+    CHECK(log.last.cmd == 1);
+    CHECK(log.last.sequence == 2);
+
+    // No sink: nothing is drained, so a command is never retired unsigned.
+    CHECK(ring.Post(MakeCue(1, 8, "se_b")) ==
+          xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.DrainAtBlockStart(nullptr, nullptr, nullptr, nullptr) == 0);
+    CHECK(ring.Pending() == 1);
+    CHECK(table.Command(0) == 1);
+
+    // A refused apply is counted, retired, and completed with nonzero status.
+    CueSinkLog refusing;
+    refusing.accept = false;
+    CHECK(ring.DrainAtBlockStart(&CueSink, &refusing, &CueCompletion, &refusing) == 0);
+    CHECK(refusing.calls == 1);
+    CHECK(refusing.completions == 1);
+    CHECK(refusing.last_status == 1);
+    CHECK(ring.Stats().apply_failed == 1);
+    CHECK(ring.Pending() == 0);
+    CHECK(table.Command(1) == 0);
+
+    // A free command word is not a command.
+    CHECK(ring.Post(MakeCue(0, 0, "")) ==
+          xact::XactCommandRing::PostStatus::Invalid);
+    CHECK(ring.Stats().invalid == 1);
+    CHECK(ring.Stats().posted == 3);
+}
+
+void TestXactCommandRingOverflow() {
+    CueBuffer buffer;
+    xact::XactCueTable table;
+    CHECK(table.Attach(buffer.data(), xact::kObjectMinBytes));
+    xact::XactCommandRing ring;
+    CHECK(ring.Prepare(&table));
+
+    for (std::uint32_t index = 0; index < xact::kCommandRingCapacity; ++index) {
+        CHECK(ring.Post(MakeCue(9, static_cast<std::int32_t>(index), "fill")) ==
+              xact::XactCommandRing::PostStatus::Accepted);
+    }
+    CHECK(ring.Pending() == xact::kCommandRingCapacity);
+    CHECK(ring.Stats().high_watermark == xact::kCommandRingCapacity);
+    // Capacity is refused before the table is touched: the next slot is free.
+    CHECK(table.Command(xact::kCommandRingCapacity) == 0);
+    CHECK(ring.Post(MakeCue(9, 999, "overflow")) ==
+          xact::XactCommandRing::PostStatus::RingFull);
+    CHECK(ring.Stats().ring_overflow == 1);
+    CHECK(table.Command(xact::kCommandRingCapacity) == 0);
+    CHECK(ring.Stats().posted == xact::kCommandRingCapacity);
+
+    CueSinkLog log;
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, nullptr, nullptr) ==
+          xact::kCommandRingCapacity);
+    CHECK(log.calls == static_cast<int>(xact::kCommandRingCapacity));
+    CHECK(ring.Pending() == 0);
+    CHECK(ring.Stats().applied == xact::kCommandRingCapacity);
+
+    // A table with no free slot refuses without consuming ring space.
+    for (std::uint32_t index = 0; index < xact::kCueCount; ++index) {
+        table.SetCommand(index, 3);
+    }
+    CHECK(ring.Post(MakeCue(3, 1, "x")) ==
+          xact::XactCommandRing::PostStatus::TableFull);
+    CHECK(ring.Stats().table_full == 1);
+    CHECK(ring.Pending() == 0);
+    CHECK(ring.Stats().posted == xact::kCommandRingCapacity);
+}
+
+void TestXactCommandGenerationAndShutdown() {
+    CueBuffer buffer;
+    xact::XactCueTable table;
+    CHECK(table.Attach(buffer.data(), xact::kObjectMinBytes));
+    xact::XactCommandRing ring;
+    CHECK(ring.Prepare(&table));
+    CueSinkLog log;
+
+    // A generation change abandons queued commands and frees their slots.
+    CHECK(ring.Post(MakeCue(4, 1, "a")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.Post(MakeCue(4, 2, "b")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.Post(MakeCue(4, 3, "c")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.Pending() == 3);
+    ring.SetGeneration(1);
+    CHECK(ring.Generation() == 1);
+    CHECK(ring.Pending() == 0);
+    CHECK(ring.Stats().abandoned_generation == 3);
+    CHECK(ring.Stats().generation_changes == 1);
+    CHECK(table.Command(0) == 0);
+    CHECK(table.Command(1) == 0);
+    CHECK(table.Command(2) == 0);
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 0);
+    CHECK(log.calls == 0);
+
+    // The same generation is a no-op.
+    ring.SetGeneration(1);
+    CHECK(ring.Stats().generation_changes == 1);
+
+    // The new generation accepts commands again and restarts the sequence.
+    CHECK(ring.Post(MakeCue(4, 4, "d")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 1);
+    CHECK(log.last.generation == 1);
+    CHECK(log.last.sequence == 1);
+
+    // Shutdown (command word 2, 0x18000A869) is never applied to the sink; what
+    // is queued behind it is abandoned, and later posts are refused.
+    CHECK(ring.Post(MakeCue(2, 0, "shutdown")) ==
+          xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.Post(MakeCue(4, 5, "late1")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.Post(MakeCue(4, 6, "late2")) == xact::XactCommandRing::PostStatus::Accepted);
+    const int calls_before = log.calls;
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 0);
+    CHECK(log.calls == calls_before);
+    CHECK(ring.ShutdownReceived());
+    CHECK(ring.Stats().shutdown_commands == 1);
+    CHECK(ring.Stats().abandoned_shutdown == 2);
+    CHECK(ring.Pending() == 0);
+    CHECK(ring.Post(MakeCue(4, 7, "after")) ==
+          xact::XactCommandRing::PostStatus::Shutdown);
+    CHECK(ring.Stats().refused_after_shutdown == 1);
+
+    // A new generation clears the shutdown state.
+    ring.SetGeneration(2);
+    CHECK(!ring.ShutdownReceived());
+    CHECK(ring.Post(MakeCue(4, 8, "again")) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(ring.DrainAtBlockStart(&CueSink, &log, &CueCompletion, &log) == 1);
+    CHECK(log.last.p1 == 8);
+}
+
 } // namespace
 
 int main() {
@@ -1047,5 +1385,9 @@ int main() {
     TestEngineCallbacks();
     TestRenderIsAllocationFree();
     TestInvalidConfiguration();
+    TestXactCueTableLayout();
+    TestXactCommandHandoff();
+    TestXactCommandRingOverflow();
+    TestXactCommandGenerationAndShutdown();
     return test::Finish("xaudio2_bridge");
 }

@@ -342,4 +342,280 @@ void Xa2BridgeNotifyCriticalError(Xa2Engine* engine, std::int32_t hresult) noexc
 [[nodiscard]] bool Xa2VoiceSetVolumePan(Xa2Voice* voice, float volume,
                                         float pan) noexcept;
 
+// ===========================================================================
+// libxact CLibXact cue table and command handoff (round 2)
+//
+// Evidence: analyze/impl-20261030/ABI_COMPLETION.md E17 (proven from bytes),
+// analyze/evidence/verified_xact_0x1800092e0.c, nosxact_0x180008a10.c.
+//
+// Proven layout of the CLibXact object:
+//   this+8         cue[0]: 1024 records x 568 bytes (581632 bytes of table)
+//   this+12        cue[0].cmd; a slot is free when its cmd dword is 0, and
+//                  add_cue computes it as (DWORD*)this + 3 + 142 * index
+//   this+581640    first byte after the table. A completion status dword is
+//                  written by FinishCommand somewhere around here, but the pack
+//                  renders that store as `this+568`, which cannot be right (it
+//                  would land inside cue[0], 8 bytes into the record at +0x230).
+//                  The offset is recorded and NOT used: kStatusWordProven=false.
+//   this+581644    event  (SetEvent, avs2_core_25)
+//   this+581648    waiter (avs2_core_26(handle, 1, 16, buf, 60000 ms))
+//   this+581652    lock   (avs2_core_16/17)
+//
+// Proven command words: 0 = free slot, 2 = the shutdown case of
+// CLibXact::execute (0x18000A869: tear the engine down, CoUninitialize, return).
+// No other value is proven, so this model transports a command word verbatim,
+// applies it through a caller-supplied sink and counts it; it never assigns
+// semantics to a number the evidence does not pin down.
+//
+// What this replaces
+// ------------------
+// CLibXact::execute polls cue[0].cmd and calls Sleep(2) at 0x18000942F when it
+// is zero, so a command that lands just after a poll waits up to 2 ms. The
+// handoff below keeps the same cue records and the same command word, but the
+// owner appends the cue index to a bounded ring and the audio block start drains
+// it once. A command posted at any point during block N is therefore applied at
+// the start of block N+1: a bounded one-block latency instead of a 0..2 ms
+// sleep, and no polling loop. A full ring or a full table is refused and
+// counted; nothing is dropped silently.
+//
+// The event/waiter/lock slots are *not* touched by this model. Completion is
+// published through a callback the caller can bind to those slots once their
+// widths are proven; see XactCompletionSink.
+namespace xact {
+
+// --- proven layout constants ------------------------------------------------
+inline constexpr std::uint32_t kCueCount = 1024;
+inline constexpr std::uint32_t kCueRecordBytes = 568;
+inline constexpr std::uint32_t kCueTableOffset = 8;
+inline constexpr std::uint32_t kCueCommandOffset = 4; // record+4; object+12 for cue[0]
+inline constexpr std::uint32_t kCueTableBytes = kCueCount * kCueRecordBytes; // 581632
+inline constexpr std::uint32_t kCueTableEnd = kCueTableOffset + kCueTableBytes; // 581640
+inline constexpr std::uint32_t kStatusWordOffset = kCueTableEnd; // 581640, unproven use
+inline constexpr std::uint32_t kEventWordOffset = 581644;
+inline constexpr std::uint32_t kWaiterWordOffset = 581648;
+inline constexpr std::uint32_t kLockWordOffset = 581652;
+inline constexpr std::uint32_t kObjectMinBytes = kLockWordOffset + 4; // 581656
+inline constexpr std::uint32_t kCommandWaiterItemBytes = 16; // avs2_core_26(.., 1, 16, ..)
+
+// False: FinishCommand's status store is not pinned to an offset that is
+// compatible with the cue table extent (see the comment above). No code in this
+// tree writes or reads a status word.
+inline constexpr bool kStatusWordProven = false;
+
+// Proven command words only. 1 and everything above 2 are unknown.
+inline constexpr std::int32_t kCommandFree = 0;
+inline constexpr std::int32_t kCommandShutdown = 2;
+
+inline constexpr std::uint32_t kInvalidCue = 0xFFFFFFFFu;
+
+// Owner -> audio handoff: a bounded ring of cue indices, drained once per block.
+inline constexpr std::uint32_t kCommandRingCapacity = 256; // power of two
+inline constexpr std::uint32_t kHandoffLatencyBlocks = 1;
+
+// One cue record, exactly 568 bytes, field for field as printed by
+// FinishCommand's own diagnostic format string
+// "cue[%d] : cmd->%d p1->%d p2->%d p3->%f p4->%f p5->%f p6->%f p7->%d
+//  s1->%s s2->%s" and by add_cue's stores.
+#pragma pack(push, 1)
+struct XactCueRecord {
+    std::uint8_t flag = 0;         // +0x000  byte flag/type
+    std::uint8_t reserved0[3] = {}; // +0x001
+    std::int32_t cmd = 0;          // +0x004  command word, 0 = free
+    std::int32_t p1 = 0;           // +0x008
+    std::int32_t p2 = 0;           // +0x00C
+    float p3 = 0.0F;               // +0x010
+    float p4 = 0.0F;               // +0x014
+    float p5 = 0.0F;               // +0x018
+    float p6 = 0.0F;               // +0x01C
+    std::uint64_t p7 = 0;          // +0x020
+    char s1[260] = {};             // +0x028  sound / cue name
+    char s2[260] = {};             // +0x12C  second name
+    std::uint8_t tail[8] = {};     // +0x230  padding to 568
+};
+#pragma pack(pop)
+
+static_assert(sizeof(XactCueRecord) == kCueRecordBytes, "cue record is 568 bytes");
+static_assert(offsetof(XactCueRecord, cmd) == kCueCommandOffset, "cue cmd offset");
+static_assert(offsetof(XactCueRecord, p1) == 0x008, "cue p1 offset");
+static_assert(offsetof(XactCueRecord, p7) == 0x020, "cue p7 offset");
+static_assert(offsetof(XactCueRecord, s1) == 0x028, "cue s1 offset");
+static_assert(offsetof(XactCueRecord, s2) == 0x12C, "cue s2 offset");
+static_assert(offsetof(XactCueRecord, tail) == 0x230, "cue padding offset");
+static_assert(kCueTableOffset + kCueCommandOffset == 12, "this+12 is cue[0].cmd");
+static_assert(kCueTableEnd <= kEventWordOffset, "cue table ends before the event slot");
+
+// A view over a CLibXact-shaped object owned by the caller. Attach() validates
+// size and alignment and fails closed: a refused table stays detached, every
+// accessor then returns kInvalidCue / nullptr / 0 and every write is ignored.
+//
+// The command word is the publication point (libxact itself treats a nonzero
+// cmd dword as "this slot has work"), so Command()/SetCommand() use atomic
+// acquire/release on the caller's memory. Record fields are written before the
+// word is published.
+class XactCueTable final {
+public:
+    XactCueTable() = default;
+
+    XactCueTable(const XactCueTable&) = delete;
+    XactCueTable& operator=(const XactCueTable&) = delete;
+
+    [[nodiscard]] bool Attach(void* object_base, std::size_t object_bytes) noexcept;
+    void Detach() noexcept;
+    [[nodiscard]] bool Attached() const noexcept { return base_ != nullptr; }
+
+    [[nodiscard]] std::uint8_t* Base() const noexcept { return base_; }
+    [[nodiscard]] std::size_t BaseBytes() const noexcept { return base_bytes_; }
+
+    // cue[index], or nullptr when detached / out of range.
+    [[nodiscard]] XactCueRecord* Record(std::uint32_t index) noexcept;
+    [[nodiscard]] const XactCueRecord* Record(std::uint32_t index) const noexcept;
+
+    // The command word of cue[index] (record+4). 0 when out of range.
+    [[nodiscard]] std::int32_t Command(std::uint32_t index) const noexcept;
+    void SetCommand(std::uint32_t index, std::int32_t command) noexcept;
+
+    // Lowest free slot at or after `start` (scanning to the end of the table),
+    // or kInvalidCue. add_cue scans from cue[0]; the scan is bounded by
+    // kCueCount and never allocates.
+    [[nodiscard]] std::uint32_t FindFree(std::uint32_t start = 0) const noexcept;
+
+private:
+    [[nodiscard]] std::int32_t* CommandSlot(std::uint32_t index) noexcept;
+    [[nodiscard]] const std::int32_t* CommandSlot(std::uint32_t index) const noexcept;
+
+    std::uint8_t* base_ = nullptr;
+    std::size_t base_bytes_ = 0;
+};
+
+// One command as the audio block sees it: the record fields copied out of the
+// table, plus the handoff metadata. Copies of s1/s2 are bounded member arrays;
+// nothing here points into the game object after the drain returned.
+struct XactCommandEvent {
+    std::uint64_t sequence = 0;
+    std::uint64_t generation = 0;
+    std::uint32_t slot = 0;
+    std::uint32_t latency_blocks = kHandoffLatencyBlocks;
+    std::int32_t cmd = kCommandFree;
+    std::int32_t p1 = 0;
+    std::int32_t p2 = 0;
+    float p3 = 0.0F;
+    float p4 = 0.0F;
+    float p5 = 0.0F;
+    float p6 = 0.0F;
+    std::uint64_t p7 = 0;
+    char s1[260] = {};
+    char s2[260] = {};
+};
+
+// Applied at the start of an audio block. Must obey audio-thread rules: no
+// allocation, no lock, no logging, no waiting. Return false if the command could
+// not be applied; the command is still retired and the failure is counted.
+using XactCommandSink = bool (*)(void* context, const XactCommandEvent& event) noexcept;
+
+// Published once per retired command with status 0 (applied) or 1 (refused).
+// This is the model of FinishCommand's "set status, signal, then let the waiter
+// go" step. The real event/waiter slots (+581644/+581648) are not touched here
+// because their widths are unproven; the caller binds this callback to them.
+using XactCompletionSink = void (*)(void* context,
+                                    const XactCommandEvent& event,
+                                    std::int32_t status) noexcept;
+
+struct XactCommandStats {
+    std::uint64_t posted = 0;
+    std::uint64_t applied = 0;
+    std::uint64_t apply_failed = 0;
+    std::uint64_t ring_overflow = 0;      // ring full: not posted, counted
+    std::uint64_t table_full = 0;         // all 1024 cue slots busy
+    std::uint64_t unknown_command = 0;    // applied, but the value is unproven
+    std::uint64_t shutdown_commands = 0;  // command word 2 (0x18000A869)
+    std::uint64_t refused_after_shutdown = 0;
+    std::uint64_t abandoned_shutdown = 0; // queued behind a shutdown command
+    std::uint64_t abandoned_generation = 0;
+    std::uint64_t invalid = 0;
+    std::uint64_t generation_changes = 0;
+    std::uint64_t drains = 0;
+    std::uint32_t pending = 0;
+    std::uint32_t high_watermark = 0;
+};
+
+// Owner -> audio handoff for the cue table above.
+//
+// Producer: one thread (the game's command producer). Consumer: the audio
+// callback, through DrainAtBlockStart(). Single producer / single consumer; the
+// ring holds cue indices only, so no record payload is copied twice.
+class XactCommandRing final {
+public:
+    enum class PostStatus : std::uint8_t {
+        Accepted = 0,
+        TableFull,  // no free cue slot
+        RingFull,   // ring at capacity
+        Shutdown,   // a shutdown command (2) was already consumed
+        Invalid,    // detached table, or the free command word as a command
+    };
+
+    XactCommandRing() = default;
+
+    XactCommandRing(const XactCommandRing&) = delete;
+    XactCommandRing& operator=(const XactCommandRing&) = delete;
+
+    // Binds the ring to an attached table. Called once, before any producer or
+    // consumer runs. Detaches on a null or detached table.
+    [[nodiscard]] bool Prepare(XactCueTable* table) noexcept;
+    [[nodiscard]] bool Prepared() const noexcept { return table_ != nullptr; }
+
+    // Writes `record` into the lowest free cue slot and appends the slot to the
+    // ring. The command word is published last. A refused post leaves the table
+    // unchanged and is counted.
+    [[nodiscard]] PostStatus Post(const XactCueRecord& record) noexcept;
+
+    // Drains every queued command once, at the start of an audio block. A
+    // command posted after this call is applied by the next block (one block of
+    // latency). Returns the number of commands the sink saw.
+    std::uint32_t DrainAtBlockStart(XactCommandSink sink,
+                                    void* sink_context,
+                                    XactCompletionSink completion,
+                                    void* completion_context) noexcept;
+
+    // A new game/device generation invalidates every queued and pending cue:
+    // non-zero command words are cleared, the ring is emptied, and both are
+    // counted. A repeated generation is a no-op.
+    void SetGeneration(std::uint64_t generation) noexcept;
+    [[nodiscard]] std::uint64_t Generation() const noexcept {
+        return generation_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] bool ShutdownReceived() const noexcept {
+        return shutdown_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::uint32_t Pending() const noexcept;
+    [[nodiscard]] XactCommandStats Stats() const noexcept;
+
+private:
+    XactCueTable* table_ = nullptr;
+
+    std::uint32_t slots_[kCommandRingCapacity]{};
+    std::atomic<std::uint32_t> head_{0};
+    std::atomic<std::uint32_t> tail_{0};
+
+    std::atomic<std::uint64_t> generation_{0};
+    std::atomic<std::uint64_t> sequence_{0};
+    std::atomic<bool> shutdown_{false};
+
+    std::atomic<std::uint64_t> posted_{0};
+    std::atomic<std::uint64_t> applied_{0};
+    std::atomic<std::uint64_t> apply_failed_{0};
+    std::atomic<std::uint64_t> ring_overflow_{0};
+    std::atomic<std::uint64_t> table_full_{0};
+    std::atomic<std::uint64_t> unknown_command_{0};
+    std::atomic<std::uint64_t> shutdown_commands_{0};
+    std::atomic<std::uint64_t> refused_after_shutdown_{0};
+    std::atomic<std::uint64_t> abandoned_shutdown_{0};
+    std::atomic<std::uint64_t> abandoned_generation_{0};
+    std::atomic<std::uint64_t> invalid_{0};
+    std::atomic<std::uint64_t> generation_changes_{0};
+    std::atomic<std::uint64_t> drains_{0};
+    std::atomic<std::uint32_t> high_watermark_{0};
+};
+
+} // namespace xact
+
 } // namespace nosfix::audio

@@ -66,8 +66,22 @@ struct AsioHostStats {
     std::uint64_t buffer_size_changes = 0;
     std::uint64_t unmapped_dispatches = 0;
     std::uint64_t voice_starts = 0;
+    std::uint64_t xact_commands_applied = 0; // cue-table handoff, drained per block
     std::uint32_t last_block_frames = 0;
     std::uint64_t last_generation = 0;
+};
+
+// Optional libxact cue-table handoff (round 2). When a ring is installed, the
+// host drains it once at the start of every rendered block, before keysounds are
+// dispatched and before the mixer runs, so a command posted during block N is
+// applied at the start of block N+1 (one block of latency) and never inside the
+// game frame. The sink and the completion callback must obey audio-thread rules.
+struct XactCommandHookup {
+    xact::XactCommandRing* ring = nullptr;
+    xact::XactCommandSink apply = nullptr;
+    void* apply_context = nullptr;
+    xact::XactCompletionSink completion = nullptr;
+    void* completion_context = nullptr;
 };
 
 class AsioAudioHost final {
@@ -105,6 +119,14 @@ public:
     // integration normally leaves the AsioOutput timeline mapper in place; this
     // exists for hosts that own a different clock and for deterministic tests.
     void SetKeysoundMapper(QpcToSampleMapper mapper, void* context) noexcept;
+
+    // Installs (or clears, with a null ring) the libxact cue-table handoff. Setup
+    // only: call while no callback is running (before Start or after Stop). The
+    // ring is drained at the start of every rendered block.
+    void SetXactCommandHookup(const XactCommandHookup& hookup) noexcept;
+    [[nodiscard]] const XactCommandHookup& XactCommands() const noexcept {
+        return xact_;
+    }
 
     // Producer side of the keysound queue. The caller sets generation,
     // capture_qpc and cue_id; sequence is filled from NextSequence() when zero.
@@ -156,6 +178,10 @@ private:
 
     std::atomic<std::uint64_t> sequence_{1};
 
+    // libxact cue-table handoff (round 2). Set on the control thread while no
+    // callback runs; read by the render callback.
+    XactCommandHookup xact_{};
+
     // Audio-thread state.
     std::uint64_t last_generation_ = 0;
     std::uint32_t last_block_frames_ = 0;
@@ -171,6 +197,7 @@ private:
     std::atomic<std::uint64_t> buffer_size_changes_{0};
     std::atomic<std::uint64_t> unmapped_{0};
     std::atomic<std::uint64_t> voice_starts_{0};
+    std::atomic<std::uint64_t> xact_commands_{0};
     std::atomic<std::uint32_t> last_block_frames_published_{0};
     std::atomic<std::uint64_t> last_generation_published_{0};
 };

@@ -587,6 +587,104 @@ void TestBindings() {
     CHECK(host.BoundVoice(0) == nullptr);
 }
 
+// ---------------------------------------------------------------------------
+// libxact cue-table handoff through the host (round 2)
+// ---------------------------------------------------------------------------
+
+struct HostCueBuffer {
+    std::unique_ptr<std::uint8_t[]> bytes;
+    explicit HostCueBuffer(std::size_t size) : bytes(new std::uint8_t[size]) {
+        std::memset(bytes.get(), 0, size);
+    }
+    [[nodiscard]] std::uint8_t* data() const noexcept { return bytes.get(); }
+};
+
+xact::XactCueRecord HostCue(std::int32_t cmd, std::int32_t p1) {
+    xact::XactCueRecord record;
+    record.cmd = cmd;
+    record.p1 = p1;
+    return record;
+}
+
+struct HostCueLog {
+    int applied = 0;
+    int completions = 0;
+    std::int32_t last_cmd = 0;
+    std::uint32_t last_slot = 0;
+    std::uint32_t last_latency = 0;
+};
+
+bool HostCueApply(void* context, const xact::XactCommandEvent& event) noexcept {
+    auto* log = static_cast<HostCueLog*>(context);
+    ++log->applied;
+    log->last_cmd = event.cmd;
+    log->last_slot = event.slot;
+    log->last_latency = event.latency_blocks;
+    return true;
+}
+
+void HostCueCompletion(void* context, const xact::XactCommandEvent&,
+                       std::int32_t status) noexcept {
+    auto* log = static_cast<HostCueLog*>(context);
+    if (status == 0) ++log->completions;
+}
+
+void TestXactCueHandoffThroughTheHost() {
+    std::string error;
+    AsioAudioHost host;
+    auto driver = MakeDriver();
+    FakeAsioDriver* raw = driver.get();
+    CHECK(host.OpenWithDriver(std::move(driver), MakeConfig(), error));
+    CHECK(host.Start(error));
+
+    HostCueBuffer buffer(xact::kObjectMinBytes);
+    xact::XactCueTable table;
+    CHECK(table.Attach(buffer.data(), xact::kObjectMinBytes));
+    xact::XactCommandRing ring;
+    CHECK(ring.Prepare(&table));
+
+    HostCueLog log;
+    XactCommandHookup hookup;
+    hookup.ring = &ring;
+    hookup.apply = &HostCueApply;
+    hookup.apply_context = &log;
+    hookup.completion = &HostCueCompletion;
+    hookup.completion_context = &log;
+    host.SetXactCommandHookup(hookup);
+    CHECK(host.XactCommands().ring == &ring);
+
+    // Posting applies nothing by itself; the block start does.
+    CHECK(ring.Post(HostCue(4, 11)) == xact::XactCommandRing::PostStatus::Accepted);
+    CHECK(log.applied == 0);
+    raw->Fire(true, 0);
+    CHECK(log.applied == 1);
+    CHECK(log.completions == 1);
+    CHECK(log.last_cmd == 4);
+    CHECK(log.last_slot == 0);
+    CHECK(log.last_latency == xact::kHandoffLatencyBlocks);
+    CHECK(host.Stats().xact_commands_applied == 1);
+    CHECK(table.Command(0) == 0); // retired and released
+
+    // A block without a valid device position still drains the handoff, so a
+    // paused device cannot stall the command queue.
+    CHECK(ring.Post(HostCue(4, 12)) == xact::XactCommandRing::PostStatus::Accepted);
+    raw->Fire(false);
+    CHECK(log.applied == 2);
+    CHECK(ring.Pending() == 0);
+    CHECK(host.Stats().xact_commands_applied == 2);
+
+    // Clearing the hookup stops the drain; the command stays queued and its cue
+    // slot stays published.
+    host.SetXactCommandHookup(XactCommandHookup{});
+    CHECK(host.XactCommands().ring == nullptr);
+    CHECK(ring.Post(HostCue(4, 13)) == xact::XactCommandRing::PostStatus::Accepted);
+    raw->Fire(true, 128);
+    CHECK(log.applied == 2);
+    CHECK(ring.Pending() == 1);
+    CHECK(table.Command(0) == 4);
+    CHECK(host.Stats().xact_commands_applied == 2);
+}
+
 } // namespace
 
 int main() {
@@ -605,5 +703,6 @@ int main() {
     TestTimelineMapperIsUsedByDefault();
     TestPushFillsSequenceAndValidates();
     TestBindings();
+    TestXactCueHandoffThroughTheHost();
     return test::Finish("asio_backend");
 }

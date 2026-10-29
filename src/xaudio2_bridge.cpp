@@ -1638,4 +1638,273 @@ bool Xa2VoiceSetVolumePan(Xa2Voice* voice, float volume, float pan) noexcept {
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// libxact cue table and command handoff (round 2)
+// ---------------------------------------------------------------------------
+
+namespace xact {
+namespace {
+
+void RaiseMaximum(std::atomic<std::uint32_t>& target, std::uint32_t value) noexcept {
+    std::uint32_t current = target.load(std::memory_order_relaxed);
+    while (value > current &&
+           !target.compare_exchange_weak(current, value, std::memory_order_relaxed,
+                                         std::memory_order_relaxed)) {
+    }
+}
+
+} // namespace
+
+bool XactCueTable::Attach(void* object_base, std::size_t object_bytes) noexcept {
+    Detach();
+    if (object_base == nullptr) return false;
+    if (object_bytes < kObjectMinBytes) return false;
+    const auto address = reinterpret_cast<std::uintptr_t>(object_base);
+    if (address % alignof(std::uint64_t) != 0) return false;
+    base_ = static_cast<std::uint8_t*>(object_base);
+    base_bytes_ = object_bytes;
+    return true;
+}
+
+void XactCueTable::Detach() noexcept {
+    base_ = nullptr;
+    base_bytes_ = 0;
+}
+
+XactCueRecord* XactCueTable::Record(std::uint32_t index) noexcept {
+    if (base_ == nullptr || index >= kCueCount) return nullptr;
+    return reinterpret_cast<XactCueRecord*>(base_ + kCueTableOffset +
+                                            static_cast<std::size_t>(index) * kCueRecordBytes);
+}
+
+const XactCueRecord* XactCueTable::Record(std::uint32_t index) const noexcept {
+    if (base_ == nullptr || index >= kCueCount) return nullptr;
+    return reinterpret_cast<const XactCueRecord*>(
+        base_ + kCueTableOffset + static_cast<std::size_t>(index) * kCueRecordBytes);
+}
+
+std::int32_t* XactCueTable::CommandSlot(std::uint32_t index) noexcept {
+    if (base_ == nullptr || index >= kCueCount) return nullptr;
+    return reinterpret_cast<std::int32_t*>(base_ + kCueTableOffset +
+                                           static_cast<std::size_t>(index) * kCueRecordBytes +
+                                           kCueCommandOffset);
+}
+
+const std::int32_t* XactCueTable::CommandSlot(std::uint32_t index) const noexcept {
+    if (base_ == nullptr || index >= kCueCount) return nullptr;
+    return reinterpret_cast<const std::int32_t*>(
+        base_ + kCueTableOffset + static_cast<std::size_t>(index) * kCueRecordBytes +
+        kCueCommandOffset);
+}
+
+std::int32_t XactCueTable::Command(std::uint32_t index) const noexcept {
+    const std::int32_t* slot = CommandSlot(index);
+    if (slot == nullptr) return kCommandFree;
+    return std::atomic_ref<const std::int32_t>(*slot).load(std::memory_order_acquire);
+}
+
+void XactCueTable::SetCommand(std::uint32_t index, std::int32_t command) noexcept {
+    std::int32_t* slot = CommandSlot(index);
+    if (slot == nullptr) return;
+    std::atomic_ref<std::int32_t>(*slot).store(command, std::memory_order_release);
+}
+
+std::uint32_t XactCueTable::FindFree(std::uint32_t start) const noexcept {
+    if (base_ == nullptr) return kInvalidCue;
+    for (std::uint32_t index = start; index < kCueCount; ++index) {
+        if (Command(index) == kCommandFree) return index;
+    }
+    return kInvalidCue;
+}
+
+bool XactCommandRing::Prepare(XactCueTable* table) noexcept {
+    if (table == nullptr || !table->Attached()) {
+        table_ = nullptr;
+        return false;
+    }
+    table_ = table;
+    head_.store(0, std::memory_order_relaxed);
+    tail_.store(0, std::memory_order_relaxed);
+    shutdown_.store(false, std::memory_order_relaxed);
+    return true;
+}
+
+XactCommandRing::PostStatus XactCommandRing::Post(const XactCueRecord& record) noexcept {
+    if (table_ == nullptr || !table_->Attached()) {
+        invalid_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::Invalid;
+    }
+    if (record.cmd == kCommandFree) {
+        // A zero command word is the free marker; posting it would publish a slot
+        // with no work and the consumer would retire a slot it never owned.
+        invalid_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::Invalid;
+    }
+    if (shutdown_.load(std::memory_order_relaxed)) {
+        refused_after_shutdown_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::Shutdown;
+    }
+
+    // Ring capacity is checked before the table is touched: a full ring must not
+    // leave a half-written record behind.
+    const std::uint32_t head = head_.load(std::memory_order_acquire);
+    const std::uint32_t tail = tail_.load(std::memory_order_relaxed);
+    const std::uint32_t used = tail - head;
+    if (used >= kCommandRingCapacity) {
+        ring_overflow_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::RingFull;
+    }
+
+    // add_cue takes the lowest free slot, so this is the same choice.
+    const std::uint32_t slot = table_->FindFree();
+    if (slot == kInvalidCue) {
+        table_full_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::TableFull;
+    }
+
+    XactCueRecord* target = table_->Record(slot);
+    if (target == nullptr) {
+        invalid_.fetch_add(1, std::memory_order_relaxed);
+        return PostStatus::Invalid;
+    }
+    // Payload first with the command word still free, index next, command word
+    // last: the command word is the publication point.
+    *target = record;
+    table_->SetCommand(slot, kCommandFree);
+    slots_[tail & (kCommandRingCapacity - 1U)] = slot;
+    tail_.store(tail + 1U, std::memory_order_release);
+    table_->SetCommand(slot, record.cmd);
+
+    const std::uint32_t pending = used + 1U;
+    RaiseMaximum(high_watermark_, pending);
+    posted_.fetch_add(1, std::memory_order_relaxed);
+    return PostStatus::Accepted;
+}
+
+std::uint32_t XactCommandRing::DrainAtBlockStart(XactCommandSink sink,
+                                                 void* sink_context,
+                                                 XactCompletionSink completion,
+                                                 void* completion_context) noexcept {
+    if (table_ == nullptr || !table_->Attached() || sink == nullptr) return 0;
+    drains_.fetch_add(1, std::memory_order_relaxed);
+
+    const std::uint32_t head = head_.load(std::memory_order_relaxed);
+    const std::uint32_t tail = tail_.load(std::memory_order_acquire);
+    std::uint32_t applied_here = 0;
+    std::uint32_t index = head;
+    while (index != tail) {
+        const std::uint32_t slot = slots_[index & (kCommandRingCapacity - 1U)];
+        ++index;
+        const XactCueRecord* source = table_->Record(slot);
+        if (source == nullptr) {
+            invalid_.fetch_add(1, std::memory_order_relaxed);
+            continue;
+        }
+        const std::int32_t command = table_->Command(slot);
+
+        XactCommandEvent event;
+        event.sequence = sequence_.fetch_add(1, std::memory_order_relaxed) + 1U;
+        event.generation = generation_.load(std::memory_order_relaxed);
+        event.slot = slot;
+        event.cmd = command;
+        event.p1 = source->p1;
+        event.p2 = source->p2;
+        event.p3 = source->p3;
+        event.p4 = source->p4;
+        event.p5 = source->p5;
+        event.p6 = source->p6;
+        event.p7 = source->p7;
+        std::memcpy(event.s1, source->s1, sizeof(event.s1));
+        std::memcpy(event.s2, source->s2, sizeof(event.s2));
+
+        if (command == kCommandShutdown) {
+            // 0x18000A869: the worker tears the engine down and returns. The
+            // model must not apply it to the sink and must refuse what follows.
+            shutdown_.store(true, std::memory_order_relaxed);
+            shutdown_commands_.fetch_add(1, std::memory_order_relaxed);
+            const std::uint32_t behind = tail - index;
+            if (behind != 0) {
+                abandoned_shutdown_.fetch_add(behind, std::memory_order_relaxed);
+            }
+            table_->SetCommand(slot, kCommandFree);
+            index = tail;
+            break;
+        }
+        if (command == kCommandFree) {
+            // Cleared under the consumer (generation change): nothing to do.
+            invalid_.fetch_add(1, std::memory_order_relaxed);
+            continue;
+        }
+        // Only 0 (free) and 2 (shutdown) are proven command values; anything
+        // else is transported to the sink unchanged and counted as unproven.
+        unknown_command_.fetch_add(1, std::memory_order_relaxed);
+
+        const bool ok = sink(sink_context, event);
+        if (ok) {
+            applied_.fetch_add(1, std::memory_order_relaxed);
+            ++applied_here;
+        } else {
+            apply_failed_.fetch_add(1, std::memory_order_relaxed);
+        }
+        if (completion != nullptr) completion(completion_context, event, ok ? 0 : 1);
+        table_->SetCommand(slot, kCommandFree);
+    }
+
+    head_.store(tail, std::memory_order_release);
+    return applied_here;
+}
+
+void XactCommandRing::SetGeneration(std::uint64_t generation) noexcept {
+    if (generation_.load(std::memory_order_relaxed) == generation) return;
+
+    // A generation change is a device/game reset: every pending cue belongs to
+    // the old run. Non-zero command words are cleared so a stale record cannot be
+    // picked up by the next generation, and the ring is emptied.
+    std::uint64_t abandoned = 0;
+    if (table_ != nullptr && table_->Attached()) {
+        for (std::uint32_t index = 0; index < kCueCount; ++index) {
+            if (table_->Command(index) != kCommandFree) {
+                table_->SetCommand(index, kCommandFree);
+                ++abandoned;
+            }
+        }
+    }
+    abandoned_generation_.fetch_add(abandoned, std::memory_order_relaxed);
+    head_.store(0, std::memory_order_relaxed);
+    tail_.store(0, std::memory_order_relaxed);
+    sequence_.store(0, std::memory_order_relaxed);
+    shutdown_.store(false, std::memory_order_relaxed);
+    generation_.store(generation, std::memory_order_relaxed);
+    generation_changes_.fetch_add(1, std::memory_order_relaxed);
+}
+
+std::uint32_t XactCommandRing::Pending() const noexcept {
+    const std::uint32_t head = head_.load(std::memory_order_acquire);
+    const std::uint32_t tail = tail_.load(std::memory_order_acquire);
+    const std::uint32_t used = tail - head;
+    return used > kCommandRingCapacity ? kCommandRingCapacity : used;
+}
+
+XactCommandStats XactCommandRing::Stats() const noexcept {
+    XactCommandStats stats;
+    stats.posted = posted_.load(std::memory_order_relaxed);
+    stats.applied = applied_.load(std::memory_order_relaxed);
+    stats.apply_failed = apply_failed_.load(std::memory_order_relaxed);
+    stats.ring_overflow = ring_overflow_.load(std::memory_order_relaxed);
+    stats.table_full = table_full_.load(std::memory_order_relaxed);
+    stats.unknown_command = unknown_command_.load(std::memory_order_relaxed);
+    stats.shutdown_commands = shutdown_commands_.load(std::memory_order_relaxed);
+    stats.refused_after_shutdown = refused_after_shutdown_.load(std::memory_order_relaxed);
+    stats.abandoned_shutdown = abandoned_shutdown_.load(std::memory_order_relaxed);
+    stats.abandoned_generation = abandoned_generation_.load(std::memory_order_relaxed);
+    stats.invalid = invalid_.load(std::memory_order_relaxed);
+    stats.generation_changes = generation_changes_.load(std::memory_order_relaxed);
+    stats.drains = drains_.load(std::memory_order_relaxed);
+    stats.pending = Pending();
+    stats.high_watermark = high_watermark_.load(std::memory_order_relaxed);
+    return stats;
+}
+
+} // namespace xact
+
 } // namespace nosfix::audio
