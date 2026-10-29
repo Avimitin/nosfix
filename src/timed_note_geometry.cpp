@@ -191,6 +191,34 @@ void TemplateColors(const std::byte* captured, std::uint32_t record_count,
     colors[3] = Read<std::uint32_t>(source, 5 * kBoxVertexStride + kBoxColorOffset);
 }
 
+bool FiniteRow(const GlissConnectorRow& row) noexcept {
+    return Finite(row.x) && Finite(row.y) && Finite(row.half_width);
+}
+
+// The element+0x50 clip, byte-verified at 0x1801A6DE9..0x1801A6E2B. `clip` is
+// the partner note's baked screen Y; the far end is pulled back to it.
+//   clip <= 0      : no clip, keep the projected far point
+//   clip >= note.y : far.y = clip, far.x interpolated from the note point to the
+//                    far point at y = clip (exact when far.y == note.y, which is
+//                    the same-frame case because both calls project the same
+//                    lane at the same distance)
+//   clip <  note.y : the far end collapses onto the note point
+void ApplyHeadClip(const GlissConnectorRow& note, const GlissConnectorRow& link,
+                   float clip, float& far_x, float& far_y) noexcept {
+    far_x = link.x;
+    far_y = link.y;
+    if (!(clip > 0.0f)) return;               // no clip (also covers 0 and NaN)
+    if (!(clip >= note.y)) {
+        // The partner is above the note: the native collapses the connector.
+        far_x = note.x;
+        far_y = note.y;
+        return;
+    }
+    far_y = clip;
+    if (link.y == note.y) return;             // degenerate span: keep far.x
+    far_x = link.x - (link.x - note.x) * (link.y - clip) / (link.y - note.y);
+}
+
 } // namespace
 
 const char* GeometryDiagnosticName(GeometryDiagnostic value) noexcept {
@@ -216,6 +244,80 @@ const char* GeometryDiagnosticName(GeometryDiagnostic value) noexcept {
     case GeometryDiagnostic::ChartTimeAbsent: return "chart-time-absent";
     }
     return "unknown";
+}
+
+bool FiniteQuad(const NoteObjectQuad& quad) noexcept {
+    return Finite(quad.p1x) && Finite(quad.p2x) && Finite(quad.p3x) &&
+        Finite(quad.p4x) && Finite(quad.previous_y) && Finite(quad.current_y);
+}
+
+bool BuildGlissConnectorQuads(const GlissConnectorSet& set,
+                              std::span<NoteObjectQuad> out,
+                              std::uint32_t& out_count,
+                              GeometryDiagnostic& diagnostic) noexcept {
+    out_count = 0;
+    diagnostic = GeometryDiagnostic::None;
+    const std::uint32_t needed =
+        (set.has_head ? 1U : 0U) + (set.has_tail ? 1U : 0U);
+    if (needed == 0) {
+        // Neither link survived its guard: the object draws nothing, and the
+        // original payload must not be drawn either.
+        diagnostic = GeometryDiagnostic::EmptyObject;
+        return false;
+    }
+    if (out.size() < needed) {
+        diagnostic = GeometryDiagnostic::ObjectOverflow;
+        return false;
+    }
+
+    std::uint32_t index = 0;
+    if (set.has_head) {
+        // Head (chart+0x40, 0x1801A6F80): near row first, then the linked end
+        // pulled back by the element+0x50 clip.
+        if (!FiniteRow(set.head.note) || !FiniteRow(set.head.link) ||
+            !Finite(set.head_clip_y)) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        float far_x = 0.0f;
+        float far_y = 0.0f;
+        ApplyHeadClip(set.head.note, set.head.link, set.head_clip_y, far_x, far_y);
+        NoteObjectQuad& quad = out[index];
+        quad.p1x = set.head.note.x - set.head.note.half_width;
+        quad.p2x = set.head.note.x + set.head.note.half_width;
+        quad.p3x = far_x + set.head.link.half_width;
+        quad.p4x = far_x - set.head.link.half_width;
+        quad.previous_y = set.head.note.y;
+        quad.current_y = far_y;
+        if (!FiniteQuad(quad)) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        ++index;
+    }
+    if (set.has_tail) {
+        // Tail (chart+0x48, 0x1801A72Cx): the linked end is projected at
+        // distance zero and appended first, right to left; the note end is the
+        // second row. The tail carries no clip field.
+        if (!FiniteRow(set.tail.note) || !FiniteRow(set.tail.link)) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        NoteObjectQuad& quad = out[index];
+        quad.p1x = set.tail.link.x + set.tail.link.half_width;
+        quad.p2x = set.tail.link.x - set.tail.link.half_width;
+        quad.p3x = set.tail.note.x - set.tail.note.half_width;
+        quad.p4x = set.tail.note.x + set.tail.note.half_width;
+        quad.previous_y = set.tail.link.y;
+        quad.current_y = set.tail.note.y;
+        if (!FiniteQuad(quad)) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        ++index;
+    }
+    out_count = index;
+    return true;
 }
 
 bool TimedNoteGeometry::DistanceFor(const NoteGeometrySpec& spec, double note_ms,
@@ -781,10 +883,14 @@ bool TimedNoteGeometry::BuildObjectPart(std::size_t index,
             diagnostic = GeometryDiagnostic::NonFiniteProjection;
             return false;
         }
-        // Each row must run left to right; the two rows may share a Y (a
-        // horizontal connector), but never cross.
-        if (quad.p2x < quad.p1x || quad.p3x < quad.p4x) {
-            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+        // A row's two corners may appear in either order: the glissando head
+        // connector writes its near row left to right and its far row right to
+        // left, and the tail connector reverses both. What must hold is that a
+        // row spans a sane distance, so a bad half width cannot emit a strip
+        // across the screen.
+        if (std::abs(quad.p1x - quad.p2x) > kMaximumGeometry ||
+            std::abs(quad.p3x - quad.p4x) > kMaximumGeometry) {
+            diagnostic = GeometryDiagnostic::ObjectOverflow;
             return false;
         }
         std::uint32_t colors[4]{};

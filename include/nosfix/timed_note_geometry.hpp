@@ -116,6 +116,10 @@ struct NotePartView final {
 // corners of the second row (current_y). This is exactly the argument order of
 // the native append helper 0xD5370, whose record builder 0xD5460 emits
 // p1, p2, p4, p4, p2, p3.
+//
+// Both row orientations occur natively: the glissando head connector writes its
+// near row first (left to right) and the tail connector writes its far row
+// first (right to left), so a row must not be assumed to run left to right.
 struct NoteObjectQuad final {
     float p1x = 0.0f;
     float p2x = 0.0f;
@@ -124,6 +128,49 @@ struct NoteObjectQuad final {
     float previous_y = 0.0f;
     float current_y = 0.0f;
 };
+
+// One end of a glissando connector: a projected screen centre and the already
+// scaled half width the native multiplies out
+// ((note+208/2 + wide/2 - 6) * scale at the note end,
+//  (out_right - out_left)/2 + wide/2 - 6) * scale at the linked end).
+// `x` is the final screen x, i.e. the wide-note shift is applied by the caller.
+struct GlissConnectorRow final {
+    float x = 0.0f;
+    float y = 0.0f;
+    float half_width = 0.0f;
+};
+
+// The two ends of one connector. `note` is the glissando note's own projected
+// point and half width; `link` is the linked 104-byte chart element's, i.e.
+// 0x180305430(element+0x10, distance, ..., element+0x58, element+0x5C).
+struct GlissConnectorEnds final {
+    GlissConnectorRow note;
+    GlissConnectorRow link;
+};
+
+// The connector object at note+216. The head connector is chart+0x40 (appended
+// first, 0x1801A6F80) and the tail is chart+0x48 (appended second, 0x1801A72Cx);
+// either may be absent, so the object holds 0, 1 or 2 quads.
+struct GlissConnectorSet final {
+    bool has_head = false;
+    bool has_tail = false;
+    GlissConnectorEnds head{};
+    GlissConnectorEnds tail{};
+    // element+0x50 for the head connector: the partner note's screen Y as baked
+    // by 0x1801A647C during that note's own render, or <= 0 for "no clip". It
+    // is a per-frame value, never a chart constant, so the model only consumes
+    // it and never derives it.
+    float head_clip_y = 0.0f;
+};
+
+// Builds the 0-2 connector quads of one object in native record order. All
+// coordinates must be supplied: this never projects and never reads a field.
+// Refusals: EmptyObject when neither connector is present, NonFiniteProjection
+// for a non-finite input, ObjectOverflow when `out` is too small.
+[[nodiscard]] bool BuildGlissConnectorQuads(const GlissConnectorSet& set,
+                                            std::span<NoteObjectQuad> out,
+                                            std::uint32_t& out_count,
+                                            GeometryDiagnostic& diagnostic) noexcept;
 
 // Static, chart-derived description of one note. The integration layer fills
 // this from the live note/plot record; nothing here is a game pointer.
