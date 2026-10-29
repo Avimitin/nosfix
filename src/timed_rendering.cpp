@@ -76,6 +76,16 @@ constexpr std::array<PartSpec, 4> kTrillParts{{
     {0x1A8, NotePartShape::TrillGlow, NoteAnchorRule::StartToEnd, 0, 0, false},
 }};
 
+// Glissando: the note's own textured quad at note+0x80, projected at distance
+// zero (0x1801A6993..0x1801A6A12), plus the connector box object at note+216
+// (0xD8), which receives one quad per surviving link (chart+0x40, chart+0x48).
+// With neither link that object holds no record and draws nothing, so the object
+// part is optional; the quad is the note itself and is not.
+constexpr std::array<PartSpec, 2> kGlissParts{{
+    {0x80, NotePartShape::TexturedQuad, NoteAnchorRule::Fixed, 196, 200, false},
+    {0xD8, NotePartShape::BoxObject, NoteAnchorRule::None, 0, 0, true},
+}};
+
 bool ValidRate(double rate) noexcept {
     return std::isfinite(rate) && rate >= 59.0 && rate <= 61.0;
 }
@@ -92,9 +102,24 @@ TimedNoteCapture BuildNoteSpec(void* note, TimedNoteKind kind,
 
     spec = {};
     spec.start_ms = Read<std::int32_t>(chart, 0);
-    // Only long notes and trills have an evidenced second chart time. Glissando
-    // and velocity zones have their own anchors (unproven, see
-    // TimedNoteRefusal) and beats never read chart time at all.
+    if (kind == TimedNoteKind::Glissando) {
+        // A glissando note's anchor is the record's own chart millisecond field,
+        // and the same record stores its truncated frame at +0x14. Both must
+        // agree before either can anchor a connector, so a foreign or
+        // half-written record is refused instead of trusted. The loader
+        // multiplies by the double 60.0 at 0x18070B2F8 and divides by 1000.0
+        // (0x180687218) before truncating (0x1801A4945).
+        double anchor = 0.0;
+        if (!ChartRecordAnchorMilliseconds(Read<std::int32_t>(chart, 0),
+                                           Read<std::int32_t>(chart, 0x14),
+                                           Read<double>(g_base, 0x70B2F8), anchor)) {
+            return TimedNoteCapture::InvalidChart;
+        }
+        spec.start_ms = anchor;
+    }
+    // Only long notes and trills have an evidenced second chart time. A
+    // glissando uses its own record anchor above, a velocity zone has none
+    // (TimedNoteRefusal), and beats never read chart time at all.
     const bool hold = kind == TimedNoteKind::Long || kind == TimedNoteKind::Trill;
     spec.has_end = hold;
     if (hold) {
@@ -132,7 +157,8 @@ TimedNoteCapture BuildNoteSpec(void* note, TimedNoteKind kind,
     // normal and glissando (verified in both updates), +240/+244 for long notes
     // (0x2F4E80 reads a1[60]/a1[61]); the long object's +200 word belongs to
     // the tail texture object, so it must never be read as a height.
-    const std::size_t width_offset = kind == TimedNoteKind::Normal ? 196 : 240;
+    const std::size_t width_offset =
+        (kind == TimedNoteKind::Normal || kind == TimedNoteKind::Glissando) ? 196 : 240;
     const std::size_t height_offset = width_offset + 4;
     const int width = Read<std::int32_t>(note, width_offset);
     const int height = Read<std::int32_t>(note, height_offset);
@@ -231,13 +257,15 @@ const char* TimedNoteCaptureName(TimedNoteCapture value) noexcept {
 }
 
 bool TimedNoteSupported(TimedNoteKind kind) noexcept {
-    // Normal, long/hold and trill are evidenced end to end from their verified
-    // update functions. Glissando connectors need two facts that are still
-    // missing (see TimedNoteRefusal); velocity zones have a proven width rule
-    // but an unproven end anchor; beats take their position from the live
-    // frame counter. Those keep the original path and are counted.
+    // Normal, long/hold, trill and glissando are evidenced end to end.
+    // Glissando's anchor is now proven: a 104-byte record stores its own
+    // chart milliseconds at +0x00 and their truncated frame at +0x14, the note
+    // quad is projected at distance zero, and both connectors take their far
+    // ends from the link frame (GlissLinkDistance) and the +0x50 clip. A
+    // velocity zone still has no chart-derived end anchor and beats take their
+    // position from the live frame counter, so both keep the original path.
     return kind == TimedNoteKind::Normal || kind == TimedNoteKind::Long ||
-        kind == TimedNoteKind::Trill;
+        kind == TimedNoteKind::Trill || kind == TimedNoteKind::Glissando;
 }
 
 RibbonWidthRule RibbonWidthRuleFor(TimedNoteKind kind) noexcept {
@@ -286,10 +314,11 @@ GeometryDiagnostic TimedNoteRefusal(TimedNoteKind kind) noexcept {
     case TimedNoteKind::Trill:
         return GeometryDiagnostic::None;
     case TimedNoteKind::Glissando:
-        // First of the two blockers in 0x1A6820: the element frame -> chart ms
-        // mapping (answer render-ui-001 Q1 proves the distance formula) and the
-        // +0x50 clip writer (Q2, still unproven).
-        return GeometryDiagnostic::GlissAnchorUnproven;
+        // Closed in round 2: the record's +0x00 milliseconds and its +0x14 frame
+        // agree by construction (ChartRecordAnchorMilliseconds), so the anchor is
+        // exact and the kind is rebuilt. Connector corners still come from the
+        // caller (BuildObjectPart), never from an invented layout.
+        return GeometryDiagnostic::None;
     case TimedNoteKind::VelocityZone:
         return GeometryDiagnostic::VelocityAnchorUnproven;
     case TimedNoteKind::Beats:
@@ -443,6 +472,7 @@ TimedNoteCapture CaptureTimedNote(void* note, TimedNoteKind kind,
     std::span<const PartSpec> parts_spec;
     if (kind == TimedNoteKind::Normal) parts_spec = kNormalParts;
     else if (kind == TimedNoteKind::Trill) parts_spec = kTrillParts;
+    else if (kind == TimedNoteKind::Glissando) parts_spec = kGlissParts;
     else parts_spec = kHoldParts;
     std::array<NotePartInput, TimedNoteGeometry::kMaxParts> parts{};
     std::size_t count = 0;
@@ -450,6 +480,10 @@ TimedNoteCapture CaptureTimedNote(void* note, TimedNoteKind kind,
         std::uint32_t records = 0;
         const std::byte* buffer = nullptr;
         if (!ReadObject(note, entry.object_offset, records, buffer)) {
+            // A glissando connector object with no surviving link holds no
+            // record at all and draws nothing, so an optional part is skipped
+            // instead of failing the whole note.
+            if (entry.optional) continue;
             return TimedNoteCapture::MissingPart;
         }
         const std::size_t stride = entry.shape == NotePartShape::TexturedQuad

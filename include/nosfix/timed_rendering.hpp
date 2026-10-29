@@ -56,7 +56,7 @@ enum class RibbonWidthRule : std::uint8_t {
                                    float& half_width) noexcept;
 
 // True for the layouts whose chart-time rebuild is evidenced end to end:
-// normal, long/hold and trill.
+// normal, long/hold, trill and glissando.
 [[nodiscard]] bool TimedNoteSupported(TimedNoteKind kind) noexcept;
 
 // The exact reason a kind is not rebuilt from chart time; None when it is
