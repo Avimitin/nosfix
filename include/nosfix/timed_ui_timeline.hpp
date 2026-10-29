@@ -4,8 +4,12 @@
 //
 // This is an evaluator plus a callback contract, NOT an AFP adapter. It holds
 // no game pointers, knows nothing about AFP node fields, and must not be wired
-// to a live node until the native timeline/callback evidence exists (see
-// REQUESTS.txt N8-N11). Enabling it early can only produce invented animation.
+// to a live node: the afp-core evidence for colour/opacity offsets, the matrix
+// convention, the evaluator time source, the user callback ABI and the node-pool
+// free entry is still missing (requests/render-ui-002.md, answers/render-ui-002.md
+// items 1, 2, 4, 5 and 6 are blocked). Enabling it early can only produce
+// invented animation. timed_ui_adapter.hpp may evaluate these timelines per
+// frame, but it hands the result to a caller-supplied sink and writes nothing.
 //
 // Two clocks are kept strictly apart: menu animation runs on wall-clock time,
 // music-synchronised animation runs only on an explicit song time with a
@@ -140,6 +144,11 @@ struct UiTimelineCounters final {
 using UiEventSink = void (*)(void* context, const UiNodeIdentity& node,
                              std::uint32_t event_id) noexcept;
 
+// Fractional channel state for one node, handed to a caller-supplied sink. The
+// evaluator never writes a game field itself; see timed_ui_adapter.hpp.
+using UiStateSink = void (*)(void* context, const UiNodeIdentity& node,
+                             const UiAnimationState& state) noexcept;
+
 // One node-bound timeline. Evaluation is fractional and stateless; callbacks
 // for a crossing are delivered exactly once per epoch, even if frames jitter,
 // stall, or repeat the same timestamp.
@@ -252,6 +261,18 @@ public:
     // song timelines are advanced separately by design.
     std::size_t AdvanceDomain(UiTimeDomain domain, UiEventSink sink, void* context) noexcept;
 
+    // Evaluates every live timeline of `domain` at the domain time and hands its
+    // fractional state to `sink`. The start (or seek) of a not-yet-started
+    // entry is identical to AdvanceDomain's, so evaluation and event delivery
+    // always agree on the epoch. Returns the number of states delivered.
+    std::size_t EvaluateDomain(UiTimeDomain domain, UiStateSink sink,
+                               void* context) noexcept;
+
+    // Published time for one domain; false while that clock has no valid value
+    // (paused, seeking, not started).
+    [[nodiscard]] bool DomainTime(UiTimeDomain domain, double& ms) const noexcept;
+    [[nodiscard]] std::uint64_t DomainGeneration(UiTimeDomain domain) const noexcept;
+
     [[nodiscard]] std::size_t Size() const noexcept;
     [[nodiscard]] std::size_t Capacity() const noexcept { return kCapacity; }
     [[nodiscard]] bool SongTimeValid() const noexcept { return song_valid_; }
@@ -260,6 +281,10 @@ public:
 private:
     struct Entry final {
         UiTimeline timeline;
+        // Identity recorded at Acquire time. Kept here rather than in the
+        // timeline so an entry is addressable before Configure: a caller may
+        // bind a node, read its tracks, and configure it later.
+        UiNodeIdentity identity{};
         bool used = false;
     };
 

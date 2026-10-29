@@ -53,6 +53,51 @@ int wmain(int argc, wchar_t** argv) {
     nosfix::ConfigureTimedRendering(true);
     assert(nosfix::TimedRenderingEnabled());
 
+    // Proven ribbon half-width rules. Long/trill: shrink*wide/2 - 10 + note+60/2
+    // (0x2F4E80 and 0x1A84F0). Velocity zone: note+60/2 - 10, no shrink or wide
+    // term (bytes at 0x1801AAEFC..0x1801AAF6E). Normal notes have no ribbon.
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::Long) ==
+           nosfix::RibbonWidthRule::HeadAndTail);
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::Trill) ==
+           nosfix::RibbonWidthRule::HeadAndTail);
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::VelocityZone) ==
+           nosfix::RibbonWidthRule::VelocityZone);
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::Normal) ==
+           nosfix::RibbonWidthRule::None);
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::Beats) ==
+           nosfix::RibbonWidthRule::None);
+    assert(nosfix::RibbonWidthRuleFor(nosfix::TimedNoteKind::Glissando) ==
+           nosfix::RibbonWidthRule::None);
+    float half = 0.0f;
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 60, 0, 40, half));
+    assert(half == 20.0f);
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 60, -1, 40, half));
+    assert(half == 0.0f);
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 60, -2, 40, half));
+    assert(half == -20.0f);
+    // Truncation toward zero matches the native integer division: -41/2 is -20,
+    // so 40-wide terms give -20 - 10 + 20 = -10 (a floor would give -11).
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 40, -1, 41, half));
+    assert(half == -10.0f);
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::VelocityZone, 60, -2, 40, half));
+    assert(half == 20.0f);
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::VelocityZone, 21, 0, 0, half));
+    assert(half == 0.0f);
+    assert(nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::VelocityZone, 15, 0, 0, half));
+    assert(half == -3.0f);
+    assert(!nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::None, 60, 0, 40, half));
+    assert(!nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::VelocityZone, 5000, 0, 0, half));
+    assert(!nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 60, -3, 40, half));
+    assert(!nosfix::RibbonHalfWidth(nosfix::RibbonWidthRule::HeadAndTail, 60, 0, 100000,
+                                    half));
+    // Only the evidenced kinds are rebuilt; the rest stay on the original path.
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Normal));
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Long));
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Trill));
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::VelocityZone));
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Beats));
+
     Put(game, 0x1B72568, std::uint32_t{1});
     Put(game, 0x1B725AC, std::int32_t{20});
     Put(game, 0x1B725C4, std::int32_t{10});

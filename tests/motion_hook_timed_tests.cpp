@@ -103,6 +103,7 @@ struct Hooks {
     UpdateFn normal = nullptr;
     UpdateFn beats = nullptr;
     UpdateFn glissando = nullptr;
+    UpdateFn velocity = nullptr;
     DrawFn draw = nullptr;
 };
 
@@ -128,6 +129,9 @@ Hooks InstallFakeOriginals() {
         } else if (name == "glissando geometry") {
             original = reinterpret_cast<void*>(&FakeUpdate);
             hooks.glissando = reinterpret_cast<UpdateFn>(spec.detour);
+        } else if (name == "velocity zone geometry") {
+            original = reinterpret_cast<void*>(&FakeUpdate);
+            hooks.velocity = reinterpret_cast<UpdateFn>(spec.detour);
         } else if (name == "AFP primitive draw") {
             original = reinterpret_cast<void*>(&FakeDraw);
             hooks.draw = reinterpret_cast<DrawFn>(spec.detour);
@@ -432,7 +436,39 @@ int wmain(int argc, wchar_t** argv) {
     Store(g_note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679AB8);
     assert(hooks.glissando(g_note.data()) == 7);
     metrics = nosfix::TakeMotionMetrics();
-    assert(metrics.unsupported_notes >= 1);
+    assert(metrics.unsupported_notes == 1);
+    // The fallback is named per kind and carries the exact missing evidence.
+    assert(metrics.unsupported_glissando == 1);
+    assert(metrics.unsupported_beats == 0);
+    assert(metrics.unsupported_velocity_zones == 0);
+    assert(metrics.object_part_builds == 0);
+    assert(metrics.geometry_diagnostics[static_cast<std::size_t>(
+               nosfix::GeometryDiagnostic::GlissAnchorUnproven)] == 1);
+    assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Glissando) ==
+           nosfix::GeometryDiagnostic::GlissAnchorUnproven);
+    assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::VelocityZone) ==
+           nosfix::GeometryDiagnostic::VelocityAnchorUnproven);
+    assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Beats) ==
+           nosfix::GeometryDiagnostic::ChartTimeAbsent);
+    assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Long) ==
+           nosfix::GeometryDiagnostic::None);
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Beats));
+    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::VelocityZone));
+
+    // A beats note is counted by name as well.
+    Store(g_note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679960);
+    assert(hooks.beats(g_note.data()) == 7);
+    Store(g_note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679D68);
+    assert(hooks.velocity(g_note.data()) == 7);
+    metrics = nosfix::TakeMotionMetrics();
+    assert(metrics.unsupported_beats == 1);
+    assert(metrics.unsupported_velocity_zones == 1);
+    assert(metrics.unsupported_notes == 2);
+    assert(metrics.geometry_diagnostics[static_cast<std::size_t>(
+               nosfix::GeometryDiagnostic::ChartTimeAbsent)] == 1);
+    assert(metrics.geometry_diagnostics[static_cast<std::size_t>(
+               nosfix::GeometryDiagnostic::VelocityAnchorUnproven)] == 1);
 
     std::printf("motion_hook_timed: all tests passed\n");
     return 0;

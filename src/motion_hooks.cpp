@@ -189,7 +189,21 @@ void CaptureTimedNoteFor(void* note, const NoteLayout& layout) noexcept {
     if (!TimedRenderingEnabled()) return;   // timed path off: no bookkeeping
     const TimedNoteKind kind = KindOf(layout);
     if (!TimedNoteSupported(kind)) {
+        // Count the kind by name and record the exact missing evidence, so a
+        // fallback is never anonymous.
         ++g_motion.metrics.unsupported_notes;
+        switch (kind) {
+        case TimedNoteKind::Glissando: ++g_motion.metrics.unsupported_glissando; break;
+        case TimedNoteKind::VelocityZone:
+            ++g_motion.metrics.unsupported_velocity_zones;
+            break;
+        case TimedNoteKind::Beats: ++g_motion.metrics.unsupported_beats; break;
+        default: break;
+        }
+        const auto refusal = static_cast<std::size_t>(TimedNoteRefusal(kind));
+        if (refusal < std::size(g_motion.metrics.geometry_diagnostics)) {
+            ++g_motion.metrics.geometry_diagnostics[refusal];
+        }
         EraseTimedNote(note);
         return;
     }
@@ -312,6 +326,7 @@ std::intptr_t __fastcall DrawPrimitive(std::uint32_t type, void* transform,
                                         static_cast<std::size_t>(payload.count) * stride};
     std::span<const std::byte> copy;
     bool timed = false;
+    bool allow_prediction = true;
     std::uint32_t replacement_count = payload.count;
     if (track.timed_note && TimedRenderingEnabled() &&
         g_motion.tick - track.tick <= 2) {
@@ -341,10 +356,17 @@ std::intptr_t __fastcall DrawPrimitive(std::uint32_t type, void* transform,
                 if (index < std::size(g_motion.metrics.geometry_diagnostics)) {
                     ++g_motion.metrics.geometry_diagnostics[index];
                 }
+                // A whole-object part owns a record count that two independent
+                // connectors produce; a predicted payload would substitute a
+                // different count, so fall back to the original draw instead.
+                if (diagnostic == GeometryDiagnostic::ObjectQuadsRequired ||
+                    diagnostic == GeometryDiagnostic::EmptyObject) {
+                    allow_prediction = false;
+                }
             }
         }
     }
-    if (copy.empty() && g_predict) {
+    if (copy.empty() && g_predict && allow_prediction) {
         copy = track.geometry.DrawCopy(track.key, g_motion.tick, g_motion.phase,
                                        kind, payload.count, live);
     }

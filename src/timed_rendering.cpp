@@ -89,7 +89,10 @@ TimedNoteCapture BuildNoteSpec(void* note, TimedNoteKind kind,
 
     spec = {};
     spec.start_ms = Read<std::int32_t>(chart, 0);
-    const bool hold = kind != TimedNoteKind::Normal;
+    // Only long notes and trills have an evidenced second chart time. Glissando
+    // and velocity zones have their own anchors (unproven, see
+    // TimedNoteRefusal) and beats never read chart time at all.
+    const bool hold = kind == TimedNoteKind::Long || kind == TimedNoteKind::Trill;
     spec.has_end = hold;
     if (hold) {
         spec.end_ms = Read<std::int32_t>(chart, 4);
@@ -146,12 +149,21 @@ TimedNoteCapture BuildNoteSpec(void* note, TimedNoteKind kind,
     spec.opacity_scale = Read<std::uint8_t>(chart, 97) ? 0.25f : 1.0f;
 
     // Native long/trill ribbon width: (shrink * wide / 2 - 10 + note+60 / 2).
-    // The +60 word is the note's own pixel width (the glissando path uses
-    // note+208 with a -6 margin instead); +64 is the key span used above.
+    // The +60 word is the note's own pixel width; velocity zones use the same
+    // raster with `note+60 / 2 - 10` and no shrink/wide term (0x1801AAF31),
+    // while the glissando connectors use note+208 with a -6 margin instead.
+    // RibbonHalfWidth() is the single source of truth for both rules.
     const int ribbon_width = Read<std::int32_t>(note, 60);
     if (ribbon_width < 0 || ribbon_width > 4096) return TimedNoteCapture::InvalidChart;
     const int ribbon_offset = shrink * wide_offset / 2;
-    spec.ribbon_base_width = static_cast<float>(ribbon_offset - 10 + ribbon_width / 2);
+    float ribbon_base = 0.0f;
+    if (!RibbonHalfWidth(RibbonWidthRuleFor(kind), ribbon_width, shrink,
+                         wide_offset, ribbon_base)) {
+        // Normal notes have no box ribbon; keep the reviewed long/trill value
+        // so the spec stays byte-identical for every supported kind.
+        ribbon_base = static_cast<float>(ribbon_offset - 10 + ribbon_width / 2);
+    }
+    spec.ribbon_base_width = ribbon_base;
     spec.ribbon_line_half_width = 2.0f;
     spec.approach = Read<float>(g_base, 0x13668D4);
     spec.ribbon_start_bias = Read<float>(g_base, 0x13E4758);
@@ -217,12 +229,70 @@ const char* TimedNoteCaptureName(TimedNoteCapture value) noexcept {
 
 bool TimedNoteSupported(TimedNoteKind kind) noexcept {
     // Normal, long/hold and trill are evidenced end to end from their verified
-    // update functions. Glissando connectors use a baked screen Y in the gliss
-    // point record (chart+64/+72 record +80, producer still unverified);
-    // velocity zones use their own width source; beats have no chart
-    // millisecond field. Those keep the original path and are counted.
+    // update functions. Glissando connectors need two facts that are still
+    // missing (see TimedNoteRefusal); velocity zones have a proven width rule
+    // but an unproven end anchor; beats take their position from the live
+    // frame counter. Those keep the original path and are counted.
     return kind == TimedNoteKind::Normal || kind == TimedNoteKind::Long ||
         kind == TimedNoteKind::Trill;
+}
+
+RibbonWidthRule RibbonWidthRuleFor(TimedNoteKind kind) noexcept {
+    switch (kind) {
+    case TimedNoteKind::Normal:
+    case TimedNoteKind::Beats:
+    case TimedNoteKind::Glissando:
+        return RibbonWidthRule::None;
+    case TimedNoteKind::Long:
+    case TimedNoteKind::Trill:
+        return RibbonWidthRule::HeadAndTail;
+    case TimedNoteKind::VelocityZone:
+        return RibbonWidthRule::VelocityZone;
+    }
+    return RibbonWidthRule::None;
+}
+
+bool RibbonHalfWidth(RibbonWidthRule rule, int note_width, int shrink,
+                     int wide_offset, float& half_width) noexcept {
+    if (note_width < 0 || note_width > 4096) return false;
+    int value = 0;
+    switch (rule) {
+    case RibbonWidthRule::HeadAndTail:
+        if (shrink < -2 || shrink > 0) return false;
+        if (wide_offset < -65536 || wide_offset > 65536) return false;
+        // Native integer arithmetic: shrink*wide/2 truncates toward zero, then
+        // -10, then + note+60/2. Same expression in 0x2F4E80 / 0x1A84F0.
+        value = shrink * wide_offset / 2 - 10 + note_width / 2;
+        break;
+    case RibbonWidthRule::VelocityZone:
+        // 0x1801AAF31: the velocity-zone raster has no shrink or wide term.
+        value = note_width / 2 - 10;
+        break;
+    case RibbonWidthRule::None:
+    default:
+        return false;
+    }
+    half_width = static_cast<float>(value);
+    return std::isfinite(half_width);
+}
+
+GeometryDiagnostic TimedNoteRefusal(TimedNoteKind kind) noexcept {
+    switch (kind) {
+    case TimedNoteKind::Normal:
+    case TimedNoteKind::Long:
+    case TimedNoteKind::Trill:
+        return GeometryDiagnostic::None;
+    case TimedNoteKind::Glissando:
+        // First of the two blockers in 0x1A6820: the element frame -> chart ms
+        // mapping (answer render-ui-001 Q1 proves the distance formula) and the
+        // +0x50 clip writer (Q2, still unproven).
+        return GeometryDiagnostic::GlissAnchorUnproven;
+    case TimedNoteKind::VelocityZone:
+        return GeometryDiagnostic::VelocityAnchorUnproven;
+    case TimedNoteKind::Beats:
+        return GeometryDiagnostic::ChartTimeAbsent;
+    }
+    return GeometryDiagnostic::LayoutUnverified;
 }
 
 bool PrepareTimedRendering(HMODULE game, std::string& reason) {

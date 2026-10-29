@@ -286,33 +286,36 @@ UiTimeline* UiTimelineBank::Acquire(UiNodeIdentity identity) noexcept {
     if (identity.node == 0) return nullptr;
     Entry* free_entry = nullptr;
     for (auto& entry : entries_) {
-        if (entry.used && entry.timeline.Matches(identity)) return &entry.timeline;
+        if (entry.used && entry.identity == identity) return &entry.timeline;
         if (!entry.used && free_entry == nullptr) free_entry = &entry;
     }
     // Same address, different pool stamp: the node was recycled.
     for (auto& entry : entries_) {
-        if (entry.used && entry.timeline.Node().node == identity.node) {
+        if (entry.used && entry.identity.node == identity.node) {
             entry.timeline.Reset();
+            entry.identity = identity;
             return &entry.timeline;
         }
     }
     if (free_entry == nullptr) return nullptr;
     free_entry->used = true;
     free_entry->timeline.Reset();
+    free_entry->identity = identity;
     return &free_entry->timeline;
 }
 
 UiTimeline* UiTimelineBank::Find(const UiNodeIdentity& identity) noexcept {
     for (auto& entry : entries_) {
-        if (entry.used && entry.timeline.Matches(identity)) return &entry.timeline;
+        if (entry.used && entry.identity == identity) return &entry.timeline;
     }
     return nullptr;
 }
 
 void UiTimelineBank::Release(const UiNodeIdentity& identity) noexcept {
     for (auto& entry : entries_) {
-        if (entry.used && entry.timeline.Node() == identity) {
+        if (entry.used && entry.identity == identity) {
             entry.timeline.Reset();
+            entry.identity = {};
             entry.used = false;
         }
     }
@@ -321,8 +324,9 @@ void UiTimelineBank::Release(const UiNodeIdentity& identity) noexcept {
 void UiTimelineBank::ReleaseNode(std::uintptr_t node) noexcept {
     if (node == 0) return;
     for (auto& entry : entries_) {
-        if (entry.used && entry.timeline.Node().node == node) {
+        if (entry.used && entry.identity.node == node) {
             entry.timeline.Reset();
+            entry.identity = {};
             entry.used = false;
         }
     }
@@ -331,6 +335,7 @@ void UiTimelineBank::ReleaseNode(std::uintptr_t node) noexcept {
 void UiTimelineBank::Clear() noexcept {
     for (auto& entry : entries_) {
         entry.timeline.Reset();
+        entry.identity = {};
         entry.used = false;
     }
     wall_ms_ = 0.0;
@@ -389,6 +394,45 @@ std::size_t UiTimelineBank::Size() const noexcept {
         if (entry.used) ++count;
     }
     return count;
+}
+
+bool UiTimelineBank::DomainTime(UiTimeDomain domain, double& ms) const noexcept {
+    if (domain == UiTimeDomain::WallClock) {
+        if (!wall_valid_) return false;
+        ms = wall_ms_;
+        return true;
+    }
+    if (!song_valid_) return false;
+    ms = song_ms_;
+    return true;
+}
+
+std::uint64_t UiTimelineBank::DomainGeneration(UiTimeDomain domain) const noexcept {
+    return domain == UiTimeDomain::WallClock ? kWallGeneration : song_generation_;
+}
+
+std::size_t UiTimelineBank::EvaluateDomain(UiTimeDomain domain, UiStateSink sink,
+                                           void* context) noexcept {
+    if (!sink) return 0;
+    double now = 0.0;
+    if (!DomainTime(domain, now)) return 0;
+    const std::uint64_t generation = DomainGeneration(domain);
+    std::size_t delivered = 0;
+    for (auto& entry : entries_) {
+        if (!entry.used || entry.timeline.Domain() != domain) continue;
+        if (entry.timeline.Generation() != generation) {
+            // Same priming rule as AdvanceDomain: a timeline acquired after the
+            // clock started joins the current epoch at the current time.
+            if (entry.timeline.Start(generation, now) != UiTimelineStatus::Ok) {
+                continue;
+            }
+        }
+        UiAnimationState state{};
+        if (!entry.timeline.Evaluate(now, state)) continue;
+        sink(context, entry.timeline.Node(), state);
+        ++delivered;
+    }
+    return delivered;
 }
 
 } // namespace nosfix
