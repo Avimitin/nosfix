@@ -442,7 +442,17 @@ Exhaustive displacement scan of all note-type functions: `+0x128` (296), `+0x12C
 ```
 
 So `note+316` is a **frame count** used exactly like a note's own frame in the distance
-formula, and `note+300` is a two-state flag (0/1), not a time. `note+296` is only *read*
+formula. **CORRECTED twice - run 2 (PROBE_ANALYSIS.md s9) is final:** the displacement
+census now covers the whole image, and **no glissando function references `+0x128`,
+`+0x12C` or `+0x13C`**, yet real glissando objects (vtable `0x180679AB8`, proven by probe)
+carry live values there - so the writer is a shared/base initialiser, not a per-type field.
+Observed: `+296` in {0,1,257}, `+300` in {-1} u [42..57], `+316` in {0} u [600..730].
+`sub_1801A6820` never reads them, so they cannot affect gliss geometry - **do not model
+them for glissando**. For velocity zones the reading by `sub_1801AA4D0` stands, but the
+"velocity-only" and "+300 is a 0/1 flag" claims are **withdrawn**: `note+300` is **not** a
+two-state flag - observed values are `-1, 30, 69, 72`, i.e. a key/group-magnitude quantity
+[hyp]; `note+296` is **not** a frame value - observed `0/1`, i.e. a flag [hyp]; `note+316`
+(`0, 562, 820`) is unrefuted. `note+296` is only *read*
 in the input handler, so its writer is upstream (velocity binder `sub_1801A5DB0` or a
 helper). **Fail-closed:** do not derive `+296` from `chart+4`.
 **Smallest next evidence:** writers of `+0x128` in `sub_1801A5DB0` and `sub_1801AB3A0`/
@@ -623,8 +633,10 @@ submix voices with slots 2 (`SetEffectChain`), 6 (`SetEffectParameters`), 8
    by A2 above. `sub_1800CAE90` is a stable merge sort, its `mode` argument is dead.
 2. `judgment-2f7c10.md` s8.1 and `render-velocity-beats.md` s4.4 - the frame unit is
    **proven 1/60 s** (A5). No live sample needed.
-3. `render-velocity-beats.md` s4.1 - `note+296/+300/+316` are velocity-only (C11);
-   the "held-head" reading of `+300` as a time is wrong, it is a 0/1 flag.
+- `render-velocity-beats.md` s4.1 - withdrawn: run 2 proves no glissando function touches
+  `+296/+300/+316`, yet gliss objects hold live values there, so those slots are shared
+  base storage and are inert for glissando (C11, PROBE_ANALYSIS.md s9). The earlier
+  "held-head" reading of `+300` is also withdrawn - it is not a 0/1 flag.
 4. `render-gliss.md` s1/s6.2 - `element+0x00/+0x04` are **millisecond** start/end and
    `+0x14/+0x18` are the trunc(ms*60/1000) frame conversions; the writer of `+0x14` is
    `0x1801A4945` (C10). The `+0x50` clipping value is still without a writer.
