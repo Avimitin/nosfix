@@ -40,6 +40,11 @@ $mt = (Join-Path $sdkCpp "bin\$sdkVersion\x64\mt.exe") -replace '\\', '/'
 foreach ($tool in @($rc, $mt)) {
     if (-not (Test-Path -LiteralPath $tool)) { throw "Missing SDK tool: $tool" }
 }
+# CMake writes the RC compiler into CMakeRCCompiler.cmake as an unquoted
+# `set()` value, so a Windows path with backslashes fails to parse
+# ("Invalid character escape '\S'"). Hand CMake forward slashes instead.
+$rcCmake = $rc -replace '\\', '/'
+$mtCmake = $mt -replace '\\', '/'
 
 $buildScript = Join-Path $env:TEMP 'nosfix-build-env.cmd'
 $scriptContents = @"
@@ -49,7 +54,7 @@ if errorlevel 1 exit /b %errorlevel%
 set "INCLUDE=%INCLUDE%;$sdkIncludes"
 set "LIB=%LIB%;$sdkLibraries"
 set "PATH=%PATH%;$(Split-Path -Parent $rc)"
-uv tool run --from cmake cmake -S "$repoRoot" -B "$repoRoot\build" -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DCMAKE_RC_COMPILER="$rc" -DCMAKE_MT="$mt"
+uv tool run --from cmake cmake -S "$repoRoot" -B "$repoRoot\build" -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DCMAKE_RC_COMPILER="$rcCmake" -DCMAKE_MT="$mtCmake"
 if errorlevel 1 exit /b %errorlevel%
 uv tool run --from cmake cmake --build "$repoRoot\build" --config Release
 if errorlevel 1 exit /b %errorlevel%

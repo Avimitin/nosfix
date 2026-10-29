@@ -70,6 +70,7 @@ add_library(nosfix SHARED
     src/timed_normal.cpp
     src/timed_note_geometry.cpp
     src/timed_rendering.cpp
+    src/timed_ui_adapter.cpp
     src/timed_ui_timeline.cpp
     src/ui_motion.cpp
     src/ui_hooks.cpp
@@ -163,6 +164,9 @@ if(BUILD_TESTING)
     add_executable(nosfix_timed_ui_timeline_tests
         tests/timed_ui_timeline_tests.cpp src/timed_ui_timeline.cpp)
     add_test(NAME timed_ui_timeline COMMAND nosfix_timed_ui_timeline_tests)
+    add_executable(nosfix_timed_ui_adapter_tests
+        tests/timed_ui_adapter_tests.cpp src/timed_ui_adapter.cpp src/timed_ui_timeline.cpp)
+    add_test(NAME timed_ui_adapter COMMAND nosfix_timed_ui_adapter_tests)
     add_executable(nosfix_timed_rendering_tests tests/timed_rendering_tests.cpp
         src/timed_rendering.cpp src/timed_normal.cpp src/timed_note_geometry.cpp
         src/module_guard.cpp)
@@ -272,7 +276,7 @@ if(BUILD_TESTING)
         WIN32_LEAN_AND_MEAN NOMINMAX)
     add_test(NAME panb_pressure COMMAND nosfix_panb_pressure_tests)
 
-    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
+    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
         target_compile_features(${target} PRIVATE cxx_std_20)
         target_include_directories(${target} PRIVATE include)
         if(MSVC)

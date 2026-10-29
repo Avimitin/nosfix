@@ -935,6 +935,265 @@ void TestDiagnosticNames() {
               nosfix::GeometryDiagnostic::GlissDataBaked), "gliss-data-baked") == 0);
     Check(std::strcmp(nosfix::GeometryDiagnosticName(
               nosfix::GeometryDiagnostic::None), "none") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::EmptyObject), "empty-object") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::ObjectOverflow), "object-overflow") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::ObjectQuadsRequired),
+              "object-quads-required") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::GlissAnchorUnproven),
+              "gliss-anchor-unproven") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::GlissClipUnproven),
+              "gliss-clip-unproven") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::VelocityAnchorUnproven),
+              "velocity-anchor-unproven") == 0);
+    Check(std::strcmp(nosfix::GeometryDiagnosticName(
+              nosfix::GeometryDiagnostic::ChartTimeAbsent), "chart-time-absent") == 0);
+}
+
+// The glissando connector object at note+216 receives one quad per connector
+// (two call sites of 0xD5370, both appending to the same object), so a single
+// draw call owns 0-2 records. One part mirrors that whole object.
+std::vector<nosfix::NotePartInput> ObjectParts(std::vector<std::byte>& quad_raw,
+                                               std::vector<std::byte>& object_raw,
+                                               std::uint32_t object_records) {
+    return {
+        {nosfix::NotePartShape::TexturedQuad, nosfix::NoteAnchorRule::Start, 1, quad_raw},
+        {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::None, object_records,
+         object_raw},
+    };
+}
+
+nosfix::NoteObjectQuad ConnectorQuad(float y0, float y1) {
+    nosfix::NoteObjectQuad quad;
+    quad.p1x = 100.0f;
+    quad.p2x = 140.0f;
+    quad.p3x = 260.0f;
+    quad.p4x = 200.0f;
+    quad.previous_y = y0;
+    quad.current_y = y1;
+    return quad;
+}
+
+void TestWholeObjectCaptureAndBuild() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    const auto object_before = object_raw;
+    nosfix::TimedNoteGeometry note;
+    auto parts = ObjectParts(quad_raw, object_raw, 2);
+    Check(note.Capture(MakeQuadSpec(), parts));
+    Check(note.PartCount() == 2);
+    Check(!note.PartIsObject(0));
+    Check(note.PartIsObject(1));
+    Check(note.PartShape(1) == nosfix::NotePartShape::BoxObject);
+
+    // The anchor path must never be used for a whole object.
+    std::array<nosfix::NotePartView, 4> views{};
+    std::size_t count = 0;
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    FakeProjector projector;
+    Check(!note.Build(1'000.0, Project, &projector, views, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ObjectQuadsRequired);
+    Check(count == 0);
+
+    // One quad: corners in the native p1,p2,p4,p4,p2,p3 order.
+    const std::array<nosfix::NoteObjectQuad, 1> one{ConnectorQuad(300.0f, 420.0f)};
+    nosfix::NotePartView view{};
+    Check(note.BuildObjectPart(1, one, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::None);
+    Check(view.count == 1);
+    const std::span<const std::byte> record(view.data, 120);
+    Check(Load<float>(record, 0) == 100.0f);    // p1.x at previous_y
+    Check(Load<float>(record, 4) == 300.0f);
+    Check(Load<float>(record, 20) == 140.0f);   // p2.x at previous_y
+    Check(Load<float>(record, 24) == 300.0f);
+    Check(Load<float>(record, 40) == 200.0f);   // p4.x at current_y
+    Check(Load<float>(record, 44) == 420.0f);
+    Check(Load<float>(record, 60) == 200.0f);   // p4 repeated
+    Check(Load<float>(record, 64) == 420.0f);
+    Check(Load<float>(record, 80) == 140.0f);   // p2 repeated
+    Check(Load<float>(record, 84) == 300.0f);
+    Check(Load<float>(record, 100) == 260.0f);  // p3.x at current_y
+    Check(Load<float>(record, 104) == 420.0f);
+    // z = 0, RHW = 1 and the captured colour pattern survive.
+    Check(Load<float>(record, 8) == 0.0f);
+    Check(Load<float>(record, 12) == 1.0f);
+    Check(Load<std::uint32_t>(record, 16) == 0x40000000U);
+    Check(Load<std::uint32_t>(record, 36) == 0x40000001U);
+    Check(Load<std::uint32_t>(record, 56) == 0x40000002U);
+    Check(Load<std::uint32_t>(record, 96) == 0x40000001U);
+    Check(Load<std::uint32_t>(record, 116) == 0x40000005U);
+
+    // Two quads: the second record uses the second captured colour template.
+    const std::array<nosfix::NoteObjectQuad, 2> two{ConnectorQuad(300.0f, 420.0f),
+                                                    ConnectorQuad(420.0f, 500.0f)};
+    Check(note.BuildObjectPart(1, two, view, diagnostic));
+    Check(view.count == 2);
+    const std::span<const std::byte> second(view.data + 120, 120);
+    Check(Load<float>(second, 0) == 100.0f);
+    Check(Load<float>(second, 4) == 420.0f);
+    Check(Load<float>(second, 104) == 500.0f);
+    Check(Load<std::uint32_t>(second, 16) == 0x40000100U);
+
+    // Refusals.
+    Check(!note.BuildObjectPart(1, {}, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::EmptyObject);
+    Check(view.data == nullptr && view.count == 0);
+    const std::array<nosfix::NoteObjectQuad, 3> three{
+        ConnectorQuad(300.0f, 420.0f), ConnectorQuad(420.0f, 500.0f),
+        ConnectorQuad(500.0f, 600.0f)};
+    Check(!note.BuildObjectPart(1, three, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ObjectOverflow);
+    auto nan_quad = ConnectorQuad(300.0f, 420.0f);
+    nan_quad.p3x = std::numeric_limits<float>::quiet_NaN();
+    Check(!note.BuildObjectPart(1, {&nan_quad, 1}, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    auto crossed = ConnectorQuad(300.0f, 420.0f);
+    crossed.p2x = 50.0f;   // row runs right to left
+    Check(!note.BuildObjectPart(1, {&crossed, 1}, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    auto reversed_row2 = ConnectorQuad(300.0f, 420.0f);
+    reversed_row2.p3x = 150.0f;  // p3 < p4
+    Check(!note.BuildObjectPart(1, {&reversed_row2, 1}, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    // A textured part is not a whole object.
+    Check(!note.BuildObjectPart(0, one, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::LayoutUnverified);
+    Check(!note.BuildObjectPart(2, one, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::PartCountMismatch);
+
+    nosfix::TimedNoteGeometry empty;
+    Check(!empty.BuildObjectPart(0, one, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NotCaptured);
+
+    Check(object_raw == object_before);
+}
+
+// A horizontal connector is legal: both rows may share a Y.
+void TestWholeObjectHorizontalAndBounds() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    nosfix::TimedNoteGeometry note;
+    auto parts = ObjectParts(quad_raw, object_raw, 2);
+    Check(note.Capture(MakeQuadSpec(), parts));
+    nosfix::NotePartView view{};
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    auto flat = ConnectorQuad(300.0f, 300.0f);
+    Check(note.BuildObjectPart(1, {&flat, 1}, view, diagnostic));
+    Check(view.count == 1);
+    // The same object part rebuilt repeatedly is byte stable.
+    const Snapshot first = Take(view, 120);
+    Check(note.BuildObjectPart(1, {&flat, 1}, view, diagnostic));
+    Check(Take(view, 120) == first);
+}
+
+// Only a whole-object part accepts the None anchor, and only 1-2 records.
+void TestWholeObjectDescriptorRejections() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    nosfix::TimedNoteGeometry note;
+    // BoxObject with a real anchor rule is refused.
+    {
+        std::vector<nosfix::NotePartInput> parts{
+            {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::StartToEnd, 2,
+             object_raw},
+        };
+        Check(!note.Capture(MakeQuadSpec(), parts));
+    }
+    // A ribbon strip with the None anchor is refused.
+    {
+        auto ribbon_raw = MakeBoxRecords(4);
+        std::vector<nosfix::NotePartInput> parts{
+            {nosfix::NotePartShape::BoxRibbon, nosfix::NoteAnchorRule::None, 4,
+             ribbon_raw},
+        };
+        Check(!note.Capture(MakeRibbonSpec(), parts));
+    }
+    // Three records exceed the native object's capacity of two.
+    {
+        auto three = MakeBoxRecords(3);
+        std::vector<nosfix::NotePartInput> parts{
+            {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::None, 3, three},
+        };
+        Check(!note.Capture(MakeQuadSpec(), parts));
+    }
+    // A zero-record object has no captured template and is refused.
+    {
+        std::vector<std::byte> none;
+        std::vector<nosfix::NotePartInput> parts{
+            {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::None, 0, none},
+        };
+        Check(!note.Capture(MakeQuadSpec(), parts));
+    }
+    // A short buffer does not match the declared record count.
+    {
+        auto short_raw = MakeBoxRecords(1);
+        std::vector<nosfix::NotePartInput> parts{
+            {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::None, 2, short_raw},
+        };
+        Check(!note.Capture(MakeQuadSpec(), parts));
+    }
+    Check(!note.HasCapture());
+}
+
+// A whole note with one textured cap and one connector object: the textured
+// part still builds from chart time while the object part needs its quads.
+void TestWholeObjectMixedNote() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    nosfix::TimedNoteGeometry note;
+    auto parts = ObjectParts(quad_raw, object_raw, 2);
+    Check(note.Capture(MakeQuadSpec(), parts));
+
+    FakeProjector projector;
+    nosfix::NotePartView head{};
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    Check(note.BuildPart(0, 1'000.0, Project, &projector, head, diagnostic));
+    Check(head.count == 1);
+    Check(diagnostic == nosfix::GeometryDiagnostic::None);
+
+    nosfix::NotePartView object{};
+    Check(!note.BuildPart(1, 1'000.0, Project, &projector, object, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ObjectQuadsRequired);
+
+    // Rebuilding the object does not disturb the already built head view.
+    const Snapshot head_before = Take(head, 160);
+    const std::array<nosfix::NoteObjectQuad, 2> two{ConnectorQuad(300.0f, 420.0f),
+                                                    ConnectorQuad(420.0f, 500.0f)};
+    Check(note.BuildObjectPart(1, two, object, diagnostic));
+    Check(Take(head, 160) == head_before);
+    // Reset drops everything.
+    note.Reset();
+    Check(!note.BuildObjectPart(1, two, object, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NotCaptured);
+}
+
+// The whole-object path performs no allocation, like every other part.
+void TestWholeObjectNoAllocation() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    nosfix::TimedNoteGeometry note;
+    auto parts = ObjectParts(quad_raw, object_raw, 2);
+    Check(note.Capture(MakeQuadSpec(), parts));
+    nosfix::NotePartView view{};
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    const std::array<nosfix::NoteObjectQuad, 2> two{ConnectorQuad(300.0f, 420.0f),
+                                                    ConnectorQuad(420.0f, 500.0f)};
+    Check(note.BuildObjectPart(1, two, view, diagnostic));
+    const auto before = g_allocations;
+    for (int step = 0; step < 200; ++step) {
+        Check(note.BuildObjectPart(1, two, view, diagnostic));
+        Check(view.count == 2);
+    }
+    Check(g_allocations == before);
+    g_fail_allocations = true;
+    Check(note.BuildObjectPart(1, two, view, diagnostic));
+    g_fail_allocations = false;
+    Check(view.count == 2);
 }
 
 } // namespace
@@ -959,6 +1218,11 @@ int main() {
     TestTrillStrip();
     TestCadenceInvariance();
     TestDiagnosticNames();
+    TestWholeObjectCaptureAndBuild();
+    TestWholeObjectHorizontalAndBounds();
+    TestWholeObjectDescriptorRejections();
+    TestWholeObjectMixedNote();
+    TestWholeObjectNoAllocation();
     std::printf("timed_note_geometry: all tests passed\n");
     return 0;
 }

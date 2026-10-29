@@ -21,8 +21,17 @@ struct MotionMetrics {
     std::uint64_t timed_note_captures = 0;
     std::uint64_t timed_note_failures = 0;
     std::uint64_t unsupported_notes = 0;
+    // Named counters for the kinds still on the original path. Each one means
+    // "this note's geometry was simulated, not rebuilt"; the matching entry in
+    // geometry_diagnostics names the exact missing evidence.
+    std::uint64_t unsupported_glissando = 0;
+    std::uint64_t unsupported_velocity_zones = 0;
+    std::uint64_t unsupported_beats = 0;
+    // Whole-object rebuilds (one draw call owning 0-2 quads). Stays zero until
+    // the glissando connector anchors are proven.
+    std::uint64_t object_part_builds = 0;
     // Indexed by GeometryDiagnostic; records why a rebuild fell back.
-    std::uint64_t geometry_diagnostics[16] = {};
+    std::uint64_t geometry_diagnostics[24] = {};
 };
 [[nodiscard]] MotionMetrics TakeMotionMetrics() noexcept;
 

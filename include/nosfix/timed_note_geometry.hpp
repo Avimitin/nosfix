@@ -23,6 +23,30 @@ enum class GeometryDiagnostic : std::uint8_t {
     SegmentOverflow,
     TailOutOfBand,
     TimeRange,
+    // A whole-object part was rebuilt with zero quads. Nothing may be drawn
+    // from this part, and drawing the original payload would be wrong, so the
+    // caller must skip the draw instead of falling back.
+    EmptyObject,
+    // More connector quads than the native object can hold (two).
+    ObjectOverflow,
+    // BuildPart() was used for a whole-object part; it needs BuildObjectPart().
+    ObjectQuadsRequired,
+    // Glissando: the connector distance formula itself is proven from the bytes
+    // at 0x1801A6D20..0x1801A6DE4 (180*(element+0x14 - frame - offsets)/rate^2),
+    // but element+0x14 is a frame whose chart-millisecond mapping is unproven, so
+    // the model has no chart-time anchor to feed it.
+    GlissAnchorUnproven,
+    // Glissando, both connectors: the producer of the 104-byte chart element
+    // field +0x50 (read at 0x1801A6DE9) is unidentified. Reserved as the second
+    // blocker; TimedNoteRefusal() reports GlissAnchorUnproven first.
+    GlissClipUnproven,
+    // Velocity zone: the raster at note+352 is the long-ribbon shape with a
+    // different width, but its end anchor (note+296) and the held-head state
+    // (note+300/+316) are not proven to be chart derived.
+    VelocityAnchorUnproven,
+    // Beats: the update derives its position from the live frame counter and a
+    // constant x = 640, not from a chart time, so there is nothing to rebuild.
+    ChartTimeAbsent,
 };
 
 [[nodiscard]] const char* GeometryDiagnosticName(GeometryDiagnostic value) noexcept;
@@ -43,17 +67,27 @@ enum class NotePartShape : std::uint8_t {
     // Trill edge strip (note+424). A ten-pixel-wide band on the left or right
     // side of the primary strip, alternating on the same phase.
     TrillGlow = 4,
+    // A complete box-fill object whose record count is decided at build time.
+    // The glissando update appends both of its connector quads to the single
+    // object at note+216 (0x1801A6D19 begins it, 0x1801A7326 ends it), so one
+    // draw call owns 0-2 quads and a one-part-per-buffer binding cannot
+    // represent it. Corner coordinates are supplied by the caller: the native
+    // forms them from a projector call whose distance formula is proven but
+    // whose chart-time anchor is not, so this model never derives them.
+    BoxObject = 5,
 };
 
 // Which chart-time anchors a part is rebuilt from. StartToLink is the gliss
 // connector: its native geometry uses a baked screen Y from the gliss point
 // record, so a pure rebuild is refused unless the integration supplies a
-// link anchor, which this model does not invent.
+// link anchor, which this model does not invent. None marks a whole-object
+// part, which is not anchored at all.
 enum class NoteAnchorRule : std::uint8_t {
     Start = 0,
     End = 1,
     StartToEnd = 2,
     StartToLink = 3,
+    None = 4,
 };
 
 struct NotePartInput final {
@@ -75,6 +109,20 @@ struct NotePartInput final {
 struct NotePartView final {
     const std::byte* data = nullptr;
     std::uint32_t count = 0;
+};
+
+// One quad of a whole-object part, already in the object's own corner order:
+// p1/p2 are the two corners of the first row (previous_y) and p3/p4 the two
+// corners of the second row (current_y). This is exactly the argument order of
+// the native append helper 0xD5370, whose record builder 0xD5460 emits
+// p1, p2, p4, p4, p2, p3.
+struct NoteObjectQuad final {
+    float p1x = 0.0f;
+    float p2x = 0.0f;
+    float p3x = 0.0f;
+    float p4x = 0.0f;
+    float previous_y = 0.0f;
+    float current_y = 0.0f;
 };
 
 // Static, chart-derived description of one note. The integration layer fills
@@ -133,6 +181,9 @@ public:
     static constexpr std::size_t kMaxParts = 4;
     static constexpr std::size_t kMaxQuadParts = 2;
     static constexpr std::size_t kMaxBoxParts = 2;
+    // The native connector object receives at most one quad per connector and
+    // there are two connectors, so its record count is 0, 1 or 2.
+    static constexpr std::size_t kMaxObjectQuads = 2;
     static constexpr std::uint32_t kMaximumRecords = 96;
     static constexpr std::uint32_t kMaximumSegments = 96;
     static constexpr std::size_t kTexturedStride = 160;
@@ -156,6 +207,16 @@ public:
                                  NotePartView& view,
                                  GeometryDiagnostic& diagnostic) noexcept;
 
+    // Rebuilds a whole-object box part (NotePartShape::BoxObject) from quad
+    // corners the integration already owns. `quads` must hold 1..kMaxObjectQuads
+    // entries; zero is refused with EmptyObject because the caller must not
+    // draw the original payload either. RGB/alpha come from the captured
+    // records so the object keeps the game's last palette.
+    [[nodiscard]] bool BuildObjectPart(std::size_t index,
+                                       std::span<const NoteObjectQuad> quads,
+                                       NotePartView& view,
+                                       GeometryDiagnostic& diagnostic) noexcept;
+
     void Reset() noexcept;
     [[nodiscard]] bool HasCapture() const noexcept { return part_count_ != 0; }
     [[nodiscard]] std::size_t PartCount() const noexcept { return part_count_; }
@@ -163,6 +224,7 @@ public:
     // Captured game-buffer identity for a part, or null. Lookup key only.
     [[nodiscard]] const void* PartSource(std::size_t index) const noexcept;
     [[nodiscard]] NotePartShape PartShape(std::size_t index) const noexcept;
+    [[nodiscard]] bool PartIsObject(std::size_t index) const noexcept;
 
     // Exposed for tests and for the integration layer's own validation.
     [[nodiscard]] static bool DistanceFor(const NoteGeometrySpec& spec,

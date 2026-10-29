@@ -111,6 +111,7 @@ bool ValidShape(NotePartShape shape) noexcept {
     case NotePartShape::BoxLine:
     case NotePartShape::TrillRibbon:
     case NotePartShape::TrillGlow:
+    case NotePartShape::BoxObject:
         return true;
     }
     return false;
@@ -118,11 +119,16 @@ bool ValidShape(NotePartShape shape) noexcept {
 
 bool IsBoxShape(NotePartShape shape) noexcept {
     return shape == NotePartShape::BoxRibbon || shape == NotePartShape::BoxLine ||
-        shape == NotePartShape::TrillRibbon || shape == NotePartShape::TrillGlow;
+        shape == NotePartShape::TrillRibbon || shape == NotePartShape::TrillGlow ||
+        shape == NotePartShape::BoxObject;
 }
 
 bool IsTrillShape(NotePartShape shape) noexcept {
     return shape == NotePartShape::TrillRibbon || shape == NotePartShape::TrillGlow;
+}
+
+bool IsWholeObject(NotePartShape shape) noexcept {
+    return shape == NotePartShape::BoxObject;
 }
 
 bool ValidAnchors(NoteAnchorRule rule) noexcept {
@@ -131,6 +137,7 @@ bool ValidAnchors(NoteAnchorRule rule) noexcept {
     case NoteAnchorRule::End:
     case NoteAnchorRule::StartToEnd:
     case NoteAnchorRule::StartToLink:
+    case NoteAnchorRule::None:
         return true;
     }
     return false;
@@ -200,6 +207,13 @@ const char* GeometryDiagnosticName(GeometryDiagnostic value) noexcept {
     case GeometryDiagnostic::SegmentOverflow: return "segment-overflow";
     case GeometryDiagnostic::TailOutOfBand: return "tail-out-of-band";
     case GeometryDiagnostic::TimeRange: return "time-range";
+    case GeometryDiagnostic::EmptyObject: return "empty-object";
+    case GeometryDiagnostic::ObjectOverflow: return "object-overflow";
+    case GeometryDiagnostic::ObjectQuadsRequired: return "object-quads-required";
+    case GeometryDiagnostic::GlissAnchorUnproven: return "gliss-anchor-unproven";
+    case GeometryDiagnostic::GlissClipUnproven: return "gliss-clip-unproven";
+    case GeometryDiagnostic::VelocityAnchorUnproven: return "velocity-anchor-unproven";
+    case GeometryDiagnostic::ChartTimeAbsent: return "chart-time-absent";
     }
     return "unknown";
 }
@@ -264,12 +278,24 @@ bool TimedNoteGeometry::Capture(const NoteGeometrySpec& spec,
     for (const auto& input : parts) {
         if (!ValidShape(input.shape) || !ValidAnchors(input.anchors)) return false;
         // A textured record can only be anchored at one point; box strips need
-        // two anchors. Mixing them would write the wrong record size.
+        // two anchors. Mixing them would write the wrong record size. A
+        // whole-object part is not anchored at all and takes a dynamic count.
         const bool quad = input.shape == NotePartShape::TexturedQuad;
+        const bool whole = IsWholeObject(input.shape);
         const bool point = input.anchors == NoteAnchorRule::Start ||
             input.anchors == NoteAnchorRule::End;
-        if (quad != point) return false;
-        if (input.record_count == 0 || input.record_count > kMaximumRecords) return false;
+        if (whole) {
+            if (input.anchors != NoteAnchorRule::None) return false;
+        } else {
+            if (input.anchors == NoteAnchorRule::None) return false;
+            if (quad != point) return false;
+        }
+        if (input.record_count == 0) return false;
+        if (whole) {
+            if (input.record_count > kMaxObjectQuads) return false;
+        } else if (input.record_count > kMaximumRecords) {
+            return false;
+        }
         const std::size_t stride = quad ? kTexturedStride : kBoxStride;
         if (input.raw.size() != stride * input.record_count) return false;
         if (quad) {
@@ -345,6 +371,11 @@ const void* TimedNoteGeometry::PartSource(std::size_t index) const noexcept {
 NotePartShape TimedNoteGeometry::PartShape(std::size_t index) const noexcept {
     if (index >= part_count_) return NotePartShape::TexturedQuad;
     return parts_[index].shape;
+}
+
+bool TimedNoteGeometry::PartIsObject(std::size_t index) const noexcept {
+    if (index >= part_count_) return false;
+    return IsWholeObject(parts_[index].shape);
 }
 
 bool TimedNoteGeometry::FillQuad(Part& part, const NoteProjection& projection,
@@ -649,6 +680,12 @@ bool TimedNoteGeometry::BuildPart(std::size_t index, double song_ms,
     }
 
     Part& part = parts_[index];
+    if (IsWholeObject(part.shape)) {
+        // A whole-object part is rebuilt from supplied quad corners, not from
+        // chart time; using the anchor path here would invent its geometry.
+        diagnostic = GeometryDiagnostic::ObjectQuadsRequired;
+        return false;
+    }
     if (part.anchors == NoteAnchorRule::StartToLink) {
         // Gliss connector: the native quad uses a baked screen Y stored in the
         // gliss point record; a pure rebuild would invent it.
@@ -700,6 +737,65 @@ bool TimedNoteGeometry::BuildPart(std::size_t index, double song_ms,
     }
     diagnostic = GeometryDiagnostic::GlissDataBaked;
     return false;
+}
+
+bool TimedNoteGeometry::BuildObjectPart(std::size_t index,
+                                        std::span<const NoteObjectQuad> quads,
+                                        NotePartView& view,
+                                        GeometryDiagnostic& diagnostic) noexcept {
+    view = {};
+    diagnostic = GeometryDiagnostic::None;
+    if (part_count_ == 0) {
+        diagnostic = GeometryDiagnostic::NotCaptured;
+        return false;
+    }
+    if (index >= part_count_) {
+        diagnostic = GeometryDiagnostic::PartCountMismatch;
+        return false;
+    }
+    Part& part = parts_[index];
+    if (!IsWholeObject(part.shape)) {
+        diagnostic = GeometryDiagnostic::LayoutUnverified;
+        return false;
+    }
+    if (quads.empty()) {
+        // An empty object is a legal native state, but this part then has
+        // nothing to draw and the original payload must not be drawn either.
+        diagnostic = GeometryDiagnostic::EmptyObject;
+        return false;
+    }
+    if (quads.size() > kMaxObjectQuads) {
+        diagnostic = GeometryDiagnostic::ObjectOverflow;
+        return false;
+    }
+    const std::size_t needed = quads.size() * kBoxStride;
+    if (part.draw_capacity < needed) {
+        diagnostic = GeometryDiagnostic::ObjectOverflow;
+        return false;
+    }
+    for (std::size_t case_index = 0; case_index < quads.size(); ++case_index) {
+        const NoteObjectQuad& quad = quads[case_index];
+        if (!Finite(quad.p1x) || !Finite(quad.p2x) || !Finite(quad.p3x) ||
+            !Finite(quad.p4x) || !Finite(quad.previous_y) ||
+            !Finite(quad.current_y)) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        // Each row must run left to right; the two rows may share a Y (a
+        // horizontal connector), but never cross.
+        if (quad.p2x < quad.p1x || quad.p3x < quad.p4x) {
+            diagnostic = GeometryDiagnostic::NonFiniteProjection;
+            return false;
+        }
+        std::uint32_t colors[4]{};
+        TemplateColors(part.captured, part.record_count,
+                       static_cast<std::uint32_t>(case_index), colors);
+        WriteBoxQuad(part.draw + case_index * kBoxStride, colors,
+                     quad.p1x, quad.p2x, quad.p3x, quad.p4x,
+                     quad.previous_y, quad.current_y);
+    }
+    view = {part.draw, static_cast<std::uint32_t>(quads.size())};
+    return true;
 }
 
 bool TimedNoteGeometry::Build(double song_ms, NoteProjectionCallback project,

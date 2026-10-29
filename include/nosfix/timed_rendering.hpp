@@ -31,9 +31,34 @@ enum class TimedNoteCapture : std::uint8_t {
 
 [[nodiscard]] const char* TimedNoteCaptureName(TimedNoteCapture value) noexcept;
 
+// How a note kind's ribbon half width is derived from the chart. Proven from
+// each kind's own update function:
+//   HeadAndTail  long/trill  shrink * wide / 2 - 10 + note+60 / 2
+//                (0x2F4E80 and 0x1A84F0; wide = dword 0x13E476C)
+//   VelocityZone velocity     note+60 / 2 - 10, no shrink or wide term
+//                (0x1801AAF31 inside 0x1AA4D0)
+//   None         the kind has no box ribbon at all (normal notes)
+enum class RibbonWidthRule : std::uint8_t {
+    HeadAndTail = 0,
+    VelocityZone = 1,
+    None = 2,
+};
+
+[[nodiscard]] RibbonWidthRule RibbonWidthRuleFor(TimedNoteKind kind) noexcept;
+
+// Applies `rule` to the raw chart words. Returns false for the None rule or a
+// value outside the representable range; the caller then keeps its own value.
+[[nodiscard]] bool RibbonHalfWidth(RibbonWidthRule rule, int note_width,
+                                   int shrink, int wide_offset,
+                                   float& half_width) noexcept;
+
 // True for the layouts whose chart-time rebuild is evidenced end to end:
 // normal, long/hold and trill.
 [[nodiscard]] bool TimedNoteSupported(TimedNoteKind kind) noexcept;
+
+// The exact reason a kind is not rebuilt from chart time; None when it is
+// supported. Used for the per-kind fallback counters.
+[[nodiscard]] GeometryDiagnostic TimedNoteRefusal(TimedNoteKind kind) noexcept;
 
 [[nodiscard]] bool PrepareTimedRendering(HMODULE game, std::string& reason);
 void ConfigureTimedRendering(bool enabled) noexcept;
