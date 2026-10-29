@@ -151,6 +151,8 @@ void AsioAudioHost::Stop() noexcept {
 
 void AsioAudioHost::Close() noexcept {
     if (keysounds_) keysounds_->SetMapper(nullptr, nullptr);
+    xact_ = XactCommandHookup{};
+    output_.Close();
     output_.Close();
     if (engine_ != nullptr) {
         Xa2BridgeDestroy(engine_);
@@ -231,6 +233,10 @@ KeysoundPushResult AsioAudioHost::PushKeysound(KeysoundRequest request) noexcept
     return keysounds_->Push(request);
 }
 
+void AsioAudioHost::SetXactCommandHookup(const XactCommandHookup& hookup) noexcept {
+    xact_ = hookup;
+}
+
 bool AsioAudioHost::RenderThunk(void* context, const AsioRenderContext& ctx,
                                 float* const* channels) noexcept {
     return static_cast<AsioAudioHost*>(context)->Render(ctx, channels);
@@ -267,6 +273,17 @@ bool AsioAudioHost::Render(const AsioRenderContext& context,
         render_failures_.fetch_add(1, std::memory_order_relaxed);
         return false;
     }
+    // The libxact cue-table handoff is drained once, at the start of the block:
+    // a command posted during the previous block is applied here, before any
+    // keysound is dispatched and before the mixer runs. No allocation, no lock.
+    if (xact_.ring != nullptr) {
+        const std::uint32_t applied_commands = xact_.ring->DrainAtBlockStart(
+            xact_.apply, xact_.apply_context, xact_.completion,
+            xact_.completion_context);
+        if (applied_commands != 0) {
+            xact_commands_.fetch_add(applied_commands, std::memory_order_relaxed);
+        }
+    }
     if (!context.sample_position_valid) {
         silent_blocks_.fetch_add(1, std::memory_order_relaxed);
         return false;
@@ -292,6 +309,7 @@ bool AsioAudioHost::Render(const AsioRenderContext& context,
         last_block_frames_published_.store(last_block_frames_,
                                            std::memory_order_relaxed);
     }
+
 
     const KeysoundDispatchOutcome outcome = keysounds_->DispatchDue(
         context.block_start_sample, context.buffer_frames, context.generation,
@@ -330,6 +348,7 @@ AsioHostStats AsioAudioHost::Stats() const noexcept {
     stats.buffer_size_changes = buffer_size_changes_.load(std::memory_order_relaxed);
     stats.unmapped_dispatches = unmapped_.load(std::memory_order_relaxed);
     stats.voice_starts = voice_starts_.load(std::memory_order_relaxed);
+    stats.xact_commands_applied = xact_commands_.load(std::memory_order_relaxed);
     stats.last_block_frames = last_block_frames_published_.load(std::memory_order_relaxed);
     stats.last_generation = last_generation_published_.load(std::memory_order_relaxed);
     return stats;

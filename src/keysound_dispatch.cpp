@@ -195,4 +195,190 @@ KeysoundQueueStats KeysoundQueue::SnapshotStats() const noexcept {
     return stats;
 }
 
+// ---------------------------------------------------------------------------
+// Frame-gated cue array (model of nostalgia sub_180304F30)
+// ---------------------------------------------------------------------------
+
+void FrameGateSchedule::ClearRecord(FrameGateRecord& record) noexcept {
+    // The original's clear sequence at 0x180304FE6..0x180305016: id = -1, the
+    // bytes at +4..+6 zeroed, then +8..+15 = -1, then the handle slot cleared.
+    record.sound_id = -1;
+    record.flags = 0;
+    record.param = 0;
+    record.param2 = 0;
+    record.start_frame = kFrameGateNoFrame;
+    record.end_frame = kFrameGateNoFrame;
+    record.handle = 0;
+}
+
+std::uint32_t FrameGateSchedule::FindFree() noexcept {
+    // The original scans from index 0 every time and stops at the end address.
+    for (std::uint32_t index = 0; index < kFrameGateCapacity; ++index) {
+        if (records_[index].sound_id == -1) return index;
+    }
+    return kFrameGateInvalidSlot;
+}
+
+void FrameGateSchedule::RaiseScanSteps(std::uint32_t steps) noexcept {
+    if (steps > max_scan_steps_) max_scan_steps_ = steps;
+}
+
+void FrameGateSchedule::SetGeneration(std::uint64_t generation) noexcept {
+    if (generation == generation_) return;
+    for (auto& record : records_) {
+        if (record.sound_id != -1) {
+            ClearRecord(record);
+            ++abandoned_generation_;
+        }
+    }
+    live_ = 0;
+    generation_ = generation;
+    ++generation_changes_;
+}
+
+FrameGateOutcome FrameGateSchedule::Schedule(const FrameGateRequest& request,
+                                             std::uint32_t current_frame) noexcept {
+    FrameGateOutcome outcome;
+    ++requested_;
+    if (!enabled_) {
+        ++refused_disabled_;
+        outcome.decision = FrameGateDecision::Refused;
+        return outcome;
+    }
+    if (request.sound_id < 0 || request.handle == 0) {
+        // -1 is the free marker: storing it would make the slot look empty.
+        ++invalid_;
+        outcome.decision = FrameGateDecision::Invalid;
+        return outcome;
+    }
+
+    // v14 = a6 + HIDWORD(qword_181366908), a signed add that may wrap.
+    const std::int32_t scheduled =
+        request.defer_frames + static_cast<std::int32_t>(current_frame);
+    const std::uint32_t due = static_cast<std::uint32_t>(scheduled);
+    outcome.start_frame = due;
+    outcome.end_frame =
+        request.extra == kFrameGateNoFrame ? kFrameGateNoFrame : request.extra + due;
+
+    // Step 3: an existing record with this id is faded out and cleared first.
+    for (std::uint32_t index = 0; index < kFrameGateCapacity; ++index) {
+        FrameGateRecord& record = records_[index];
+        if (record.sound_id != request.sound_id) continue;
+        ClearRecord(record);
+        --live_;
+        ++replaced_same_id_;
+        outcome.replaced_existing = true;
+        break;
+    }
+
+    const bool deferred = scheduled > 0;
+    if (!deferred) {
+        // Step 5: immediate. The dedupe scan only runs for param in 1..0x58 and
+        // looks for a *stored pending* record (start != -1) with the same a3 byte
+        // and the same handle; the original stops that sound first.
+        ++immediate_;
+        outcome.decision = FrameGateDecision::ImmediateRecorded;
+        if (request.param >= kFrameGateDedupeMinParam &&
+            request.param <= kFrameGateDedupeMaxParam) {
+            std::uint32_t steps = 0;
+            for (std::uint32_t index = 0; index < kFrameGateCapacity; ++index) {
+                ++steps;
+                const FrameGateRecord& record = records_[index];
+                if (record.param != request.param) continue;
+                if (record.start_frame == kFrameGateNoFrame) continue;
+                if (record.handle != request.handle) continue;
+                if (record.sound_id != request.sound_id && record.sound_id >= 0) {
+                    ++dedupe_stopped_;
+                    outcome.dedupe_stopped = true;
+                }
+                break;
+            }
+            RaiseScanSteps(steps);
+        }
+    } else {
+        ++deferred_;
+        outcome.decision = FrameGateDecision::Deferred;
+    }
+
+    const std::uint32_t slot = FindFree();
+    if (slot == kFrameGateInvalidSlot) {
+        // The original returns without storing. An immediate request has already
+        // been started at this point, so the marker is what is lost.
+        ++table_full_;
+        if (!deferred) outcome.decision = FrameGateDecision::ImmediateUnrecorded;
+        else outcome.decision = FrameGateDecision::TableFull;
+        return outcome;
+    }
+
+    FrameGateRecord& record = records_[slot];
+    record.sound_id = request.sound_id;
+    record.flags = 0;
+    record.param = request.param;
+    record.param2 = request.param2;
+    record.start_frame = deferred ? due : kFrameGateNoFrame;
+    record.end_frame = outcome.end_frame;
+    record.handle = request.handle;
+    ++live_;
+    if (live_ > high_watermark_) high_watermark_ = live_;
+    outcome.slot = slot;
+    outcome.start_frame = record.start_frame;
+    outcome.end_frame = record.end_frame;
+    return outcome;
+}
+
+std::uint32_t FrameGateSchedule::RetireDue(std::uint32_t current_frame,
+                                           FrameGateReady* out,
+                                           std::uint32_t capacity) noexcept {
+    if (out == nullptr || capacity == 0) return 0;
+    std::uint32_t written = 0;
+    for (std::uint32_t index = 0; index < kFrameGateCapacity; ++index) {
+        FrameGateRecord& record = records_[index];
+        if (record.sound_id == -1) continue;
+        if (record.start_frame == kFrameGateNoFrame) continue; // immediate marker
+        if (record.start_frame > current_frame) continue;
+        if (written == capacity) {
+            ++retire_unreported_;
+            continue;
+        }
+        FrameGateReady& ready = out[written++];
+        ready.slot = index;
+        ready.sound_id = record.sound_id;
+        ready.handle = record.handle;
+        ready.param = record.param;
+        ready.param2 = record.param2;
+        ready.start_frame = record.start_frame;
+        ready.end_frame = record.end_frame;
+        ClearRecord(record);
+        --live_;
+    }
+    retired_ += written;
+    return written;
+}
+
+const FrameGateRecord& FrameGateSchedule::RecordAt(std::uint32_t index) const noexcept {
+    static const FrameGateRecord kEmpty{};
+    if (index >= kFrameGateCapacity) return kEmpty;
+    return records_[index];
+}
+
+FrameGateStats FrameGateSchedule::Stats() const noexcept {
+    FrameGateStats stats;
+    stats.requested = requested_;
+    stats.deferred = deferred_;
+    stats.immediate = immediate_;
+    stats.refused_disabled = refused_disabled_;
+    stats.invalid = invalid_;
+    stats.replaced_same_id = replaced_same_id_;
+    stats.dedupe_stopped = dedupe_stopped_;
+    stats.table_full = table_full_;
+    stats.retired = retired_;
+    stats.retire_unreported = retire_unreported_;
+    stats.abandoned_generation = abandoned_generation_;
+    stats.generation_changes = generation_changes_;
+    stats.live = live_;
+    stats.high_watermark = high_watermark_;
+    stats.max_scan_steps = max_scan_steps_;
+    return stats;
+}
+
 } // namespace nosfix::audio
