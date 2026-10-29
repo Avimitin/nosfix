@@ -14,6 +14,11 @@ void ShadowClock::Configure(bool enabled) noexcept {
     }
     if (enabled) {
         enabled_.store(true, std::memory_order_release);
+        // Invalidate any snapshot left from a previous session before the new
+        // first observation. The segment is not running, so Map() returns null
+        // and the input records are counted as unmapped, never stale-mapped.
+        publication_.Publish(SongClockSegment{},
+                             SongClockContinuity::PossiblyRegressed);
         has_published_ = false;
     }
 }

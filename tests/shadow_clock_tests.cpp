@@ -31,6 +31,16 @@ void TestDisabledAndRejected() {
     assert(!clock.HasPublished());
 }
 
+void TestEnableInvalidatesStalePublication() {
+    nosfix::ShadowClock clock;
+    clock.Configure(true);
+    nosfix::SongClockSnapshot snapshot{};
+    assert(clock.Publication()->TryRead(snapshot));
+    assert(!snapshot.segment.IsValid());
+    assert(snapshot.continuity == nosfix::SongClockContinuity::PossiblyRegressed);
+    assert(!clock.HasPublished());
+}
+
 void TestStartAndMapping() {
     nosfix::ShadowClock clock;
     clock.Configure(true);
@@ -131,6 +141,7 @@ void TestPublicationIsImmutable() {
 
 int main() {
     TestDisabledAndRejected();
+    TestEnableInvalidatesStalePublication();
     TestStartAndMapping();
     TestObserveAndNegativeCorrection();
     TestSeekOnJumpAndBackward();
