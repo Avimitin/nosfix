@@ -33,6 +33,15 @@ const char* ScoreGradeName(ScoreGrade grade) noexcept {
     return "invalid";
 }
 
+const char* SlotOverrideDecisionName(SlotOverrideDecision decision) noexcept {
+    switch (decision) {
+    case SlotOverrideDecision::NotApplicable: return "not-applicable";
+    case SlotOverrideDecision::Applies: return "applies";
+    case SlotOverrideDecision::Unverified: return "unverified";
+    }
+    return "invalid";
+}
+
 const char* ScoreStatusName(ScoreStatus status) noexcept {
     switch (status) {
     case ScoreStatus::Ok: return "ok";
