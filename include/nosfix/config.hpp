@@ -14,6 +14,7 @@ struct Config {
     bool capture_input = false; // Experimental raw event observation; no judgments yet.
     bool clock_motion = false; // Experimental: normal notes follow the cue clock.
     bool native_shadow = false; // Publish the shadow song clock; no judgments yet.
+    bool diagnostic_probe = false; // Read-only PROBE log lines for live samples.
     unsigned target_hz = 0; // 0 selects the primary display's current rate.
     int log_level = 2;
 };

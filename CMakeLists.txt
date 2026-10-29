@@ -42,6 +42,7 @@ add_library(nosfix SHARED
     src/call_patch.cpp
     src/chart_event_cursor.cpp
     src/config.cpp
+    src/diagnostics.cpp
     src/game_hooks.cpp
     src/gameplay_clock.cpp
     src/hooks.cpp
@@ -192,7 +193,7 @@ if(BUILD_TESTING)
         src/motion_hooks.cpp src/primitive_motion.cpp src/motion.cpp src/timed_normal.cpp
         src/timed_rendering.cpp src/timed_note_geometry.cpp
         src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
-        src/module_guard.cpp)
+        src/diagnostics.cpp src/log.cpp src/config.cpp src/module_guard.cpp)
     target_compile_definitions(nosfix_motion_hook_timed_tests PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX)
     target_link_libraries(nosfix_motion_hook_timed_tests PRIVATE bcrypt)
@@ -297,7 +298,7 @@ if(BUILD_TESTING)
         src/motion_hooks.cpp src/primitive_motion.cpp src/motion.cpp src/timed_normal.cpp
         src/timed_rendering.cpp src/timed_note_geometry.cpp
         src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
-        src/module_guard.cpp)
+        src/diagnostics.cpp src/log.cpp src/config.cpp src/module_guard.cpp)
     target_link_libraries(nosfix_motion_hook_tests PRIVATE bcrypt)
     target_compile_definitions(nosfix_motion_hook_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     add_executable(nosfix_native_note_types_tests

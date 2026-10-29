@@ -3,6 +3,7 @@
 
 #include "nosfix/config.hpp"
 #include "nosfix/call_patch.hpp"
+#include "nosfix/diagnostics.hpp"
 #include "nosfix/hooks.hpp"
 #include "nosfix/log.hpp"
 #include "nosfix/module_guard.hpp"
@@ -32,8 +33,12 @@ using RenderFunction = std::intptr_t(__fastcall*)(void* app);
 using HasEntryFunction = char(__fastcall*)(void* list);
 using ProcessDispatchFunction = void* (__fastcall*)(void* process);
 using TransitionFunction = char(__fastcall*)(void* list, int state);
+using NormalJudgeFunction = std::int64_t(__fastcall*)(int*, std::int64_t,
+                                                       unsigned char,
+                                                       std::int64_t);
 
 constexpr DWORD kRenderRva = 0x1C31C0;
+constexpr DWORD kNormalJudgeRva = 0x2F6800;
 constexpr DWORD kHasEntryRva = 0x355CD0;
 constexpr DWORD kProcessDispatchRva = 0x355170;
 constexpr DWORD kTransitionRva = 0x356010;
@@ -52,6 +57,9 @@ constexpr std::array<unsigned char, 24> kDispatchBytes{
 constexpr std::array<unsigned char, 24> kTransitionBytes{
     0x48,0x89,0x5C,0x24,0x08,0x57,0x48,0x83,0xEC,0x40,0x8B,0xFA,
     0xC7,0x44,0x24,0x20,0xFF,0xFF,0xFF,0x7F,0x48,0x8B,0xD9,0xC6};
+constexpr std::array<unsigned char, 24> kNormalJudgeBytes{
+    0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,
+    0x74,0x24,0x18,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57};
 constexpr std::array<unsigned char, 5> kHasEntryCall{
     0xE8,0x48,0x24,0x19,0x00};
 constexpr std::array<unsigned char, 5> kDispatchCall{
@@ -65,6 +73,7 @@ RenderFunction g_render = nullptr;
 HasEntryFunction g_has_entry = nullptr;
 ProcessDispatchFunction g_process_dispatch = nullptr;
 TransitionFunction g_transition = nullptr;
+NormalJudgeFunction g_normal_judge = nullptr;
 thread_local bool g_in_render = false;
 
 struct ThreadState {
@@ -414,6 +423,17 @@ void* __fastcall ProcessDispatchCallsite(void* process) {
     return g_process_dispatch ? g_process_dispatch(process) : nullptr;
 }
 
+std::int64_t __fastcall NormalJudgeProbe(int* note, std::int64_t event,
+                                          unsigned char mode,
+                                          std::int64_t a4) {
+    const auto* event_pointer = reinterpret_cast<const void*>(event);
+    ProbeNormalJudgeBefore(note, event_pointer, mode);
+    const std::int64_t result = g_normal_judge
+        ? g_normal_judge(note, event, mode, a4) : 0;
+    ProbeNormalJudgeAfter(note, event_pointer, mode, result);
+    return result;
+}
+
 void SetRuntimeActive(bool active) noexcept {
     g_runtime_active.store(active, std::memory_order_release);
 }
@@ -471,7 +491,13 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
          reinterpret_cast<void*>(&RenderDetour),
          reinterpret_cast<void**>(&g_render)},
     };
-    if (config.smooth_motion || config.clock_motion) AppendMotionHooks(specs);
+    if (config.smooth_motion || config.clock_motion || config.diagnostic_probe)
+        AppendMotionHooks(specs);
+    if (config.diagnostic_probe) {
+        specs.push_back({"normal judge probe", kNormalJudgeRva, kNormalJudgeBytes,
+            reinterpret_cast<void*>(&NormalJudgeProbe),
+            reinterpret_cast<void**>(&g_normal_judge)});
+    }
     if (config.skip_monitor_check) AppendMonitorCheckHook(specs);
 
     std::vector<CallPatchSpec> calls{
@@ -531,6 +557,7 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         return false;
     }
 
+    ConfigureDiagnosticProbe(config.diagnostic_probe);
     SetRuntimeActive(true);
     ConfigureMonitorCheck(module, config.skip_monitor_check);
     ConfigureTimedRendering(config.clock_motion);
@@ -561,6 +588,8 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         if (!config.capture_input)
             Log(LogLevel::Warning, "native_shadow has no capture_input; the clock publishes but no packets are consumed");
     }
+    if (config.diagnostic_probe)
+        Log(LogLevel::Info, "diagnostic PROBE enabled: normal judge and gliss/velocity note updates");
     Log(LogLevel::Info, config.smooth_motion
         ? "bounded note-head and ribbon prediction enabled above 60 Hz"
         : "note prediction disabled by configuration");
@@ -573,6 +602,7 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
 void RemoveGameHooks() noexcept {
     g_input_pending.store(false, std::memory_order_release);
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
+    ConfigureDiagnosticProbe(false);
     SetRuntimeActive(false);
     ConfigureMonitorCheck(nullptr, false);
     ConfigureSongClock(false);

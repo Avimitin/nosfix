@@ -1,5 +1,6 @@
 #include "nosfix/motion_hooks.hpp"
 
+#include "nosfix/diagnostics.hpp"
 #include "nosfix/presentation.hpp"
 #include "nosfix/primitive_motion.hpp"
 #include "nosfix/timed_rendering.hpp"
@@ -293,10 +294,19 @@ void CaptureNote(void* note, const NoteLayout& layout, std::int32_t music_frame)
 }
 
 char UpdateNote(void* note, NoteUpdate original, const NoteLayout& layout) {
-    if (!Active()) return original(note);
     const auto music_frame = Read<std::int32_t>(g_base, 0x70A610);
+    if (!Active()) {
+        const char result = original(note);
+        if (DiagnosticProbeEnabled()) {
+            ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame);
+        }
+        return result;
+    }
     const char result = original(note); // Exactly one original update.
     CaptureNote(note, layout, music_frame);
+    if (DiagnosticProbeEnabled()) {
+        ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame);
+    }
     return result;
 }
 

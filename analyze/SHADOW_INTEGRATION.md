@@ -90,6 +90,21 @@ binary/live evidence, not missing clock code: the `dword_18070A610` unit, the
 bucket table at `0x13DEA20`, the native input-event producer, the AFP
 property/callback ABI, the cue sample format and the frame-gate consumer.
 
+## Diagnostic probe build
+
+`diagnostic_probe=true` installs two read-only probes and writes `PROBE` lines:
+
+- `0x2F6800` normal judge: `PROBE judge before/after` records the note id/rank
+  fields, `dword_18070A610`, chart time, and the native event fields
+  `+0/+4/+0x14/+0x20`.
+- Motion update detours: `PROBE motion kind=3(gliss)` and
+  `PROBE motion kind=5(velocity)` record `note+296/+300/+316`, `chart+0x50`,
+  `note+32`, chart type flags and the current frame.
+
+The probes are rate-limited to 400 judge calls and 400 updates per kind. They do
+not change scoring, rendering, capture or audio. The packaged diagnostic build
+is `out/diag-20261030/` with its own `nosfix.ini` and `README-PROBE.txt`.
+
 ## Next integration stage
 
 1. Add a live chart/note-table adapter and feed `NativeMatchPolicy` in shadow
