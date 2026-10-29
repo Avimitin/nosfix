@@ -25,7 +25,7 @@
 //   +68 done byte       +76 pending-early byte        +80 pending rank
 //   +84 event state     +108/+116 flags               +120 rank result
 //   +124 mode           +128 render object
-// Long adds:  +288 note object, +296 end time units (chart+24), +300 phase
+// Long adds:  +288 note object, +296 end anchor, +300 phase
 //             (0 first press, 1 held, other finished), +304 head rank,
 //             +308 effect index, +312 start-commit pulse, +313 stale hold,
 //             +316 sound/event id, +320 recorded delta, +324 score scale.
@@ -34,6 +34,22 @@
 //             +332 recorded delta, +344 alternation counter, +352 scale.
 // Gliss adds: +216 trail object (slot +24/+32 release), +272 group id,
 //             +276 effect index; chart+64 / chart+72 connector records.
+//
+// +296 / +300 / +316 are SHARED BASE STORAGE, not per-type fields. The
+// whole-image census in PROBE_ANALYSIS.md s8/s9 lists long (0x2F4220, 0x2F4E80,
+// 0x2F6190), trill (0x1A7AF0, 0x1A7910, 0x1A84F0) and velocity (0x1AA340,
+// 0x1AA4D0) functions referencing them, while no glissando function does - yet
+// real glissando objects carry live values there. Each type owns only what its
+// own reader proves: the velocity reading is recorded in velocity_layout below,
+// the long binder 0x2F6190 writes +316 = -1 and +296 = chart+20 + chart+24, and
+// glissando must not derive any of the three (s9: "do not model them for
+// glissando at all"). The long model therefore takes its absolute end time from
+// the caller and never reconstructs it from +296 (C11: "do not derive +296 from
+// chart+4"); the velocity +296 writer is still unlocated and stays fail-closed.
+// The key domain is settled in the same pass: an input slot key is 1-based
+// 1..28 (A1: `dw0-1` clamped to 0..27 indexes the per-key arrays) and
+// chart+88/chart+92 are 1-based too, so the release gate and the connector scan
+// compare raw keys without conversion; see kNativeInputKeyMin/Max.
 //
 // Proven semantics (see the stream report for the exact pseudocode lines):
 //   * rank codes are the normal ones: 0 TooEarly, 1 Missed, 2 Good, 3 Great,
@@ -78,18 +94,24 @@
 //
 // Deliberately NOT modelled (fail closed, see the refused branches below):
 //   * the held-input table itself (0x1813DEA20, 30 buckets x 792 bytes). Its
-//     shape is proven (28 entries of {key at +0, state at +4, group at +20} and
-//     a count at +784), but its writer is the undecoded input producer. The
-//     released rules are implemented as pure functions over a caller-supplied
-//     entry span, and both gates stay refused until the caller declares the
-//     table available (release_gate_available / connector_scan_available).
+//     shape is proven (28 entries of {key at +0, state at +4, value at +8,
+//     group at +20, repeat at +24} and a count at +784), and so is its per-frame
+//     rebuild (rotate 0x307090, compact 0x307170), which bucket_input.hpp now
+//     decodes and compacts. The code that fills the staging pair 0x1813DEA10 is
+//     still only reachable through a register base, so the rules below stay pure
+//     functions over a caller-supplied entry span and both gates stay refused
+//     until the caller declares the table available (release_gate_available /
+//     connector_scan_available).
 //   * the shared 0x1813E46F8 repeat-id list beyond the keys the gate reports,
 //     the still-unlocated input-event producer (event+0 key, +4 kind, +20
 //     group; levels never reach a judge), note+96 auto slot objects, native
 //     score points, effect/particle spawning, sound-table entries and vtable
 //     dispatch. Outcome values describe what the native seam must forward. The
 //     two other non-normal note classes (velocity 0x1AA340 and beats 0x1A58C0,
-//     vtables 0x679D68/0x679960) are out of scope for this stream.
+//     vtables 0x679D68/0x679960) are out of scope for this stream; only their
+//     proven velocity render layout is recorded in velocity_layout below. The
+//     input-state publisher is identified (sub_180305B30), and bucket_input.hpp
+//     decodes its staging frame and builds the bucket view these two gates read.
 //   * the input event's +0x20 "value" (stored into note+84 and tested as
 //     `id > 1 && rank > 1` by 0x303E80) is the one non-constant numeric input to
 //     scoring. It belongs to the judgment stream's event producer and is not
@@ -114,6 +136,23 @@ namespace nosfix {
 inline constexpr std::uint8_t kNativeTypeLaneCount = 28;
 inline constexpr std::size_t kNoteTypeMaxOutcomes = 4;
 inline constexpr double kNoteTypeMaximumTimeUs = 1.0e12;
+
+// Held-input keys are 1-based: A1 shows `key - 1` clamped to 0..27 indexing the
+// native per-key arrays, and chart+88/chart+92 are 1-based as well. The release
+// gate and the connector scan therefore compare raw keys and never convert; the
+// pipeline's 0-based lane is NativeLaneFromKey(key). This closes round 1's
+// "±1 question" (answers/notes-input-001.md s4 reported 0..27 for the entry
+// keys, which the slot layout refutes).
+inline constexpr std::int32_t kNativeInputKeyMin = 1;
+inline constexpr std::int32_t kNativeInputKeyMax =
+    static_cast<std::int32_t>(kNativeTypeLaneCount);
+
+[[nodiscard]] constexpr bool IsNativeInputKey(std::int32_t key) noexcept {
+    return key >= kNativeInputKeyMin && key <= kNativeInputKeyMax;
+}
+[[nodiscard]] constexpr std::uint8_t NativeLaneFromKey(std::int32_t key) noexcept {
+    return static_cast<std::uint8_t>(key - kNativeInputKeyMin);
+}
 
 // ===========================================================================
 // Verified layout and constants (evidence, not ABI claims)
@@ -240,6 +279,48 @@ constexpr bool IsChartNoteType(std::uint8_t value) noexcept {
 } // namespace nonnormal_layout
 
 // ===========================================================================
+// Velocity-zone layout (facts only: no velocity judgement is modelled here)
+// ===========================================================================
+// Proven from 0x1AA340 (input/update) and 0x1AA4D0 (render); see C11 and
+// PROBE_ANALYSIS.md s8/s9. The three fields are shared base storage that the
+// velocity class reads as:
+//   +0x128 (296) a small value (observed 0, 1 and one 257); the *writer* is
+//                still unlocated in the whole image, so nothing here derives it
+//                (C11: do not derive +296 from chart+4);
+//   +0x12C (300) not a two-state flag (observed -1, 30, 69, 72); the renderer
+//                still only branches on == 0 and == 1;
+//   +0x13C (316) a frame span used as 180 * span / rate^2 by the renderer
+//                (`imul eax, note+316, 180` at 0x1AA64F).
+namespace velocity_layout {
+
+inline constexpr std::uint32_t kVelocityInputRva = 0x1AA340;
+inline constexpr std::uint32_t kVelocityRenderRva = 0x1AA4D0;
+inline constexpr std::uint32_t kVelocitySpanStoreRva = 0x1AA453;   // +316 = +296 - +316
+inline constexpr std::uint32_t kVelocityActiveStoreRva = 0x1AA45C; // byte +308 = 1
+inline constexpr std::uint32_t kVelocityStateStoreRva = 0x1AA479;  // +300 = 1
+inline constexpr std::uint32_t kVelocityDistanceRva = 0x1AA64F;    // imul eax, +316, 180
+
+inline constexpr std::size_t kFlagOffset = 296;   // +0x128
+inline constexpr std::size_t kStateOffset = 300;  // +0x12C
+inline constexpr std::size_t kActiveOffset = 308; // +0x134 (byte flag)
+inline constexpr std::size_t kSpanOffset = 316;   // +0x13C
+
+inline constexpr std::int32_t kStateArmed = 1;  // stored by 0x1AA479
+inline constexpr std::int32_t kStateBranchZero = 0;
+inline constexpr std::int32_t kDistanceNumerator = 180;
+inline constexpr bool kFlagWriterLocated = false;   // +296 writer missing
+inline constexpr bool kStateIsTwoStateFlag = false; // refuted by -1/30/69/72
+
+// 0x1AA64F: 180 * span_frames / (rate * rate), the renderer's distance for a
+// velocity zone in the same units as a note frame. Returns false and leaves
+// `out_units` untouched when the rate is not a finite positive number or the
+// result is not finite; no other refusal applies to proven arithmetic.
+[[nodiscard]] bool VelocitySpanDistanceUnits(std::int32_t span_frames, double rate,
+                                             double& out_units) noexcept;
+
+} // namespace velocity_layout
+
+// ===========================================================================
 // Captured input mapped to the native event shape
 // ===========================================================================
 // The native judge receives (event, mode) where event+0 is the pressed key,
@@ -271,14 +352,19 @@ struct NativeNoteEvent final {
 // ===========================================================================
 // Held-input state and the two rules that read it
 // ===========================================================================
-// Shape of one 28-byte entry in the per-key input table at 0x1813DEA20 (Q3):
-// 30 buckets of { 28 entries, count at +784 }, entry +0 key, +4 state (1 or 2 =
-// held), +20 group/segment tag. The writer is the undecoded input producer, so
-// every function below takes the entries from the caller and is pure.
+// Shape of one 28-byte entry in the per-key input table at 0x1813DEA20 (A1):
+// 30 buckets of { 28 entries, count at +784 }, entry +0 key (1-based 1..28),
+// +4 state (0 free, 1 press, 2 held, 3 release), +8 byte value, +20 group tag,
+// +24 repeat counter. bucket_input.hpp decodes the staging buffer and fills this
+// view from a bucket; its publisher is identified (sub_180305B30), the code that
+// fills it through the register base is not, so every function below still takes
+// the entries from the caller and is pure.
 struct ActiveInputEntry final {
-    std::int32_t key = 0;    // entry+0
-    std::uint8_t state = 0;  // entry+4; 1 or 2 means held
-    std::uint32_t group = 0; // entry+20
+    std::int32_t key = 0;     // entry+0, 1-based 1..28
+    std::uint8_t state = 0;   // entry+4; 1 or 2 means held
+    std::uint32_t group = 0;  // entry+20; 0 until compaction phase 2 assigns 1..3
+    std::uint8_t value = 0;   // entry+8, raw producer byte
+    std::uint32_t repeat = 0; // entry+24
 };
 
 [[nodiscard]] constexpr bool IsHeldInputState(std::uint8_t state) noexcept {
@@ -299,9 +385,9 @@ struct ReleaseGateDecision final {
 // [left - tolerance, right + tolerance]. Every match is appended to the repeat
 // list and, when it is strictly inside [left, right], sets note+84 = 1. The
 // comparison is inclusive on both ends and uses the native key domain for both
-// sides (answers/notes-input-001.md reports entry keys as 0..27 and chart+88/+92
-// as 1-based; the caller must pass values in one domain - the ±1 question is
-// unresolved, so this function never converts).
+// sides. Entry keys are 1-based 1..28 (A1) and chart+88/chart+92 are 1-based;
+// so the caller passes raw values and this function never converts; the round-1
+// "±1 question" is closed by the slot layout, not by a live sample.
 [[nodiscard]] ReleaseGateDecision EvaluateReleaseGate(
     std::int32_t left_key, std::int32_t right_key, std::int32_t tolerance_keys,
     std::span<const ActiveInputEntry> held_entries) noexcept;
@@ -453,7 +539,9 @@ struct NoteTypeResult final {
 
 // 0x2F4E20: the note is eligible while its phase field (+300) is 1, otherwise
 // the inclusive union of the three windows decides. `delta_us` is
-// note - captured - judgment offset.
+// note - captured - judgment offset. This is the long note's own reader of
+// +300; the velocity class reads the same shared slot differently (see
+// velocity_layout), so neither reading may be applied to the other type.
 [[nodiscard]] bool LongEligible(bool held, double delta_us,
                                 const NormalWindows& windows) noexcept;
 
