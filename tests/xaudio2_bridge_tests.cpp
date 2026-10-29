@@ -366,6 +366,8 @@ void TestMasteringVoiceShape() {
           kXa2InvalidCall);
 }
 
+// Prototype-only: libxact has no CreateSourceVoice (audio-002), so this gate is
+// this bridge's own boundary, not a libxact-derived constraint.
 void TestSourceVoiceFormatGate() {
     Fixture fixture;
     CHECK(fixture.engine != nullptr);
@@ -806,6 +808,144 @@ void TestChannelVolumesAndMisc() {
     SlotOf<DestroyVoiceFn>(fixture.master, xa27::kVoiceDestroyVoice)(fixture.master);
 }
 
+// ---------------------------------------------------------------------------
+// A. The surface libxact actually calls (byte-proven in audio-001/audio-002).
+// Every call below mirrors a call site in libxact.dll; if one of these changes
+// shape, the bridge is no longer a drop-in for this client.
+// ---------------------------------------------------------------------------
+void TestLibxactProvenSurface() {
+    Xa2BridgeConfig config;
+    config.device_name = "proven";
+    Fixture fixture(config);
+    CHECK(fixture.engine != nullptr);
+    const Xa2BridgeStats before = Xa2BridgeGetStats(fixture.engine);
+
+    // engine +0x20: GetDeviceDetails(0, details); libxact reads nChannels at
+    // byte 1030 of the record.
+    Xa2DeviceDetails details;
+    CHECK(SlotOf<GetDeviceDetailsFn>(fixture.engine, xa27::kEngineGetDeviceDetails)(
+              fixture.engine, 0, &details) == kXa2Ok);
+    std::uint16_t channels_at_1030 = 0;
+    std::memcpy(&channels_at_1030,
+                reinterpret_cast<const std::uint8_t*>(&details) + 1030, 2);
+    CHECK(channels_at_1030 == 2);
+
+    // XAPOFX effect object recorded by reference; libxact passes the reverb
+    // descriptor into the mastering voice's chain.
+    std::int32_t reverb_object = 0;
+    Xa2EffectDescriptor descriptor;
+    descriptor.effect = &reverb_object;
+    descriptor.initial_state = 0;
+    descriptor.output_channels = 2;
+    Xa2EffectChain chain;
+    chain.effect_count = 1;
+    chain.descriptors = &descriptor;
+
+    // engine +0x50: CreateMasteringVoice(pp, 2, 44100, 0, 0, chain)
+    void* master = nullptr;
+    CHECK(SlotOf<CreateMasteringVoiceFn>(fixture.engine,
+                                         xa27::kEngineCreateMasteringVoice)(
+              fixture.engine, &master, 2, 44100, 0, 0, &chain) == kXa2Ok);
+    CHECK(master != nullptr);
+
+    // engine +0x48: CreateSubmixVoice(pp, 2, 44100, <5>, <0>, 0, 0). audio-001
+    // leaves the Flags/ProcessingStage order unproven (one stack word is 5, the
+    // other 0), so both orders must be accepted.
+    void* submix_a = nullptr;
+    void* submix_b = nullptr;
+    CHECK(SlotOf<CreateSubmixVoiceFn>(fixture.engine, xa27::kEngineCreateSubmixVoice)(
+              fixture.engine, &submix_a, 2, 44100, 5, 0, nullptr, nullptr) == kXa2Ok);
+    CHECK(SlotOf<CreateSubmixVoiceFn>(fixture.engine, xa27::kEngineCreateSubmixVoice)(
+              fixture.engine, &submix_b, 2, 44100, 0, 5, nullptr, nullptr) == kXa2Ok);
+
+    // voice +0x10: SetEffectChain with a one-descriptor chain.
+    CHECK(SlotOf<SetEffectChainFn>(submix_a, xa27::kVoiceSetEffectChain)(
+              submix_a, &chain) == kXa2Ok);
+    // voice +0x30: SetEffectParameters(0, block, 52, 0) - the 52-byte XAPOFX
+    // parameter block.
+    std::uint8_t reverb_parameters[52] = {};
+    CHECK(SlotOf<SetEffectParametersFn>(master, xa27::kVoiceSetEffectParameters)(
+              master, 0, reverb_parameters, 52, 0) == kXa2Ok);
+
+    // voice +0x40: SetFilterParameters({Type, Frequency, OneOverQ}, 0) on the
+    // mastering voice and both submixes (the three 12-byte records).
+    void* const filtered[3] = {master, submix_a, submix_b};
+    for (std::uint32_t i = 0; i < 3; ++i) {
+        Xa2FilterParameters filter;
+        filter.type = i; // libxact derives Type 0..3 from comparisons
+        filter.frequency = 0.5F;
+        filter.one_over_q = 1.0F;
+        CHECK(SlotOf<SetFilterParametersFn>(filtered[i],
+                                            xa27::kVoiceSetFilterParameters)(
+                  filtered[i], &filter, 0) == kXa2Ok);
+    }
+    // Filters are recorded, never applied: this mixer has no filter DSP, so a
+    // filtered cue is audible unfiltered. That is a known gap on a proven path.
+    CHECK(Xa2BridgeGetStats(fixture.engine).filters_recorded == 3);
+    CHECK(Xa2BridgeGetStats(fixture.engine).filters_applied == 0);
+
+    // voice +0x80: SetOutputMatrix(submix -> master, 2, 2, identity, 0).
+    const float identity[4] = {1.0F, 0.0F, 0.0F, 1.0F};
+    CHECK(SlotOf<SetOutputMatrixFn>(submix_a, xa27::kVoiceSetOutputMatrix)(
+              submix_a, master, 2, 2, identity, 0) == kXa2Ok);
+    CHECK(Xa2BridgeGetStats(fixture.engine).matrices_applied >= 1);
+
+    // voice +0x90: DestroyVoice is index 18, not 12 or 36. A wrong value would
+    // call SetOutputMatrix or a rejection stub instead.
+    CHECK(SlotOf<DestroyVoiceFn>(submix_b, xa27::kVoiceDestroyVoice) != nullptr);
+    SlotOf<DestroyVoiceFn>(submix_b, xa27::kVoiceDestroyVoice)(submix_b);
+    CHECK(Xa2VoiceFromInterface(submix_b) == nullptr);
+    CHECK(Xa2BridgeGetStats(fixture.engine).live_submix_voices == 1);
+    SlotOf<DestroyVoiceFn>(submix_a, xa27::kVoiceDestroyVoice)(submix_a);
+    CHECK(Xa2BridgeGetStats(fixture.engine).live_submix_voices == 0);
+
+    const Xa2BridgeStats after = Xa2BridgeGetStats(fixture.engine);
+    CHECK(after.unsupported_slots == before.unsupported_slots);
+    CHECK(after.effects_recorded == before.effects_recorded + 2);
+}
+
+// ---------------------------------------------------------------------------
+// C. Speculative surface: no libxact call site. This is prototype-only and is
+// asserted to be marked as such, so nobody mistakes it for libxact support.
+// ---------------------------------------------------------------------------
+void TestSpeculativeSourceSurfaceIsMarked() {
+    CHECK(!kLibxactUsesSourceVoice);
+
+    Fixture fixture;
+    CHECK(fixture.CreateMaster());
+    const Xa2BridgeStats before = Xa2BridgeGetStats(fixture.engine);
+    void* voice = fixture.CreateSource(FloatFormat(44100, 1));
+    CHECK(voice != nullptr);
+    const Xa2BridgeStats created = Xa2BridgeGetStats(fixture.engine);
+
+    // Creating a source voice is not something libxact does; the surface exists
+    // for this stream's host. It works, but it proves nothing about the client.
+    CHECK(created.live_source_voices == 1);
+    CHECK(created.unsupported_slots == before.unsupported_slots);
+
+    // SDK-declaration order from the proven 19-entry base: +0xA8 submit,
+    // +0x98 start, +0xC8 state. Only a live vtable dump can confirm the order.
+    const float samples[2] = {0.5F, 0.5F};
+    Xa2Buffer buffer;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.audio_data = reinterpret_cast<const std::uint8_t*>(samples);
+    buffer.loop_count = kXa2LoopInfinite;
+    CHECK(SlotOf<SubmitSourceBufferFn>(voice, xa27::kVoiceSubmitSourceBuffer)(
+              voice, &buffer, nullptr) == kXa2Ok);
+    CHECK(SlotOf<StartFn>(voice, xa27::kVoiceStart)(voice, 0, 0) == kXa2Ok);
+    CHECK(fixture.Render(2) == kXa2Ok);
+    CHECK(std::fabs(fixture.left[0] - 0.5F) < 1e-6F);
+    Xa2VoiceState state;
+    SlotOf<GetStateFn>(voice, xa27::kVoiceGetState)(voice, &state, 0);
+    CHECK(state.samples_played == 2);
+
+    // Every slot past the source table stays fail-closed and counted.
+    CHECK(SlotOf<GenericFn>(voice, xa27::kVoiceFirstRejectionSlot)(voice) ==
+          kXa2InvalidCall);
+    CHECK(Xa2BridgeGetStats(fixture.engine).unsupported_slots ==
+          before.unsupported_slots + 1);
+}
+
 void TestEngineCallbacks() {
     Fixture fixture;
     CHECK(fixture.CreateMaster());
@@ -892,6 +1032,8 @@ int main() {
     TestSlotTable();
     TestDeviceDetailsAndInitialize();
     TestMasteringVoiceShape();
+    TestLibxactProvenSurface();
+    TestSpeculativeSourceSurfaceIsMarked();
     TestSourceVoiceFormatGate();
     TestRenderAndEndOfStream();
     TestStartBeforeSubmit();

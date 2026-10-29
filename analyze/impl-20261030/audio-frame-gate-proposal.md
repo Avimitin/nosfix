@@ -98,8 +98,14 @@ array untouched so vanilla behaviour remains a valid rollback.
 - `case 2` (`0x18000A869`) tears the engine down (`sub_1800027D0`), finishes or deletes the
   cue, `CoUninitialize`, and returns: it is the shutdown case of the same loop, not a
   separate reset function (confirms the parent's note).
-- audio-001 adds: `[rax+0x40]` (= engine `CreateSourceVoice`) and `[r8+0xB0]`/`[rax+0xA8]`
-  appear inside the loop, so this worker is also where source voices are created and polled.
+- **Corrected by audio-002:** the indirect calls in this loop (`[rax+0x40]`, `[rax+0xA8]`,
+  `[r8+0xB0]`, `[rax+0x88]`) are on `qword_188F75800`, libxact's own sound-control
+  singleton, not on an IXAudio2 voice. `[+0x88]` receives the string `"COIN"`, `[+0xA8]` a
+  0x104-byte name buffer, `[+0xB0]` a 16-bit id plus a float. There is no
+  `CreateSourceVoice` and no `SubmitSourceBuffer` anywhere in libxact; audio submission is
+  done inside avs2-core (`avs2_core_79/82/86`, the `"%s.xsb"` cue path). The worker is
+  therefore a *command and cue-state* loop, not a voice poll - which makes removing its
+  `Sleep(2)` a scheduling change on libxact's own object, not on XAudio2.
 
 ### Why it costs latency
 
@@ -131,7 +137,9 @@ measurement shows the worker itself is the bottleneck after the frame gate is go
 
 1. audio-001 B1: the command word at `this+12`, its writers, and whether
    `0x180004870` is worker-thread-only.
-2. audio-002: which slot the worker submits audio to.
+2. Where avs2-core takes over: the handoff from `CLibXact::execute` into
+   `avs2_core_79/82/86`, and whether that path is thread-safe from a producer other than
+   the worker.
 3. A measurement of the worker's queue depth and service time under load.
 
 ### Rollback / fail-closed rules

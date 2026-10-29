@@ -6,7 +6,7 @@ Parent review required before any wiring, merge or deployment.
 ## 0. Constraint compliance
 
 - Only this worktree was modified. No IDA, IDAPython, idalib or decompiler was used; the
-  analysis worker's exports and its `answers/audio-001.md` + `evidence/audio-xaudio2.md`
+  analysis worker's exports and its `answers/audio-001.md`, `answers/audio-002.md` and `evidence/audio-xaudio2.md` (including the audio-002 erratum)
   are the binary evidence.
 - No hook is installed, no detour exists in the tree, no config key was added, and nothing
   can enable the bridge at runtime: `nosfix.ini`, `config.*`, `bootstrap.*`,
@@ -27,13 +27,17 @@ Parent review required before any wiring, merge or deployment.
 
 ### 1.1 `include/nosfix/xaudio2_bridge.hpp`, `src/xaudio2_bridge.cpp` (new)
 
-An XAudio2-compatible engine surface for libxact, built as explicit POD vtables so the
-byte offsets are testable, not compiler-dependent.
+An XAudio2 2.7-shaped engine surface for the libxact client, built as explicit POD vtables
+so the byte offsets are testable, not compiler-dependent. It is split into three tiers
+(section 2.3): the surface libxact is *proven* to call, the proven-but-unused layout, and a
+speculative source-voice surface that is **prototype-only and not claimed to be
+libxact-compatible**.
 
 - Engine slots 0..120: QueryInterface (IID_IUnknown, IID_IXAudio2 2.7), AddRef, Release,
   GetDeviceCount (=1), GetDeviceDetails (2.7 layout, see 2.2), Initialize (idempotent),
-  Register/UnregisterForCallbacks, CreateSourceVoice, CreateSubmixVoice,
-  CreateMasteringVoice, StartEngine, StopEngine, CommitChanges, GetPerformanceData
+  Register/UnregisterForCallbacks, CreateSourceVoice (prototype-only slot, no libxact
+  call site), CreateSubmixVoice, CreateMasteringVoice, StartEngine, StopEngine,
+  CommitChanges, GetPerformanceData
   (counted only: the 2.7 struct size is not in this tree, so nothing is written),
   SetDebugConfiguration.
 - Voice slots 0..144: GetVoiceDetails, SetOutputVoices, SetEffectChain,
@@ -42,6 +46,11 @@ byte offsets are testable, not compiler-dependent.
   Set/GetOutputMatrix, DestroyVoice.
 - Source slots 152..224: Start, Stop, SubmitSourceBuffer, FlushSourceBuffers,
   Discontinuity, ExitLoop, GetState, Set/GetFrequencyRatio, SetSourceSampleRate.
+  **Prototype-only**: libxact.dll contains no CreateSourceVoice, no SubmitSourceBuffer and
+  no WAVEFORMATEX (audio-002), so `kLibxactUsesSourceVoice` is false and nothing here is
+  claimed for libxact. The order is the SDK declaration order inferred from the proven
+  19-entry base (Start +0x98 ... SetSourceSampleRate +0xE0); only a live vtable dump can
+  confirm it. The mixer needs a source voice, so the surface stays - marked, not removed.
 - Mastering voice: GetChannelMask at 152.
 - Every table ends with an 8-slot rejection tail (engine 128..184, voice 232..288) that
   returns `XAUDIO2_E_INVALID_CALL` and counts the call, so an out-of-layout client call is
@@ -53,13 +62,21 @@ byte offsets are testable, not compiler-dependent.
   objects are never invoked. SetEffectParameters records that a block was set but does not
   copy it (the block size is not known here; copying 32 bytes would over-read the client
   stack). GetEffectParameters returns zeros.
-- Formats accepted: PCM 16/24/32 and IEEE float32, plain or `WAVE_FORMAT_EXTENSIBLE`;
-  block_align must match; rate 8 kHz..384 kHz; 1..8 channels. ADPCM (tag 2), XMA, WMA,
-  8-bit PCM and unknown sub-formats are refused and counted.
+- Formats accepted (prototype boundary, **not** libxact-derived): PCM 16/24/32 and IEEE
+  float32, plain or `WAVE_FORMAT_EXTENSIBLE`; block_align must match; rate 8 kHz..384 kHz;
+  1..8 channels. ADPCM (tag 2), XMA, WMA, 8-bit PCM and unknown sub-formats are refused and
+  counted. audio-002 withdrew the earlier claim that `0x180003143` was a CreateSourceVoice
+  call site (it is SetFilterParameters), so libxact gives no evidence for or against these
+  formats; the format is chosen in the cue/xsb path inside avs2-core.
 - Mastering voice: only one, only device 0, only flags 0, and only the configured channel
   count and rate (no remix, no resample). CreateSourceVoice with an implausible
-  `MaxFrequencyRatio` uses the documented default 2.0, because audio-001 proves libxact's
-  only call site does not set that argument.
+  `MaxFrequencyRatio` uses the documented default 2.0, because no libxact call site pins
+  that argument either.
+- Filters: `SetFilterParameters` is a **proven libxact path** (audio-002: three parallel
+  12-byte `{Type, Frequency, OneOverQ}` records at CLibXact +0x58/+0x64/+0x70 handed to the
+  voices at +0x15970/+0x15978/+0x15980 with OperationSet 0). They are recorded and counted
+  but **no filter DSP runs**, so a filtered cue is audible unfiltered here. This is a known
+  fidelity gap on a proven path, not a speculative one.
 
 ### 1.2 `include/nosfix/audio_mixer.hpp`, `src/audio_mixer.cpp` (new)
 
@@ -134,30 +151,36 @@ keysound test target. No other build change.
 
 ### 2.1 Request / answer ids
 
-- `coord/requests/audio-001.md` -> `coord/answers/audio-001.md` (status partial, confidence
-  "verified from bytes" for the engine and base-voice slots, "unproven" for the source
-  slots and the source format) plus `coord/evidence/audio-xaudio2.md`.
-- `coord/requests/audio-002.md` raised (source-voice slot order + `WAVEFORMATEX` tag); no
-  answer at commit time.
+- `coord/requests/audio-001.md` -> `coord/answers/audio-001.md` (partial: engine and
+  base-voice offsets verified from bytes; source slots and the source format unproven) plus
+  `coord/evidence/audio-xaudio2.md`.
+- `coord/requests/audio-002.md` -> `coord/answers/audio-002.md` (answered, verified from
+  bytes). It **corrects audio-001**: `0x180003143` is `SetFilterParameters` on a voice
+  (base index 8, `+0x40`), not `CreateSourceVoice`; `qword_188F75800` is libxact's own
+  sound-control singleton, not an IXAudio2 object; libxact.dll has no `CreateSourceVoice`,
+  no `SubmitSourceBuffer` and no `WAVEFORMATEX`. audio-001's source-slot list is withdrawn.
+  The errata are recorded in `coord/evidence/audio-xaudio2.md` (section 5.2 and ERRATUM).
 
 ### 2.2 Exact vtable evidence
 
-Proven by audio-001 from bytes (call-site RVAs and register setup):
+Byte-proven (call-site RVAs and register setup), after applying the audio-002 erratum:
 
 | Object | Offset | Slot | Call site |
 |---|---|---|---|
 | engine | +0x20 | GetDeviceDetails(0, details) | `0x1800013DB` |
-| engine | +0x40 | CreateSourceVoice(ppVoice, format, flags=0) | `0x180003143` |
 | engine | +0x48 | CreateSubmixVoice(ppVoice, 2, 44100, ..., 5, 0) | `0x180001644`, `0x18000168E` |
 | engine | +0x50 | CreateMasteringVoice(ppVoice, 2 or 6, 44100, 0, 0) | `0x180001593` |
 | voice | +0x10 | SetEffectChain(chain{count, {pEffect, initialState}}) | `0x1800015CD` |
 | voice | +0x30 | SetEffectParameters(0, block, 52, 0) | `0x1800016xx` |
+| voice | +0x40 | SetFilterParameters({Type,Frequency,OneOverQ}, 0) | three sites in `sub_180002F40`, `0x180003143` |
 | voice | +0x80 | SetOutputMatrix(dest, 2, 2, matrix, 0) | `0x1800012E0` |
-| voice | +0x90 | DestroyVoice | derived from the 19-entry base |
+| voice | +0x90 | DestroyVoice (index 18) | derived from the 19-entry base |
 
-The bridge therefore uses DestroyVoice = 144 and the 19-entry base table, matching the
-answer. Engine StartEngine/StopEngine/CommitChanges (88/96/104) have no call site in
-libxact, so their slot *numbers* remain inferred from the 2.7 engine order (consistent with
+Four independent base indices (2, 6, 8, 16) now anchor the 19-entry, no-IUnknown voice
+table, so `DestroyVoice = +0x90` is fixed: a wrong value would call SetOutputMatrix with
+three arguments. The bridge uses 144 and that table. Engine StartEngine/StopEngine/
+CommitChanges (88/96/104) and engine +0x40 CreateSourceVoice have **no call site** in
+libxact, so their slot numbers remain inferred from the 2.7 engine order (consistent with
 Spice's declaration in `reference/spice2x/src/spice2x/hooks/audio/xact.cpp`).
 
 `XAUDIO2_DEVICE_DETAILS`: libxact allocates the details local and reads the channel count as
@@ -174,13 +197,28 @@ sites (`0x180001438/0x180001474/0x180001532`) initialise only `rcx` (REFCLSID) a
 `CreateFX`; the descriptors handed to `SetEffectChain` are recorded. A future replacement
 engine must call `CreateFX(clsid, &ppEffect, nullptr, 0)` explicitly.
 
-### 2.3 Local header facts
+### 2.3 Surface tiers: proven libxact surface vs speculative XAudio2 surface
+
+The bridge and its tests are organised around this split (header comment "Surface tiers",
+`kLibxactUsesSourceVoice`, `TestLibxactProvenSurface`, `TestSpeculativeSourceSurfaceIsMarked`).
+
+| Tier | Slots | Evidence | Claim |
+|---|---|---|---|
+| A. Proven and exercised by libxact | engine +0x20, +0x48, +0x50; voice +0x10, +0x30, +0x40, +0x80, +0x90 | byte-verified call sites (audio-001/002) | the bridge must keep these exact shapes; a break is a libxact break |
+| B. Proven layout, no libxact call site | the other base voice slots 0..144, engine 0..120 | same 19-entry table, argued by declaration order | implemented, tested, not claimed for libxact |
+| C. Speculative, no libxact call site | source voice +0x98..+0xE0; engine +0x40 CreateSourceVoice | none - libxact has no CreateSourceVoice/SubmitSourceBuffer/WAVEFORMATEX (audio-002) | prototype-only surface for this stream's host; `kLibxactUsesSourceVoice == false`; every call stays fail-closed through the rejection tail |
+
+Tier C exists because the mixer and the ASIO host need a source voice and its tests are the
+only way to prove the mixer. It is deliberately inert for libxact: nothing routes libxact to
+it, and the header says so.
+
+### 2.4 Local header facts
 
 `.tools/sdk/.../um/xaudio2.h` in this tree is 2.9 (19 base voice methods, no
 GetDeviceCount/GetDeviceDetails/Initialize on the engine), which is why the engine and
 voice tables had to be split.
 
-### 2.4 Frame gate
+### 2.5 Frame gate
 
 `analyze/evidence/nos202502_0x180304f30.c` and `verified_xact_0x1800092e0.c`, summarised
 in `analyze/impl-20261030/audio-frame-gate-proposal.md`.
@@ -196,24 +234,37 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build.ps1 -RunTe
 
 Result with the environment wrapper: `100% tests passed, 0 tests failed out of 41`
 (39 pre-existing + `xaudio2_bridge` + `asio_backend`), Release `/O2 /DNDEBUG`, `/W4
-/permissive-`, no compiler warnings. The keysound test target now also compiles the mixer.
+/permissive-`, no compiler warnings. The keysound test target also compiles the mixer.
+
+This branch is isolated and still carries the 39-test baseline plus this stream's two
+targets. The parent's merged tree (`main`, `2271ba8`) carries 46 tests (the other streams'
+five). To check the correction against that tree without touching this branch's history,
+`main` was exported with `git archive` into a scratch directory inside this worktree, this
+commit's patch was applied with `git apply`, and the result was configured and built the
+same way: **`100% tests passed, 0 tests failed out of 46`** (5.6 s). The only compiler
+warnings in that build are pre-existing C4324 "structure was padded due to alignment
+specifier" notices from other streams' headers (`song_clock_publication.hpp`,
+`raw_input_capture.hpp`); this stream's files compile warning-free. The scratch copy was
+deleted afterwards.
 
 Allocation freedom is measured (not asserted by inspection) with the global `operator new`
 probe in `tests/test_support.hpp`: 0 allocations across 8 render blocks.
 
 ## 4. Remaining blockers
 
-1. **audio-002 (open):** the source-voice slot order. audio-001 proves the 19-entry base
-   and `DestroyVoice +0x90`, but its own [hyp] continuation (Start +0x90 ... GetState
-   +0xA8 ...) differs from the Windows SDK order the bridge currently uses
-   (SubmitSourceBuffer +0xA8, GetState +0xC8). If audio-002 shows the 2.7 order, six
-   entries in `kSourceVtable` must move; no other change is needed. Until then every
-   source-voice call either works or returns a counted failure.
-2. **Source audio format unproven (audio-001 A3).** libxact's `CreateSourceVoice` format
-   struct is not a plain `WAVEFORMATEX` per audio-001 (a float is written at `+0x74`), so
-   the bridge refuses anything except PCM 16/24/32 and float32. If libxact submits ADPCM,
-   keysounds will not play through the bridge; the format must be established before live
-   wiring.
+1. **Source-voice order is settled as far as bytes allow, and it does not matter for
+   libxact.** audio-002 proves base indices 2/6/8/16, withdraws audio-001's alternative
+   list and confirms the SDK order at `+0x98`..`+0xE0` as a [hyp] from the proven 19-entry
+   base. Since libxact has no source-voice call site, the request is closed for libxact and
+   only a live `XAUDIO2SourceVoice` vtable dump (or the day libxact starts creating one)
+   could raise it again. The bridge keeps the SDK order, fails closed through the rejection
+   tail, and marks the surface with `kLibxactUsesSourceVoice == false`.
+2. **Audio format is decided outside libxact.** audio-002 proves there is no
+   `CreateSourceVoice` and no `WAVEFORMATEX` in the module; submission happens inside
+   avs2-core on the cue/xsb path (`avs2_core_79/82/86`, `"%s.xsb"`). The PCM/float gate is
+   therefore this bridge's prototype boundary, not a libxact constraint. Before live wiring
+   the cue path's actual sample format (PCM vs ADPCM inside the xsb) must be established, or
+   keysounds will be refused and counted - never mis-played.
 3. **Worker protocol (audio-001 B1) and frame-gate consumer (B2)** are still unproven, so
    the frame-gate proposal in section 5 stays disabled.
 4. **No latency measurement.** No real device was opened by this stream; every number here

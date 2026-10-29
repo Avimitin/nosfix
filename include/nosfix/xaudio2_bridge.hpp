@@ -5,37 +5,50 @@
 #include <cstddef>
 #include <cstdint>
 
-// XAudio2 2.7-compatible engine surface for libxact.
+// XAudio2 2.7-shaped engine surface, built for the libxact client.
 //
 // Status
 // ------
 // This is a *surface*, not a reimplementation of the XAudio2 DSP graph. It
-// implements the subset libxact touches and fails closed (returns a failure
-// HRESULT and counts the call) on everything else. It never installs a hook,
-// never opens a device and never creates a thread; the caller decides where it
-// is created and who renders it.
+// implements the slots libxact touches, keeps the rest of the 2.7 layout
+// callable, and fails closed (returns a failure HRESULT and counts the call) on
+// everything outside it. It never installs a hook, never opens a device and
+// never creates a thread; the caller decides where it is created and who
+// renders it.
 //
-// Evidence for the layout (no IDA in this session; see
-// analyze/impl-20261030/audio-REPORT.md and coord/requests/audio-001.md):
-//   * analyze/evidence/verified_xact_0x1800012e0.c:150   engine +32 with
-//     (0, <details buffer>)                  -> GetDeviceDetails
-//   * same file, the many `(**v8 + 72)` calls with 8 arguments
-//                                            -> CreateSubmixVoice
-//   * same file, `(**v8 + 80)` with 7 arguments
-//                                            -> CreateMasteringVoice
-//   * same file:228, `(**voice + 16)` with an XAUDIO2_EFFECT_CHAIN-shaped
-//     argument                               -> SetEffectChain, therefore the
-//     voice vtable has no QueryInterface/AddRef/Release prefix.
-//   * same file:612.., `(**voice + 128)` with (destVoice, 2, 2, matrix, 0)
-//                                            -> SetOutputMatrix with 16 base
-//     methods before it, i.e. the 2.8/2.9 base-voice order. audio-001 asks the
-//     analysis worker to confirm this from bytes; until then the slot table is
-//     the single place to change, every unknown slot returns a failure HRESULT,
-//     and the vtables carry an explicit rejection tail so an out-of-layout call
-//     is counted instead of crashing.
-//   * CreateFX (same file:167/179/197) is called with two named arguments while
-//     Spice declares four. The bridge never calls CreateFX: it records the
-//     effect descriptors it is given and applies no DSP.
+// Surface tiers (coord/answers/audio-001.md, audio-002.md; 2026-10-30)
+// -------------------------------------------------------------------
+// libxact.dll is a 2.7-era client whose *engine* vtable is 2.7-shaped and whose
+// *voice* vtable has no IUnknown prefix (19 base entries, DestroyVoice = idx 18).
+//
+// A. PROVEN AND EXERCISED by libxact (byte-verified call sites + argument
+//    shapes). This is the surface a bridge must get right:
+//      engine +0x20 GetDeviceDetails(0, details)
+//      engine +0x48 CreateSubmixVoice(pp, 2, 44100, ..., 5, 0)
+//      engine +0x50 CreateMasteringVoice(pp, 2|6, 44100, 0, 0)
+//      voice  +0x10 SetEffectChain(chain{pEffect, initialState})
+//      voice  +0x30 SetEffectParameters(0, block, 52, 0)
+//      voice  +0x40 SetFilterParameters({Type,Frequency,OneOverQ}, 0)   [audio-002]
+//      voice  +0x80 SetOutputMatrix(dest, 2, 2, matrix, 0)
+//      voice  +0x90 DestroyVoice                                        [audio-001]
+//    CreateFX is imported from XAPOFX1_5.dll and called with only rcx/rdx set;
+//    the bridge never calls it, it records the descriptors it is handed.
+//
+// B. PROVEN LAYOUT, NOT CALLED by libxact: the remaining base slots
+//    (GetVoiceDetails, SetOutputVoices, effect enable/state, GetEffectParameters,
+//    Get/SetFilterParameters on master, volume and channel volumes,
+//    GetOutputMatrix). They follow the same proven 19-entry table.
+//
+// C. SPECULATIVE, NO LIBXACT CALL SITE: every source-voice slot (+0x98..+0xE0)
+//    and engine +0x40 CreateSourceVoice. libxact.dll contains no
+//    CreateSourceVoice, no SubmitSourceBuffer and no WAVEFORMATEX; audio
+//    submission happens inside avs2-core on the cue/xsb path (audio-002). The
+//    bridge still implements a source voice because the mixer and the ASIO host
+//    need one, but it is prototype-only surface: kLibxactUsesSourceVoice is
+//    false, nothing here is claimed to be libxact-compatible, and every call is
+//    reachable only through an explicitly bound cue voice in this stream's host.
+//    The slot order is the SDK declaration order inferred from the proven 19-
+//    entry base; only a live vtable dump can settle it.
 //
 // Threading
 // ---------
@@ -88,7 +101,10 @@ inline constexpr std::uint32_t kVoiceSetOutputMatrix = 128;
 inline constexpr std::uint32_t kVoiceGetOutputMatrix = 136;
 inline constexpr std::uint32_t kVoiceDestroyVoice = 144;
 
-// IXAudio2SourceVoice (continues the base table).
+// IXAudio2SourceVoice (continues the base table). SPECULATIVE for libxact: no
+// call site exists in libxact.dll (audio-002), so these are prototype-only.
+// The order is the SDK declaration order inferred from the proven 19-entry base;
+// see kLibxactUsesSourceVoice.
 inline constexpr std::uint32_t kVoiceStart = 152;
 inline constexpr std::uint32_t kVoiceStop = 160;
 inline constexpr std::uint32_t kVoiceSubmitSourceBuffer = 168;
@@ -107,6 +123,13 @@ inline constexpr std::uint32_t kMasteringGetChannelMask = 152;
 inline constexpr std::uint32_t kSlotBytes = 8;
 
 } // namespace xa27
+
+// False: libxact.dll never creates, starts or submits to a source voice. The
+// source-voice surface in this header exists for this stream's prototype host
+// and its tests, not for libxact compatibility. A value of true would require a
+// byte-proven call site (none exists) and a proven slot order (only a live
+// vtable dump can provide one).
+inline constexpr bool kLibxactUsesSourceVoice = false;
 
 // XAudio2 2.7 constants and POD layouts (transcribed interface facts).
 inline constexpr std::uint32_t kXa2LoopInfinite = 255;
