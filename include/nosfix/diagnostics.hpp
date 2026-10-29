@@ -18,8 +18,15 @@ void ProbeNormalJudgeBefore(const void* note, const void* event,
 void ProbeNormalJudgeAfter(const void* note, const void* event,
                            unsigned mode, std::int64_t result) noexcept;
 
-// Called once per update by the motion hooks. `kind` is the TimedNoteKind
-// integer (3 glissando, 5 velocity zone); `frame` is dword_18070A610.
-void ProbeMotionNote(const void* note, int kind, std::int32_t frame) noexcept;
+// Called once per update by the motion hooks. `kind` is the caller's
+// TimedNoteKind integer; `frame` is dword_18070A610. The probe also logs the
+// actual vtable so an inverted gliss/velocity mapping is visible.
+void ProbeMotionNote(const void* note, int kind, std::int32_t frame,
+                     const void* module_base) noexcept;
+
+// Diffs the 28x28 staging input-state buffer published at module+0x13DEA10
+// once per simulation tick. This identifies the producer's final store without
+// a debugger watchpoint.
+void ProbeInputStateDiff(const void* module_base) noexcept;
 
 } // namespace nosfix

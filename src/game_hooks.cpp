@@ -351,6 +351,7 @@ std::intptr_t IterationRender(void* opaque) {
 void IterationDispatch(void* opaque, std::int64_t late_by_qpc) {
     auto* context = static_cast<IterationContext*>(opaque);
     DrainRawInputDiagnostics(QpcNow());
+    if (DiagnosticProbeEnabled()) ProbeInputStateDiff(g_module_base);
     ++g_thread.tick_count;
     if (late_by_qpc >= g_thread.qpc_frequency / 4 &&
         !g_thread.long_stall_reported) {

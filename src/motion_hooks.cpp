@@ -298,14 +298,16 @@ char UpdateNote(void* note, NoteUpdate original, const NoteLayout& layout) {
     if (!Active()) {
         const char result = original(note);
         if (DiagnosticProbeEnabled()) {
-            ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame);
+            ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame,
+                            g_base);
         }
         return result;
     }
     const char result = original(note); // Exactly one original update.
     CaptureNote(note, layout, music_frame);
     if (DiagnosticProbeEnabled()) {
-        ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame);
+        ProbeMotionNote(note, static_cast<int>(KindOf(layout)), music_frame,
+                        g_base);
     }
     return result;
 }
