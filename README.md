@@ -79,6 +79,11 @@ At 60 Hz, prediction passes through without capturing or predicting geometry.
 `clock_motion=true` enables the experimental normal-note song-time projection
 at any presentation rate and requires `precise_audio_clock=true`. During its
 live trial, `smooth_motion=false` and `smooth_ui=false` isolate this path.
+`native_shadow=true` publishes that corrected cue time as an immutable
+song-clock snapshot for the raw input observer. It requires
+`precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
+logs mapped, unmapped and backward-mapping counters every five seconds. It
+does not feed judgments, scoring, rendering, or sound.
 
 Hook sets are supplied as explicit module-relative RVAs and exact expected
 instruction bytes. The installer validates the complete set before creating
@@ -225,7 +230,7 @@ rollback in an inert image, and replay clock timestamps under 60/90/120/144/
 165/240/360 Hz sampling schedules with jitter and a stall. These are clock-core
 and patch tests, not proof of frame-independent gameplay.
 
-All 46 tests pass in the current merged build. Tests also execute the original normal-note projection
+All 47 tests pass in the current merged build. Tests also execute the original normal-note projection
 in an isolated linear-scroll setup, checking its float argument ABI and use of
 millisecond chart time. The monitor-check test executes the original initializer
 and completion callback against a synthetic scene to verify the native transition,

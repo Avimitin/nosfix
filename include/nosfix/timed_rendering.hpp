@@ -3,10 +3,13 @@
 #include "nosfix/timed_note_geometry.hpp"
 #include "nosfix/timed_normal.hpp"
 #include <Windows.h>
+#include <cstdint>
 #include <optional>
 #include <string>
 
 namespace nosfix {
+
+class SongClockPublication;
 
 enum class TimedNoteKind : std::uint8_t {
     Normal = 0,
@@ -63,8 +66,16 @@ enum class RibbonWidthRule : std::uint8_t {
 [[nodiscard]] bool PrepareTimedRendering(HMODULE game, std::string& reason);
 void ConfigureTimedRendering(bool enabled) noexcept;
 [[nodiscard]] bool TimedRenderingEnabled() noexcept;
-// Query once per presentation, independently of legacy simulation phase.
-void BeginTimedRendering() noexcept;
+// Shadow clock publication: the render thread observes the same corrected cue
+// time used by clock_motion, but this path never feeds geometry or judgement.
+// Enabling it requires a prior PrepareTimedRendering and capture_input.
+void ConfigureSongClock(bool enabled) noexcept;
+[[nodiscard]] bool SongClockEnabled() noexcept;
+[[nodiscard]] const SongClockPublication* SongClockPublicationForInput() noexcept;
+// Query once per presentation, independently of legacy simulation phase. The
+// QPC pair stamps the observation; it is not a render-derived song time.
+void BeginTimedRendering(std::int64_t qpc_ticks,
+                         std::int64_t qpc_frequency) noexcept;
 void EndTimedRendering() noexcept;
 [[nodiscard]] std::optional<double> RenderSongMilliseconds() noexcept;
 // Test seam: injects the presentation song time so integration tests can drive

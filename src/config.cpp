@@ -60,6 +60,8 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.skip_monitor_check = value == "1" || value == "true" || value == "yes";
         } else if (key == "capture_input") {
             config.capture_input = value == "1" || value == "true" || value == "yes";
+        } else if (key == "native_shadow") {
+            config.native_shadow = value == "1" || value == "true" || value == "yes";
         } else if (key == "target_hz") {
             if (value == "auto" || value == "0") {
                 config.target_hz = 0;

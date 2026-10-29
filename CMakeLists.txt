@@ -66,6 +66,7 @@ add_library(nosfix SHARED
     src/render_tail.cpp
     src/raw_input_capture.cpp
     src/scheduler.cpp
+    src/shadow_clock.cpp
     src/song_clock.cpp
     src/song_clock_publication.cpp
     src/spice_binding_adapter.cpp
@@ -97,6 +98,9 @@ include(CTest)
 if(BUILD_TESTING)
     enable_language(ASM_MASM)
     add_executable(nosfix_song_clock_tests tests/song_clock_tests.cpp src/song_clock.cpp)
+    add_executable(nosfix_shadow_clock_tests tests/shadow_clock_tests.cpp
+        src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp)
+    add_test(NAME shadow_clock COMMAND nosfix_shadow_clock_tests)
     add_executable(nosfix_input_normalizer_tests tests/input_normalizer_tests.cpp src/input_normalizer.cpp)
     add_test(NAME input_normalizer COMMAND nosfix_input_normalizer_tests)
     add_executable(nosfix_normal_judgment_tests tests/normal_judgment_tests.cpp src/normal_judgment.cpp)
@@ -172,19 +176,23 @@ if(BUILD_TESTING)
     add_test(NAME timed_ui_adapter COMMAND nosfix_timed_ui_adapter_tests)
     add_executable(nosfix_timed_rendering_tests tests/timed_rendering_tests.cpp
         src/timed_rendering.cpp src/timed_normal.cpp src/timed_note_geometry.cpp
+        src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
         src/module_guard.cpp)
     target_compile_definitions(nosfix_timed_rendering_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     target_link_libraries(nosfix_timed_rendering_tests PRIVATE bcrypt)
     add_executable(nosfix_timed_note_geometry_native_tests
         tests/timed_note_geometry_native_tests.cpp
         src/timed_rendering.cpp src/timed_normal.cpp src/timed_note_geometry.cpp
+        src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
         src/module_guard.cpp)
     target_compile_definitions(nosfix_timed_note_geometry_native_tests PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX)
     target_link_libraries(nosfix_timed_note_geometry_native_tests PRIVATE bcrypt)
     add_executable(nosfix_motion_hook_timed_tests tests/motion_hook_timed_tests.cpp
         src/motion_hooks.cpp src/primitive_motion.cpp src/motion.cpp src/timed_normal.cpp
-        src/timed_rendering.cpp src/timed_note_geometry.cpp src/module_guard.cpp)
+        src/timed_rendering.cpp src/timed_note_geometry.cpp
+        src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
+        src/module_guard.cpp)
     target_compile_definitions(nosfix_motion_hook_timed_tests PRIVATE
         WIN32_LEAN_AND_MEAN NOMINMAX)
     target_link_libraries(nosfix_motion_hook_timed_tests PRIVATE bcrypt)
@@ -287,7 +295,9 @@ if(BUILD_TESTING)
         tests/primitive_motion_tests.cpp src/primitive_motion.cpp src/motion.cpp)
     add_executable(nosfix_motion_hook_tests tests/motion_hook_tests.cpp
         src/motion_hooks.cpp src/primitive_motion.cpp src/motion.cpp src/timed_normal.cpp
-        src/timed_rendering.cpp src/timed_note_geometry.cpp src/module_guard.cpp)
+        src/timed_rendering.cpp src/timed_note_geometry.cpp
+        src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp
+        src/module_guard.cpp)
     target_link_libraries(nosfix_motion_hook_tests PRIVATE bcrypt)
     target_compile_definitions(nosfix_motion_hook_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     add_executable(nosfix_native_note_types_tests
@@ -301,7 +311,7 @@ if(BUILD_TESTING)
         WIN32_LEAN_AND_MEAN NOMINMAX)
     add_test(NAME panb_pressure COMMAND nosfix_panb_pressure_tests)
 
-    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
+    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_shadow_clock_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
         target_compile_features(${target} PRIVATE cxx_std_20)
         target_include_directories(${target} PRIVATE include)
         if(MSVC)

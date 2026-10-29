@@ -1,5 +1,6 @@
 #include "nosfix/timed_rendering.hpp"
 #include "nosfix/module_guard.hpp"
+#include "nosfix/shadow_clock.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,6 +20,8 @@ Project g_project = nullptr;
 Instance g_instance = nullptr;
 Elapsed g_elapsed = nullptr;
 std::atomic<bool> g_enabled{false};
+bool g_prepared = false;
+ShadowClock g_shadow_clock;
 thread_local std::optional<double> g_song_ms;
 
 template<class T> T Read(const void* base, std::size_t offset) noexcept {
@@ -321,20 +324,33 @@ bool PrepareTimedRendering(HMODULE game, std::string& reason) {
     g_project = reinterpret_cast<Project>(base + 0x305430);
     g_instance = reinterpret_cast<Instance>(xbase + 0xA970);
     g_elapsed = reinterpret_cast<Elapsed>(xbase + 0x7230);
+    g_prepared = true;
     return true;
 }
 
 void ConfigureTimedRendering(bool enabled) noexcept {
-    g_enabled.store(enabled && g_base && g_project && g_instance && g_elapsed,
+    g_enabled.store(enabled && g_prepared && g_base && g_project && g_instance &&
+                        g_elapsed,
                     std::memory_order_release);
     g_song_ms.reset();
 }
 
 bool TimedRenderingEnabled() noexcept { return g_enabled.load(std::memory_order_acquire); }
 
-void BeginTimedRendering() noexcept {
+void ConfigureSongClock(bool enabled) noexcept {
+    g_shadow_clock.Configure(enabled && g_prepared);
+}
+
+bool SongClockEnabled() noexcept { return g_shadow_clock.Enabled(); }
+
+const SongClockPublication* SongClockPublicationForInput() noexcept {
+    return g_shadow_clock.Publication();
+}
+
+void BeginTimedRendering(std::int64_t qpc_ticks,
+                         std::int64_t qpc_frequency) noexcept {
     g_song_ms.reset();
-    if (!TimedRenderingEnabled()) return;
+    if (!g_prepared) return;
     // Preroll and special clock correction states are not yet migrated.
     // Do not invent a song anchor from a legacy frame in these cases.
     if (Read<std::int32_t>(g_base, 0x70A610) <= 0 ||
@@ -350,7 +366,11 @@ void BeginTimedRendering() noexcept {
     const double elapsed_ms = g_elapsed(instance, label);
     if (!std::isfinite(elapsed_ms) || elapsed_ms < 0.0) return;
     const double adjustment = Read<std::int32_t>(g_base, 0x70A740) * 1000.0 / rate;
-    g_song_ms = std::max(0.0, elapsed_ms + adjustment);
+    const double song_ms = std::max(0.0, elapsed_ms + adjustment);
+    if (TimedRenderingEnabled()) g_song_ms = song_ms;
+    if (g_shadow_clock.Enabled() && qpc_ticks > 0 && qpc_frequency > 0) {
+        (void)g_shadow_clock.Observe(song_ms * 1000.0, qpc_ticks, qpc_frequency);
+    }
 }
 
 void EndTimedRendering() noexcept { g_song_ms.reset(); }

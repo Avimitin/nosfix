@@ -81,6 +81,15 @@ struct ThreadState {
     std::uint64_t input_hid_reports = 0;
     std::uint64_t input_resets = 0;
     std::int64_t input_consume_age_max = 0;
+    std::uint64_t shadow_packets = 0;
+    std::uint64_t shadow_mapped = 0;
+    std::uint64_t shadow_unmapped = 0;
+    std::uint64_t shadow_backwards = 0;
+    std::uint64_t shadow_regressed = 0;
+    std::uint64_t shadow_fences = 0;
+    std::uint64_t shadow_generation = 0;
+    double shadow_last_us = 0.0;
+    bool shadow_has_last = false;
 };
 thread_local ThreadState g_thread;
 
@@ -144,8 +153,37 @@ void DrainRawInputDiagnostics(std::int64_t now) noexcept {
     RawInputPacket packet;
     for (std::size_t i = 0; i <= kRawInputCaptureCapacity &&
          TryPopRawInputPacket(packet); ++i) {
+        if (SongClockEnabled()) {
+            ++g_thread.shadow_packets;
+            if (packet.kind == RawInputPacketKind::Fence) ++g_thread.shadow_fences;
+            if (packet.kind == RawInputPacketKind::Input) {
+                if (packet.clock.valid && packet.qpc_exact) {
+                    if (packet.clock.continuity != SongClockContinuity::Monotonic)
+                        ++g_thread.shadow_regressed;
+                    const auto mapped = packet.clock.segment.Map(packet.qpc);
+                    if (mapped) {
+                        ++g_thread.shadow_mapped;
+                        if (g_thread.shadow_generation != mapped->generation) {
+                            g_thread.shadow_generation = mapped->generation;
+                            g_thread.shadow_has_last = false;
+                        }
+                        if (g_thread.shadow_has_last &&
+                            mapped->microseconds < g_thread.shadow_last_us) {
+                            ++g_thread.shadow_backwards;
+                        }
+                        g_thread.shadow_last_us = mapped->microseconds;
+                        g_thread.shadow_has_last = true;
+                    } else {
+                        ++g_thread.shadow_unmapped;
+                    }
+                } else {
+                    ++g_thread.shadow_unmapped;
+                }
+            }
+        }
         if (packet.kind == RawInputPacketKind::StreamReset) {
             ++g_thread.input_resets;
+            g_thread.shadow_has_last = false;
             continue;
         }
         if (packet.raw_type == RIM_TYPEKEYBOARD) {
@@ -202,6 +240,19 @@ void LogWindowMetrics(std::int64_t now) {
         Log(LogLevel::Info, line);
     }
 
+    if (SongClockEnabled()) {
+        sprintf_s(line, "5s shadow clock: packets=%llu, mapped=%llu, unmapped=%llu, "
+            "backwards=%llu, regressed=%llu, fences=%llu, generation=%llu",
+            static_cast<unsigned long long>(g_thread.shadow_packets),
+            static_cast<unsigned long long>(g_thread.shadow_mapped),
+            static_cast<unsigned long long>(g_thread.shadow_unmapped),
+            static_cast<unsigned long long>(g_thread.shadow_backwards),
+            static_cast<unsigned long long>(g_thread.shadow_regressed),
+            static_cast<unsigned long long>(g_thread.shadow_fences),
+            static_cast<unsigned long long>(g_thread.shadow_generation));
+        Log(LogLevel::Info, line);
+    }
+
     const auto motion = TakeMotionMetrics();
     sprintf_s(line, "5s note motion: captures=%llu, predicted draws=%llu, song-time draws=%llu, guarded fallbacks=%llu",
         static_cast<unsigned long long>(motion.captures),
@@ -226,6 +277,13 @@ void LogWindowMetrics(std::int64_t now) {
     g_thread.input_hid_reports = 0;
     g_thread.input_resets = 0;
     g_thread.input_consume_age_max = 0;
+    g_thread.shadow_packets = 0;
+    g_thread.shadow_mapped = 0;
+    g_thread.shadow_unmapped = 0;
+    g_thread.shadow_backwards = 0;
+    g_thread.shadow_regressed = 0;
+    g_thread.shadow_fences = 0;
+    g_thread.shadow_has_last = false;
 }
 
 char TailHasEntry(void*, void* list) {
@@ -264,7 +322,13 @@ std::intptr_t IterationRender(void* opaque) {
     std::intptr_t result = 0;
     {
         RenderScope scope;
-        BeginTimedRendering();
+        std::int64_t qpc_frequency = g_thread.qpc_frequency;
+        if (qpc_frequency <= 0) {
+            LARGE_INTEGER frequency{};
+            if (QueryPerformanceFrequency(&frequency))
+                qpc_frequency = frequency.QuadPart;
+        }
+        BeginTimedRendering(begin, qpc_frequency);
         const double phase = PresentationRate() > 60
             ? g_thread.scheduler.SimulationPhase(begin) : 0.0;
         BeginMotionPresentation(phase);
@@ -318,9 +382,13 @@ std::intptr_t __fastcall RenderDetour(void* app) {
     // Begin observation only once the game loop can consume the bounded queue.
     if (g_input_pending.exchange(false, std::memory_order_acq_rel)) {
         std::string input_reason;
-        if (StartRawInputCapture(input_reason)) {
+        const SongClockPublication* clock =
+            SongClockEnabled() ? SongClockPublicationForInput() : nullptr;
+        if (StartRawInputCapture(input_reason, clock)) {
             g_input_observation.store(true, std::memory_order_release);
-            Log(LogLevel::Info, "raw input observation active on Spice input thread; host QPC dequeue times only, judgments unchanged");
+            Log(LogLevel::Info, clock
+                ? "raw input observation active with shadow song-clock snapshots; judgments unchanged"
+                : "raw input observation active on Spice input thread; host QPC dequeue times only, judgments unchanged");
         } else {
             Log(LogLevel::Warning, "raw input observation inactive: " + input_reason);
         }
@@ -355,9 +423,17 @@ void SetRuntimeActive(bool active) noexcept {
 bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason) {
     if (!module) { reason = "nostalgia module handle is null"; return false; }
     g_module_base = reinterpret_cast<unsigned char*>(module);
-    if (config.clock_motion && (!config.precise_audio_clock ||
-        !PrepareTimedRendering(module, reason))) {
-        if (reason.empty()) reason = "clock_motion requires precise_audio_clock";
+    if (config.clock_motion && !config.precise_audio_clock) {
+        reason = "clock_motion requires precise_audio_clock";
+        return false;
+    }
+    if (config.native_shadow && !config.precise_audio_clock) {
+        reason = "native_shadow requires precise_audio_clock";
+        return false;
+    }
+    if ((config.clock_motion || config.native_shadow) &&
+        !PrepareTimedRendering(module, reason)) {
+        if (reason.empty()) reason = "native timing preparation failed";
         return false;
     }
 
@@ -458,6 +534,7 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     SetRuntimeActive(true);
     ConfigureMonitorCheck(module, config.skip_monitor_check);
     ConfigureTimedRendering(config.clock_motion);
+    ConfigureSongClock(config.native_shadow);
     ConfigureMotion(module, config.smooth_motion);
     ConfigureUiMotion(config.smooth_ui);
     if (config.capture_input) {
@@ -479,6 +556,11 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         Log(LogLevel::Info, "cue-clock QPC precision corrected; timestamped judgments are not yet integrated");
     if (config.clock_motion)
         Log(LogLevel::Info, "experimental normal-note projection samples the song clock each presentation");
+    if (config.native_shadow) {
+        Log(LogLevel::Info, "shadow song clock publication enabled; input packets are mapped for diagnostics only");
+        if (!config.capture_input)
+            Log(LogLevel::Warning, "native_shadow has no capture_input; the clock publishes but no packets are consumed");
+    }
     Log(LogLevel::Info, config.smooth_motion
         ? "bounded note-head and ribbon prediction enabled above 60 Hz"
         : "note prediction disabled by configuration");
@@ -493,6 +575,7 @@ void RemoveGameHooks() noexcept {
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
     SetRuntimeActive(false);
     ConfigureMonitorCheck(nullptr, false);
+    ConfigureSongClock(false);
     ConfigureTimedRendering(false);
     ConfigureMotion(nullptr, false);
     ConfigureUiMotion(false);
