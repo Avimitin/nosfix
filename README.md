@@ -233,7 +233,10 @@ rollback in an inert image, and replay clock timestamps under 60/90/120/144/
 165/240/360 Hz sampling schedules with jitter and a stall. These are clock-core
 and patch tests, not proof of frame-independent gameplay.
 
-All 47 tests pass in the current merged build. Tests also execute the original normal-note projection
+All 49 tests pass in the current merged build. The round-2 native components
+(bucket table and shadow feed, staging-bucket input decoder, exact glissando
+anchor, libxact cue table and frame-gate scheduler) are compiled and tested but
+remain dormant; no config key or live hook reaches them. Tests also execute the original normal-note projection
 in an isolated linear-scroll setup, checking its float argument ABI and use of
 millisecond chart time. The monitor-check test executes the original initializer
 and completion callback against a synthetic scene to verify the native transition,
