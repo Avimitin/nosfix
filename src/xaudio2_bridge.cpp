@@ -643,6 +643,9 @@ void CopySends(Xa2Engine* engine, Xa2Voice* voice, const Xa2VoiceSends* sends) n
     }
 }
 
+// PROTOTYPE-ONLY surface (audio-002): libxact.dll has no CreateSourceVoice call
+// site and no WAVEFORMATEX, so nothing here is libxact-compatible. The slot is
+// implemented because the mixer and the ASIO host need a source voice.
 std::int32_t EngineCreateSourceVoice(void* self, Xa2Voice** source_voice,
                                      const Xa2WaveFormat* format, std::uint32_t flags,
                                      float max_frequency_ratio, void* callback,
@@ -662,10 +665,11 @@ std::int32_t EngineCreateSourceVoice(void* self, Xa2Voice** source_voice,
         engine->rejected_calls.fetch_add(1, std::memory_order_relaxed);
         return status;
     }
-    // audio-001 proves libxact's only CreateSourceVoice call site sets ppVoice,
-    // pSourceFormat and Flags only; MaxFrequencyRatio is whatever the caller's
-    // register held. A non-finite or out-of-range value is therefore treated as
-    // the documented default (2.0) instead of failing the voice.
+    // There is no libxact call site to pin this argument (audio-002 withdrew the
+    // earlier claim that 0x180003143 was CreateSourceVoice; it is
+    // SetFilterParameters). A caller that leaves MaxFrequencyRatio in whatever
+    // register state is common in this code base, so an implausible value is
+    // treated as the documented default (2.0) rather than failing the voice.
     if (!(max_frequency_ratio >= 1.0F / 64.0F) || max_frequency_ratio > 1024.0F) {
         max_frequency_ratio = kXa2DefaultFrequencyRatio;
     }
@@ -976,6 +980,11 @@ std::int32_t VoiceGetEffectParameters(void* self, std::uint32_t index,
     return kXa2Ok;
 }
 
+// PROVEN libxact path (audio-002): the three parallel 12-byte records
+// {int Type; float Frequency; float OneOverQ} at CLibXact +0x58/+0x64/+0x70 are
+// handed to the voices at +0x15970/+0x15978/+0x15980 through slot +0x40 with
+// OperationSet = 0. The parameters are recorded; no filter DSP runs in this
+// mixer, so a filtered cue sounds unfiltered here (counted in filters_recorded).
 std::int32_t VoiceSetFilterParameters(void* self,
                                       const Xa2FilterParameters* parameters,
                                       std::uint32_t operation_set) noexcept {
@@ -1183,6 +1192,8 @@ std::int32_t VoiceStop(void* self, std::uint32_t flags,
     return kXa2Ok;
 }
 
+// PROTOTYPE-ONLY surface (audio-002): libxact never submits a buffer and the
+// module contains no XAUDIO2_END_OF_STREAM. Kept for this stream's host/tests.
 std::int32_t VoiceSubmitSourceBuffer(void* self, const Xa2Buffer* buffer,
                                      const void* buffer_wma) noexcept {
     Xa2Voice* voice = VoiceOf(self);
