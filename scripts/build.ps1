@@ -33,8 +33,10 @@ $sdkLibraries = @(
     (Join-Path $sdkX64 'um\x64'),
     (Join-Path $sdkX64 'ucrt\x64')
 ) -join ';'
-$rc = Join-Path $sdkCpp "bin\$sdkVersion\x64\rc.exe"
-$mt = Join-Path $sdkCpp "bin\$sdkVersion\x64\mt.exe"
+# CMake 4.4 writes CMAKE_RC_COMPILER unescaped into CMakeRCCompiler.cmake, so a
+# native Windows path with backslashes fails to configure. Pass forward slashes.
+$rc = (Join-Path $sdkCpp "bin\$sdkVersion\x64\rc.exe") -replace '\\', '/'
+$mt = (Join-Path $sdkCpp "bin\$sdkVersion\x64\mt.exe") -replace '\\', '/'
 foreach ($tool in @($rc, $mt)) {
     if (-not (Test-Path -LiteralPath $tool)) { throw "Missing SDK tool: $tool" }
 }
