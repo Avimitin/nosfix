@@ -83,7 +83,8 @@ live trial, `smooth_motion=false` and `smooth_ui=false` isolate this path.
 song-clock snapshot for the raw input observer. It requires
 `precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
 logs mapped, unmapped and backward-mapping counters every five seconds. It
-does not feed judgments, scoring, rendering, or sound.
+does not feed judgments, scoring, rendering, or sound. See
+[the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
 
 Hook sets are supplied as explicit module-relative RVAs and exact expected
 instruction bytes. The installer validates the complete set before creating
