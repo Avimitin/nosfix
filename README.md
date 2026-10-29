@@ -17,6 +17,9 @@ bypass. It also includes an optional HID/keyboard report observer. A standalone
 song-clock component is tested but is not yet connected
 to game input or judgments. The experimental normal-note path is deployed on
 the test machine; it is disabled in the distributed configuration by default.
+The merged native match/scoring, non-normal note-type, timed-UI-adapter and
+XAudio2/ASIO prototypes are compiled into the DLL but remain dormant; no live
+hook reaches them.
 
 ## Build
 
@@ -222,7 +225,7 @@ rollback in an inert image, and replay clock timestamps under 60/90/120/144/
 165/240/360 Hz sampling schedules with jitter and a stall. These are clock-core
 and patch tests, not proof of frame-independent gameplay.
 
-All 23 tests pass. Tests also execute the original normal-note projection
+All 46 tests pass in the current merged build. Tests also execute the original normal-note projection
 in an isolated linear-scroll setup, checking its float argument ABI and use of
 millisecond chart time. The monitor-check test executes the original initializer
 and completion callback against a synthetic scene to verify the native transition,
