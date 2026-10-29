@@ -29,16 +29,23 @@
 //   record   = { int32 average, int32 level, int32 held } at device+16, stride 12
 //
 // byte_1812D3E77 is a configuration byte, not a constant and not a nibble
-// width: its only writer is sub_1803525D0 at 0x180352687, which copies
-// `config+44` (the same object supplies +37 as the enable flag), and its only
-// reader is the unsigned load at 0x1803522C6. The byte lives in .data BSS, so
-// the image holds no initial value (the 0xFF that a database shows there is its
-// uninitialized filler, not a load-time value) and the live value must be
-// sampled after sub_1803525D0 runs. A threshold of t means "pressed iff the mean
-// 4-bit level over the packet is >= t", unsigned, in raw 0..15 nibble units.
-// This model therefore refuses to invent a value: PanbThresholdSource::Unverified
-// is the default and produces no level and no edge at all. A caller that has
-// sampled the live byte opts in with RuntimeSampled and its own value.
+// width. Proven writer (answers/notes-input-001.md Q4): sub_1803525D0 loads
+// `config+0x2C` and stores it with the x64 absolute-address form
+//   movzx ecx, byte ptr [rax+2Ch] ; mov cs:byte_1812D3E77, cl
+// at 0x180352687, which is why a RIP-relative reference sweep finds nothing.
+// Sub_1803525D0 returns before the store when *(config+0x25) == 0. The byte is
+// not a nibble width and is not the "1/15.999" value: the rule is
+// "pressed iff the mean 4-bit level over the packet is >= threshold", unsigned,
+// in raw 0..15 units.
+//
+// Initial value: the analysis database reports 0xFF at that address and 0xFF
+// around it, while the range is not file-backed (.data virtual size 0x4455AAC
+// against a 0x1A200 raw size), so the loader's zero fill is what a cold boot
+// holds. The two readings disagree in effect (255 gates every level to 0, 0
+// gates nothing); this model therefore still refuses to choose and takes the
+// value from the caller. PanbThresholdSource::Unverified is the default and
+// produces no level and no edge at all; a caller that has read config+0x2C (or
+// sampled the live byte) opts in with RuntimeSampled and its own value.
 //
 // What judgement consumes: nothing from this path. The judge chain
 // (0x2F7C10 -> note vtable slot 4 -> 0x2F79E0 -> 0x303E80) never calls
@@ -76,6 +83,12 @@ inline constexpr std::uint8_t kPanbMaxLevel = 14;       // Spice producer quanti
 inline constexpr std::uint8_t kPanbMaxNativeLevel = 15; // native 4-bit record field
 
 inline constexpr std::uint32_t kPanbThresholdRva = 0x12D3E77; // byte_1812D3E77
+inline constexpr std::uint32_t kPanbThresholdWriterRva = 0x3525D0;
+inline constexpr std::uint32_t kPanbThresholdStoreRva = 0x352687;
+inline constexpr std::uint32_t kPanbThresholdConfigOffset = 0x2C; // config+44
+inline constexpr std::uint32_t kPanbThresholdConfigEnableOffset = 0x25;
+inline constexpr std::uint8_t kPanbThresholdImageFiller = 0xFF; // database filler
+inline constexpr std::uint8_t kPanbThresholdPreConfig = 0;      // loader zero fill
 inline constexpr std::uint32_t kPanbAverageRva = 0x3520D0;
 inline constexpr std::uint32_t kPanbDeviceUpdateRva = 0x352560;
 inline constexpr std::uint32_t kPanbDispatchRva = 0x353600;
@@ -86,7 +99,7 @@ inline constexpr std::uint32_t kPanbKeyRecordStride = 12;      // {avg, level, h
 // Where the threshold value comes from. Only RuntimeSampled enables the rule.
 enum class PanbThresholdSource : std::uint8_t {
     Unverified = 0,     // fail closed: no level, no edge, no state change
-    RuntimeSampled = 1, // the caller sampled byte_1812D3E77 from the live image
+    RuntimeSampled = 1, // the caller read config+0x2C or the live module byte
 };
 
 struct PanbConfig final {

@@ -51,8 +51,11 @@
 //     scale 50 and increments the native penalty counter; a "stale hold" (the
 //     +313 arm set by the update when no start commit was observed) does the
 //     same. A finish with rank < Great fades the sound; rank >= Great does not;
-//   * trill finishes at its end time with the head rank and scale 100 when its
-//     alternation counter is positive, otherwise rank Good(2) and scale 40;
+//   * trill finishes at its end time with the head rank and scale 100 when the
+//     note+344 countdown is positive, otherwise rank Good(2) and scale 40. The
+//     countdown is 99999 at the head commit and re-armed to 25 by every tail
+//     press (0x1A7910), so a tail that has not alternated for 25 frames scores
+//     Good/40;
 //   * gliss produces exactly one judgement: a press inside a window defers to
 //     the note time (recorded rank 4), a press at/after the note time is judged
 //     at its own rank, a press past the outer late window finishes immediately
@@ -61,22 +64,32 @@
 //     elements) do not participate in the judgement: render 0x1A6820 appends one
 //     120-byte box record per connector into the primitive at note+216 between
 //     its vtable slots +24 and +32, and the judge only tests the pair for
-//     non-null and calls both slots again to close the bracket.
+//     non-null and calls both slots again to close the bracket. With no press,
+//     a post-note scan of the held-input table can still complete it at the
+//     rank of the captured delta (see FindConnectorKey);
+//   * a long release is gated by 0x2F4060: it proceeds only when no held input
+//     entry lies in [left - tolerance, right + tolerance]; otherwise the release
+//     is refused, each matching key is appended to the 0x1813E46F8 repeat list,
+//     and note+84 is set to 1 when a matching key is strictly inside the span
+//     (see EvaluateReleaseGate). The trill tail release is not gated;
+//   * a trill tail press re-triggers the sound of the chart sub-element at
+//     note+348 (advancing and wrapping that cursor), re-arms the 25-frame
+//     countdown and never judges;
 //
 // Deliberately NOT modelled (fail closed, see the refused branches below):
-//   * 0x2F4060, the long/trill release gate. A release only executes when the
-//     gate returns 0 and its meaning is not decoded; Release therefore reports
-//     Unsupported unless the caller has decoded it and sets release_gate_proven.
-//   * 0x1A7910, the trill tail press handler (the alternating/repeated-hit
-//     bookkeeping). Tail presses report Unsupported unless the caller owns it.
-//   * the glissando connector scan over the runtime table at 0x1813DF048 and
-//     the shared 0x1813E46F8 repeat-id list (event kind 2). Both are refused by
-//     default; a caller that has decoded them can opt in explicitly.
-//   * note+96 auto slot objects, native score points, effect/particle spawning,
-//     sound-table entries and vtable dispatch are host concerns. Outcome values
-//     describe what the native seam must forward. The two other non-normal note
-//     classes (velocity 0x1AA340 and beats 0x1A58C0, vtables 0x679D68/0x679960)
-//     are out of scope for this stream.
+//   * the held-input table itself (0x1813DEA20, 30 buckets x 792 bytes). Its
+//     shape is proven (28 entries of {key at +0, state at +4, group at +20} and
+//     a count at +784), but its writer is the undecoded input producer. The
+//     released rules are implemented as pure functions over a caller-supplied
+//     entry span, and both gates stay refused until the caller declares the
+//     table available (release_gate_available / connector_scan_available).
+//   * the shared 0x1813E46F8 repeat-id list beyond the keys the gate reports,
+//     the still-unlocated input-event producer (event+0 key, +4 kind, +20
+//     group; levels never reach a judge), note+96 auto slot objects, native
+//     score points, effect/particle spawning, sound-table entries and vtable
+//     dispatch. Outcome values describe what the native seam must forward. The
+//     two other non-normal note classes (velocity 0x1AA340 and beats 0x1A58C0,
+//     vtables 0x679D68/0x679960) are out of scope for this stream.
 //   * the input event's +0x20 "value" (stored into note+84 and tested as
 //     `id > 1 && rank > 1` by 0x303E80) is the one non-constant numeric input to
 //     scoring. It belongs to the judgment stream's event producer and is not
@@ -94,6 +107,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 namespace nosfix {
 
@@ -123,11 +137,40 @@ inline constexpr std::uint32_t kChartPrepareRva = 0x1A43E0;
 inline constexpr std::uint32_t kRankEvaluateRva = 0x305A80;
 inline constexpr std::uint32_t kRankEffectRva = 0x3053E0;
 
-// Not decoded. Both are refused unless the caller proves/owns them.
+// Now decoded (answers/notes-input-001.md Q1/Q2/Q3/Q5). The rules are
+// implemented; the runtime tables they read are the undecoded input producer's
+// state, so callers supply them. Constants below are the proven defaults.
 inline constexpr std::uint32_t kReleaseGateRva = 0x2F4060;
 inline constexpr std::uint32_t kTrillTailHandlerRva = 0x1A7910;
-inline constexpr std::uint32_t kGlissConnectorTableRva = 0x13DF048;
+// The held-input table is VA 0x1813DEA20 (RVA 0x13DEA20); the glissando scan
+// starts at VA 0x1813DF048 = bucket 1's count field (RVA 0x13DF048).
+inline constexpr std::uint32_t kGlissConnectorTableRva = 0x13DEA20; // bucket base
+inline constexpr std::uint32_t kGlissConnectorCountRva = 0x13DF048; // bucket 1 +784
 inline constexpr std::uint32_t kRepeatIdListRva = 0x13E46F8;
+inline constexpr std::uint32_t kGlissBinderRva = 0x1A7450;     // note+272 writer
+inline constexpr std::uint32_t kInputKeyTableRva = 0x13DEA20;
+inline constexpr std::uint32_t kInputKeyBucketBytes = 792;      // 28*28 + count at +784
+inline constexpr std::uint32_t kInputKeyEntryBytes = 28;
+inline constexpr std::uint32_t kInputKeyEntryCount = 28;
+inline constexpr std::uint32_t kInputKeyEntryGroupOffset = 20;
+
+// 0x2F4060 widens the note's key span by dword_1813E4A84 before it treats a held
+// input entry as "in range". The initialiser writes 3; chart/option code also
+// writes it, so the caller should pass the live value.
+inline constexpr std::int32_t kReleaseGateToleranceDefault = 3;
+// Note+272 values written by 0x1A7450 (chart key vs midpoint). The connector
+// scan treats 0 as "no group" and the event match below treats 1 as wildcard.
+inline constexpr std::uint32_t kWildcardScanGroupId = 0;
+inline constexpr std::uint32_t kWildcardEventGroupId = 1;
+// Note+344 is a frame countdown, not a hit counter: 99999 at the trill head
+// commit, re-armed to 25 by every tail press, decremented by the periodic tick.
+inline constexpr std::int32_t kTrillCountdownAtCommit = 99999;
+inline constexpr std::int32_t kTrillTailCountdownFrames = 25;
+inline constexpr std::size_t kTrillMaxSubElements = 32;
+
+// The release gate sets note+84 = 1. 0x303E80 forces rank 5 only when
+// note+84 > 1, so this side effect cannot turn a release into a rank-5 hit.
+inline constexpr std::int32_t kReleaseGateNote84Value = 1;
 
 // 104-byte chart note record (chart preparation 1A43E0).
 inline constexpr std::size_t kChartNoteBytes = 104;
@@ -171,11 +214,12 @@ inline constexpr std::uint16_t kScaleTrillPenalty = 40;
 inline constexpr std::uint32_t kSoundSerialStart = 10000;
 inline constexpr std::uint32_t kSoundSerialLimit = 20000;
 
-// The glissando group id at +272 matches any event when it is 1.
-inline constexpr std::uint32_t kWildcardGroupId = 1;
+// The glissando group id at +272 (1/2/3 from 0x1A7450) matches any event when
+// it is 1; the connector scan treats 0 as "no group" instead.
+inline constexpr std::uint32_t kWildcardGroupId = kWildcardEventGroupId;
 
-// Trill alternation counter default written at head commit.
-inline constexpr std::int32_t kTrillCounterInitial = 99999;
+// Trill countdown default written at head commit (note+344).
+inline constexpr std::int32_t kTrillCounterInitial = kTrillCountdownAtCommit;
 
 enum class ChartNoteType : std::uint8_t {
     Normal = 0,
@@ -198,11 +242,13 @@ constexpr bool IsChartNoteType(std::uint8_t value) noexcept {
 // ===========================================================================
 // Captured input mapped to the native event shape
 // ===========================================================================
-// The native judge receives (event, mode) where event+0 is an opaque id and
-// event+4 is the kind: 1 press, 2 repeat/hold, 3 release. The producer of that
-// struct is not decoded, so `event_id` and `group_id` are opaque caller values;
-// nothing here invents an id scheme. `panb_level` is carried for consumers; it
-// never participates in a rank, scale or judgement count.
+// The native judge receives (event, mode) where event+0 is the pressed key,
+// event+4 is the kind (1 press, 2 repeat/hold, 3 release) and event+20 is the
+// group/segment tag (0x1A60C0 reads it as a dword; answers/notes-input-001.md Q6
+// reports a byte at +5 instead, which conflicts with the judge pseudocode - the
+// value stays opaque either way). The producer is not decoded, so nothing here
+// invents an id scheme. `panb_level` is carried for consumers; it never
+// participates in a rank, scale or judgement count.
 enum class NativeEventKind : std::uint8_t {
     Press = 1,
     Repeat = 2,
@@ -216,11 +262,57 @@ struct NativeNoteEvent final {
     SongTime song_time{};
     std::uint8_t lane = 0;
     NativeEventKind kind = NativeEventKind::Press;
-    std::uint32_t event_id = 0; // native event +0 (opaque)
-    std::uint32_t group_id = 0; // native event +5 (opaque; compared to note+272)
+    std::uint32_t event_id = 0; // native event +0: the key/id the judges append
+    std::uint32_t group_id = 0; // native event +20 (see above)
     float velocity = 0.0f;
     std::uint8_t panb_level = 0;
 };
+
+// ===========================================================================
+// Held-input state and the two rules that read it
+// ===========================================================================
+// Shape of one 28-byte entry in the per-key input table at 0x1813DEA20 (Q3):
+// 30 buckets of { 28 entries, count at +784 }, entry +0 key, +4 state (1 or 2 =
+// held), +20 group/segment tag. The writer is the undecoded input producer, so
+// every function below takes the entries from the caller and is pure.
+struct ActiveInputEntry final {
+    std::int32_t key = 0;    // entry+0
+    std::uint8_t state = 0;  // entry+4; 1 or 2 means held
+    std::uint32_t group = 0; // entry+20
+};
+
+[[nodiscard]] constexpr bool IsHeldInputState(std::uint8_t state) noexcept {
+    return state == 1 || state == 2;
+}
+
+// Result of 0x2F4060. `proceed` is true only when the gate returns 0, i.e. no
+// held entry lies inside the widened span; a long release may then run.
+struct ReleaseGateDecision final {
+    bool evaluated = false;        // the caller ran the rule over its entries
+    bool proceed = false;          // 0x2F4060 returned 0
+    bool note84_set = false;       // some matching key was strictly inside
+    std::int32_t held_key = 0;     // first matching key, 0 when none
+    std::size_t appended_keys = 0; // keys appended to the 0x1813E46F8 list
+};
+
+// 0x2F4060: walks the held entries and returns 0 (proceed) only when none is in
+// [left - tolerance, right + tolerance]. Every match is appended to the repeat
+// list and, when it is strictly inside [left, right], sets note+84 = 1. The
+// comparison is inclusive on both ends and uses the native key domain for both
+// sides (answers/notes-input-001.md reports entry keys as 0..27 and chart+88/+92
+// as 1-based; the caller must pass values in one domain - the ±1 question is
+// unresolved, so this function never converts).
+[[nodiscard]] ReleaseGateDecision EvaluateReleaseGate(
+    std::int32_t left_key, std::int32_t right_key, std::int32_t tolerance_keys,
+    std::span<const ActiveInputEntry> held_entries) noexcept;
+
+// Glissando post-note connector scan (0x1A60C0 at 0x1A63E6). Returns the key of
+// the first entry whose key is inside [left, right] (inclusive) and whose +20
+// matches `note_group_id`, or -1. `note_group_id == 0` disables the group test.
+// Unlike the release gate this scan does not test the entry state.
+[[nodiscard]] std::int32_t FindConnectorKey(std::span<const ActiveInputEntry> entries,
+                                            std::int32_t left_key, std::int32_t right_key,
+                                            std::uint32_t note_group_id) noexcept;
 
 // ===========================================================================
 // Configuration, results and status
@@ -233,11 +325,15 @@ struct NativeTypeConfig final {
     std::uint32_t sound_serial_start = nonnormal_layout::kSoundSerialStart;
     std::uint32_t sound_serial_limit = nonnormal_layout::kSoundSerialLimit;
 
-    // Unproven native gates. Every one defaults to the fail-closed value.
-    bool release_gate_proven = false;        // 0x2F4060
-    bool trill_tail_handler_proven = false;  // 0x1A7910
-    bool gliss_connector_scan_proven = false; // 0x1813DF048 scan
-    bool gliss_repeat_as_press = false;      // 0x1813E46F8 repeat list
+    // The two runtime tables these rules read are the undecoded input
+    // producer's state. Both default to unavailable, which keeps every gated
+    // branch refused; a caller that has the table opts in explicitly.
+    bool release_gate_available = false;    // 0x2F4060 + 0x1813DEA20
+    std::int32_t release_gate_tolerance_keys =
+        nonnormal_layout::kReleaseGateToleranceDefault;
+    bool connector_scan_available = false;  // 0x1813DF048 / 0x1813DEA20
+    bool trill_tail_handler_proven = false; // 0x1A7910 sub-element effects
+    bool gliss_repeat_as_press = false;     // 0x1813E46F8 repeat list
 
     // Adapter policy, not a claim about a judge routine: an unpressed head is
     // dropped by the native dispatcher (2F7C10 / vtable+232), which this model
@@ -306,6 +402,8 @@ enum class NoteTypeOutcomeKind : std::uint8_t {
     RepeatIgnored = 6,  // kind-2 event recorded by the native, never judged
     ConnectorReleased = 7, // gliss trail object begin/end pair
     Unsupported = 8,    // refused branch; reason is a static string
+    ReleaseRefused = 9, // 0x2F4060 found a held key in the span; release stays
+    TrillTailHit = 10,  // 0x1A7910 effects: sub-element sound, cursor, countdown
 };
 
 [[nodiscard]] const char* NoteTypeOutcomeKindName(NoteTypeOutcomeKind kind) noexcept;
@@ -319,6 +417,14 @@ struct NoteTypeOutcome final {
     std::uint32_t event_id = 0;
     std::uint8_t lane = 0;
     std::uint8_t connectors = 0; // ConnectorReleased: 1 or 2
+    std::int32_t connector_key = 0; // gliss scan hit key; 0 when none
+    std::int32_t gate_key = 0;      // ReleaseRefused: the held key that blocked
+    std::uint32_t gate_appended = 0; // ReleaseRefused: keys added to 0x1813E46F8
+    std::uint32_t sub_element = 0;   // TrillTailHit: cursor (note+348) used
+    std::uint64_t cue_reference = 0; // TrillTailHit: sub-element +16 sample ref
+    std::uint32_t length_frames = 0; // TrillTailHit: elem end - start (min 1)
+    std::int32_t countdown = 0;      // TrillTailHit: note+344 after re-arm
+    bool gate_note84 = false;        // ReleaseRefused: note+84 was set to 1
     bool judged = false;         // a vtable+104 call happens
     bool sound_started = false;
     bool sound_cut = false;
@@ -338,6 +444,7 @@ struct NoteTypeResult final {
     std::size_t repeats = 0;     // kind-2 events observed
     std::size_t penalties = 0;   // native penalty-counter increments
     std::size_t cuts = 0;        // keysound cuts
+    std::size_t refused_releases = 0; // 0x2F4060 refused a release
 };
 
 // ===========================================================================
@@ -362,6 +469,10 @@ struct NativeLongSpec final {
     double end_us = 0.0;   // chart+4 ms -> us, >= start_us
     std::uint8_t lane = 0;
     std::uint32_t chart_index = 0;
+    // Native keys used by the 0x2F4060 span test (chart+88 / chart+92). Same
+    // domain as ActiveInputEntry::key; the model never converts them.
+    std::int32_t left_key = 0;
+    std::int32_t right_key = 0;
     bool auto_play = false; // global auto flag or chart+97
 };
 
@@ -376,8 +487,13 @@ public:
     // Skipped and can never score. generation must be non-zero and new.
     [[nodiscard]] NoteTypeStatus Begin(std::uint64_t generation, double position_us) noexcept;
 
-    [[nodiscard]] NoteTypeResult Press(const NativeNoteEvent& event, double decision_us) noexcept;
-    [[nodiscard]] NoteTypeResult Release(const NativeNoteEvent& event, double decision_us) noexcept;
+    // `held_entries` is the caller's view of the per-key input table. It is only
+    // read when config.release_gate_available is set, and only to answer the
+    // 0x2F4060 span test for a release; an empty span then means "no held key".
+    [[nodiscard]] NoteTypeResult Press(const NativeNoteEvent& event, double decision_us,
+                                       std::span<const ActiveInputEntry> held_entries = {}) noexcept;
+    [[nodiscard]] NoteTypeResult Release(const NativeNoteEvent& event, double decision_us,
+                                         std::span<const ActiveInputEntry> held_entries = {}) noexcept;
     // Null-event update. `hold_commit_missed` is the native +313 arm produced by
     // the update when a held note never observed its start-commit pulse.
     [[nodiscard]] NoteTypeResult Advance(double up_to_us, double decision_us,
@@ -440,7 +556,13 @@ struct NativeGlissSpec final {
     std::uint8_t lane = 0;
     std::uint32_t chart_index = 0;
     bool auto_play = false;
-    std::uint32_t group_id = nonnormal_layout::kWildcardGroupId; // note+272
+    // note+272. 1 = wildcard for the event-group match; 0 = "no group" for the
+    // connector scan. The writer 0x1A7450 derives 1/2/3 from the chart keys and
+    // their midpoint; that derivation is decompiler-only, so the caller supplies
+    // the value (the 0x1A7450 default is 1).
+    std::uint32_t group_id = nonnormal_layout::kWildcardGroupId;
+    std::int32_t left_key = 0;  // chart+88, for the connector scan span
+    std::int32_t right_key = 0; // chart+92
     std::uint8_t connector_count = 0; // chart+64 / chart+72 non-null: 0..2
 };
 
@@ -452,13 +574,14 @@ public:
                                            const NativeTypeConfig& config) noexcept;
     [[nodiscard]] NoteTypeStatus Begin(std::uint64_t generation, double position_us) noexcept;
 
-    // `connector_scan_hit` is the caller's result of the native scan over the
-    // runtime table at 0x1813DF048; it is only read when the config proves that
-    // scan, otherwise Advance reports the refused branch instead of guessing.
+    // `entries` is the caller's view of the held-input table (0x1813DEA20). It
+    // is only read when config.connector_scan_available is set, and only for the
+    // post-note connector scan; otherwise Advance reports the refused branch.
     [[nodiscard]] NoteTypeResult Press(const NativeNoteEvent& event, double decision_us) noexcept;
     [[nodiscard]] NoteTypeResult Release(const NativeNoteEvent& event, double decision_us) noexcept;
-    [[nodiscard]] NoteTypeResult Advance(double up_to_us, double decision_us,
-                                         bool connector_scan_hit = false) noexcept;
+    [[nodiscard]] NoteTypeResult Advance(
+        double up_to_us, double decision_us,
+        std::span<const ActiveInputEntry> entries = {}) noexcept;
 
     [[nodiscard]] GlissPhase Phase() const noexcept { return phase_; }
     [[nodiscard]] NormalRank FinalRank() const noexcept { return final_rank_; }
@@ -500,12 +623,26 @@ private:
 // ===========================================================================
 // Trill
 // ===========================================================================
+// One 24-byte chart sub-element (chart+40 array, count chart+36) as 0x1A7910
+// reads it: +0 byte field, +4 byte field, +8 start frame, +12 end frame, +16
+// qword sample/cue reference. The array drives the trill tail sound.
+struct TrillSubElement final {
+    std::int32_t start_frame = 0;    // elem+8
+    std::int32_t end_frame = 0;      // elem+12
+    std::uint8_t field0 = 0;         // elem+0
+    std::uint8_t field4 = 0;         // elem+4
+    std::uint64_t cue_reference = 0; // elem+16
+};
+
 struct NativeTrillSpec final {
     double start_us = 0.0; // chart+0 ms -> us
     double end_us = 0.0;   // chart+4 ms -> us
     std::uint8_t lane = 0;
     std::uint32_t chart_index = 0;
+    std::uint16_t chart_flags = 0; // chart+12; bit 3 disables the event-id drive
     bool auto_play = false;
+    std::array<TrillSubElement, nonnormal_layout::kTrillMaxSubElements> sub_elements{};
+    std::uint8_t sub_element_count = 0; // chart+36, clamped to the array bound
 };
 
 class NativeTrillState final {
@@ -521,17 +658,19 @@ public:
     [[nodiscard]] NoteTypeResult Advance(double up_to_us, double decision_us,
                                          bool hold_commit_missed = false) noexcept;
 
-    // Stand-in for the undecoded tail handler 0x1A7910: the caller owns the
-    // alternating-hit bookkeeping and publishes the remaining counter here. A
-    // non-positive counter makes the tail finish as Good(2) with scale 40.
-    void SetAlternationCounter(std::int32_t counter) noexcept { counter_ = counter; }
+    // note+344 is a frame countdown, not a hit counter: 99999 at the head
+    // commit, re-armed to 25 by every tail press, decremented by the periodic
+    // tick. The caller owns that tick, so it publishes the value here. A
+    // non-positive countdown makes the tail finish as Good(2) with scale 40.
+    void SetTailCountdown(std::int32_t countdown) noexcept { countdown_ = countdown; }
 
     [[nodiscard]] TrillPhase Phase() const noexcept { return phase_; }
     [[nodiscard]] NormalRank FinalRank() const noexcept { return final_rank_; }
     [[nodiscard]] bool Done() const noexcept { return done_; }
     [[nodiscard]] bool PendingEarly() const noexcept { return pending_; }
     [[nodiscard]] std::uint32_t ActiveSound() const noexcept { return sound_id_; }
-    [[nodiscard]] std::int32_t AlternationCounter() const noexcept { return counter_; }
+    [[nodiscard]] std::int32_t TailCountdown() const noexcept { return countdown_; }
+    [[nodiscard]] std::uint32_t SubElementCursor() const noexcept { return sub_cursor_; }
     [[nodiscard]] double RecordedDeltaUs() const noexcept { return recorded_delta_us_; }
     [[nodiscard]] std::uint64_t Generation() const noexcept { return generation_; }
 
@@ -547,6 +686,7 @@ private:
                 double captured_us, double delta_us, NoteTypeResult& result) noexcept;
     [[nodiscard]] NoteTypeResult TailStep(bool is_release, bool commit_missed,
                                           double captured_us, double delta_us) noexcept;
+    [[nodiscard]] NoteTypeResult TailHit(const NativeNoteEvent& event, double captured_us) noexcept;
     [[nodiscard]] NoteTypeResult Expire(double up_to_us, double decision_us) noexcept;
 
     NativeTrillSpec spec_{};
@@ -560,7 +700,8 @@ private:
     double unit_us_ = 0.0;
     std::uint32_t sound_id_ = 0;
     std::uint32_t sound_serial_ = nonnormal_layout::kSoundSerialStart;
-    std::int32_t counter_ = nonnormal_layout::kTrillCounterInitial;
+    std::int32_t countdown_ = nonnormal_layout::kTrillCounterInitial;
+    std::uint32_t sub_cursor_ = 0; // note+348
     std::uint64_t generation_ = 0;
     std::uint64_t last_begin_generation_ = 0;
     double advanced_us_ = 0.0;

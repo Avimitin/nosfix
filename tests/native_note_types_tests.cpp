@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <span>
 #include <string_view>
 
 namespace {
@@ -56,7 +57,7 @@ NativeTypeConfig Config() {
 
 NativeTypeConfig ProvenConfig() {
     NativeTypeConfig config = Config();
-    config.release_gate_proven = true;
+    config.release_gate_available = true;
     return config;
 }
 
@@ -85,13 +86,16 @@ NativeLongSpec LongSpec(std::uint8_t lane = 2, double start = 1'000'000.0,
 }
 
 NativeGlissSpec GlissSpec(std::uint8_t connectors = 0, bool auto_play = false,
-                          std::uint32_t group_id = 1) {
+                          std::uint32_t group_id = 1, std::int32_t left = 5,
+                          std::int32_t right = 8) {
     NativeGlissSpec spec;
     spec.lane = 5;
     spec.start_us = 1'000'000.0;
     spec.chart_index = 12;
     spec.auto_play = auto_play;
     spec.group_id = group_id;
+    spec.left_key = left;
+    spec.right_key = right;
     spec.connector_count = connectors;
     return spec;
 }
@@ -661,17 +665,51 @@ void TestGlissRefusedBranches() {
         CHECK(second.count == 0 && second.ignored == 1);
         CHECK(state.Phase() == GlissPhase::Waiting);
     }
-    // With the scan proven, the caller's hit decides the Just judgement.
+    // With the held-input table available, the scan's acceptance rule decides.
     {
         NativeTypeConfig config = Config();
-        config.gliss_connector_scan_proven = true;
+        config.connector_scan_available = true;
         NativeGlissState state;
-        CHECK(state.Configure(GlissSpec(0), config) == NoteTypeStatus::Ok);
+        CHECK(state.Configure(GlissSpec(0, false, 0), config) == NoteTypeStatus::Ok);
         CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
-        CHECK(state.Advance(1'000'000.0, 1'000'000.0, false).count == 0);
-        const NoteTypeResult hit = state.Advance(1'010'000.0, 1'010'000.0, true);
+        // No held entry: nothing happens at or after the note time.
+        CHECK(state.Advance(1'000'000.0, 1'000'000.0).count == 0);
+        // A held key inside the span and matching the group completes the note
+        // at the captured delta's rank (delta -100 ms -> Good), not as Just.
+        const ActiveInputEntry entries[] = {{1, 2, 1}, {5, 1, 0}, {9, 2, 0}};
+        const NoteTypeResult hit =
+            state.Advance(1'100'000.0, 1'100'000.0, entries);
         CHECK(OnlyOutcome(hit, NoteTypeOutcomeKind::Scored));
-        CHECK(hit.outcomes[0].rank == NormalRank::Just);
+        CHECK(hit.outcomes[0].rank == NormalRank::Good);
+        CHECK(hit.outcomes[0].scale == 100);
+        CHECK(hit.outcomes[0].connector_key == 5);
+        CHECK(state.Phase() == GlissPhase::Finished);
+    }
+    // Scan acceptance depends on the span and the group tag only.
+    {
+        NativeTypeConfig config = Config();
+        config.connector_scan_available = true;
+        NativeGlissState state;
+        CHECK(state.Configure(GlissSpec(0, false, 2), config) == NoteTypeStatus::Ok);
+        CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        // Key 4 is outside the span, key 6 has the wrong group, key 7 matches.
+        const ActiveInputEntry entries[] = {{4, 1, 2}, {6, 1, 3}, {7, 0, 2}};
+        const NoteTypeResult hit = state.Advance(1'000'000.0, 1'000'000.0, entries);
+        CHECK(OnlyOutcome(hit, NoteTypeOutcomeKind::Scored));
+        CHECK(hit.outcomes[0].rank == NormalRank::Just); // delta 0
+        CHECK(hit.outcomes[0].connector_key == 7);
+    }
+    // Group 0 on the note disables the group test.
+    {
+        NativeTypeConfig config = Config();
+        config.connector_scan_available = true;
+        NativeGlissState state;
+        CHECK(state.Configure(GlissSpec(0, false, 0), config) == NoteTypeStatus::Ok);
+        CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        const ActiveInputEntry entries[] = {{6, 1, 3}};
+        const NoteTypeResult hit = state.Advance(1'000'000.0, 1'000'000.0, entries);
+        CHECK(OnlyOutcome(hit, NoteTypeOutcomeKind::Scored));
+        CHECK(hit.outcomes[0].connector_key == 6);
     }
     // An unpressed glissando is dropped by the adapter after the inclusive
     // Good-late deadline, and only once both clocks are past it.
@@ -690,7 +728,7 @@ void TestGlissRefusedBranches() {
         CHECK(expired.outcomes[0].judged == false);
         CHECK(state.Phase() == GlissPhase::Missed);
     }
-    // Group id 1 is the wildcard; any other id must match event+5.
+    // Group id 1 is the wildcard; any other id must match event+20.
     {
         NativeGlissState state;
         CHECK(state.Configure(GlissSpec(0, false, 5), Config()) == NoteTypeStatus::Ok);
@@ -726,7 +764,7 @@ void TestTrillHeadTail() {
     CHECK(head.outcomes[0].rank == NormalRank::Just);
     CHECK(head.outcomes[0].sound_started);
     CHECK(state.Phase() == TrillPhase::Tail);
-    CHECK(state.AlternationCounter() == 99999);
+    CHECK(state.TailCountdown() == 99999);
     const NoteTypeResult tail = state.Advance(2'000'000.0, 2'000'000.0);
     CHECK(OnlyOutcome(tail, NoteTypeOutcomeKind::Scored));
     CHECK(tail.outcomes[0].rank == NormalRank::Just);
@@ -736,12 +774,12 @@ void TestTrillHeadTail() {
     CHECK(state.FinalRank() == NormalRank::Just);
 }
 
-void TestTrillAlternationCounter() {
+void TestTrillTailCountdown() {
     NativeTrillState state;
     CHECK(state.Configure(TrillSpec(), Config()) == NoteTypeStatus::Ok);
     CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
     CHECK(state.Press(Event(9, 1'000'000.0), 1'000'000.0).count == 1);
-    state.SetAlternationCounter(0);
+    state.SetTailCountdown(0);
     const NoteTypeResult tail = state.Advance(2'000'000.0, 2'000'000.0);
     CHECK(tail.count == 2);
     CHECK(tail.outcomes[0].kind == NoteTypeOutcomeKind::Scored);
@@ -997,11 +1035,211 @@ void TestBridgeMapping() {
     CHECK(MakeNativeNoteEvent(timed, 0, 0, event) == false);
 }
 
+// ---------------------------------------------------------------------------
+// Proven table rules (answers/notes-input-001.md Q1/Q3)
+// ---------------------------------------------------------------------------
+void TestReleaseGateRule() {
+    const std::span<const ActiveInputEntry> none{};
+    ReleaseGateDecision empty = EvaluateReleaseGate(5, 8, 3, none);
+    CHECK(empty.evaluated);
+    CHECK(empty.proceed);
+    CHECK(empty.appended_keys == 0);
+    CHECK(empty.note84_set == false);
+
+    // Hidden outside the widened span, kept inside it, and irrelevant states.
+    const ActiveInputEntry entries[] = {
+        {1, 2, 0},  // held but key 1 < 5 - 3 -> ignored
+        {2, 1, 0},  // key 2 == 5 - 3: inside the widened span, outside the span
+        {4, 0, 0},  // not held -> ignored even though it is in the span
+        {6, 2, 0},  // held and strictly inside -> note+84
+        {13, 1, 0}, // key 13 > 8 + 3 -> ignored
+    };
+    ReleaseGateDecision gate = EvaluateReleaseGate(5, 8, 3, entries);
+    CHECK(gate.evaluated);
+    CHECK(!gate.proceed);
+    CHECK(gate.appended_keys == 2); // keys 2 and 6; 1, 4 and 13 are filtered
+    CHECK(gate.held_key == 2);      // first match in table order
+    CHECK(gate.note84_set);         // key 6 is strictly inside [5, 8]
+
+    // Tolerance 0 disables the widening; an inside key still refuses.
+    const ActiveInputEntry inside[] = {{6, 2, 0}};
+    ReleaseGateDecision tight = EvaluateReleaseGate(5, 8, 0, inside);
+    CHECK(!tight.proceed && tight.note84_set && tight.appended_keys == 1);
+    // Tolerance controls the boundary: key 3 is only in range when tol >= 2.
+    const ActiveInputEntry outside[] = {{3, 1, 0}};
+    CHECK(EvaluateReleaseGate(5, 8, 1, outside).proceed);
+    CHECK(!EvaluateReleaseGate(5, 8, 2, outside).proceed);
+    CHECK(EvaluateReleaseGate(5, 8, 2, outside).note84_set == false);
+    // A negative tolerance is clamped to zero, never widened.
+    CHECK(!EvaluateReleaseGate(5, 8, -4, inside).proceed);
+}
+
+void TestConnectorScanRule() {
+    const ActiveInputEntry entries[] = {
+        {2, 2, 7}, // outside the span
+        {6, 1, 3}, // inside but wrong group
+        {7, 0, 2}, // inside, right group; state is not tested by this scan
+        {8, 1, 2}, // inside, right group, but not reached
+    };
+    CHECK(FindConnectorKey(entries, 5, 8, 2) == 7);
+    CHECK(FindConnectorKey(entries, 5, 8, 3) == 6);
+    CHECK(FindConnectorKey(entries, 5, 8, 0) == 6); // 0 disables the group test
+    CHECK(FindConnectorKey(entries, 5, 8, 9) == -1);
+    CHECK(FindConnectorKey(entries, 20, 24, 0) == -1);
+    const std::span<const ActiveInputEntry> none{};
+    CHECK(FindConnectorKey(none, 5, 8, 0) == -1);
+}
+
+void TestLongReleaseGateTable() {
+    NativeLongSpec spec = LongSpec();
+    spec.left_key = 5;
+    spec.right_key = 8;
+    // Table available, no held entry in range: the release runs and penalises.
+    {
+        NativeLongState state;
+        CHECK(state.Configure(spec, ProvenConfig()) == NoteTypeStatus::Ok);
+        CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(state.Press(Event(2, 1'000'000.0), 1'000'000.0).count == 1);
+        const ActiveInputEntry entries[] = {{1, 2, 0}}; // far outside the span
+        const NoteTypeResult release = state.Release(
+            Event(2, 1'500'000.0, NativeEventKind::Release), 1'500'000.0, entries);
+        CHECK(release.count == 2);
+        CHECK(release.outcomes[1].kind == NoteTypeOutcomeKind::Scored);
+        CHECK(release.outcomes[1].rank == NormalRank::Good);
+        CHECK(release.outcomes[1].scale == 50);
+        CHECK(state.Phase() == LongPhase::Finished);
+    }
+    // A held key inside the span refuses the release and reports both effects.
+    {
+        NativeLongState state;
+        CHECK(state.Configure(spec, ProvenConfig()) == NoteTypeStatus::Ok);
+        CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(state.Press(Event(2, 1'000'000.0), 1'000'000.0).count == 1);
+        const ActiveInputEntry entries[] = {{1, 2, 0}, {6, 1, 0}};
+        const NoteTypeResult release = state.Release(
+            Event(2, 1'500'000.0, NativeEventKind::Release), 1'500'000.0, entries);
+        CHECK(OnlyOutcome(release, NoteTypeOutcomeKind::ReleaseRefused));
+        CHECK(release.outcomes[0].gate_key == 6);
+        CHECK(release.outcomes[0].gate_note84);
+        CHECK(release.outcomes[0].gate_appended == 1);
+        CHECK(release.refused_releases == 1);
+        CHECK(state.Phase() == LongPhase::Held); // nothing changed
+        CHECK(state.ActiveSound() == 10'001);
+        // Once the key is released the same release event completes the note.
+        const NoteTypeResult release2 = state.Release(
+            Event(2, 1'600'000.0, NativeEventKind::Release), 1'600'000.0);
+        CHECK(release2.count == 2);
+        CHECK(release2.outcomes[1].rank == NormalRank::Good);
+        CHECK(state.Phase() == LongPhase::Finished);
+    }
+    // Table available but no caller flag: still refused (fail closed).
+    {
+        NativeLongState state;
+        CHECK(state.Configure(LongSpec(), Config()) == NoteTypeStatus::Ok);
+        CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(state.Press(Event(2, 1'000'000.0), 1'000'000.0).count == 1);
+        const NoteTypeResult release =
+            state.Release(Event(2, 1'500'000.0, NativeEventKind::Release), 1'500'000.0);
+        CHECK(OnlyOutcome(release, NoteTypeOutcomeKind::Unsupported));
+        CHECK(state.Phase() == LongPhase::Held);
+    }
+}
+
+void TestTrillTailHit() {
+    NativeTypeConfig config = Config();
+    config.trill_tail_handler_proven = true;
+    NativeTrillSpec spec = TrillSpec();
+    spec.sub_element_count = 3;
+    spec.sub_elements[0] = TrillSubElement{100, 130, 1, 2, 0xAA};
+    spec.sub_elements[1] = TrillSubElement{140, 150, 0, 0, 0xBB};
+    spec.sub_elements[2] = TrillSubElement{150, 170, 0, 0, 0xCC};
+    NativeTrillState state;
+    CHECK(state.Configure(spec, config) == NoteTypeStatus::Ok);
+    CHECK(state.Begin(7, 0.0) == NoteTypeStatus::Ok);
+    CHECK(state.Press(Event(9, 1'000'000.0), 1'000'000.0).count == 1);
+    CHECK(state.TailCountdown() == 99999);
+    CHECK(state.SubElementCursor() == 0);
+
+    // Each tail press re-triggers the next sub-element sound and re-arms 25.
+    const NoteTypeResult first = state.Press(Event(9, 1'200'000.0, NativeEventKind::Press, 44), 1'200'000.0);
+    CHECK(OnlyOutcome(first, NoteTypeOutcomeKind::TrillTailHit));
+    CHECK(first.outcomes[0].sub_element == 0);
+    CHECK(first.outcomes[0].sound_id == 44); // chart+12 bit 3 clear -> event id
+    CHECK(first.outcomes[0].cue_reference == 0xAA);
+    CHECK(first.outcomes[0].length_frames == 30);
+    CHECK(first.outcomes[0].countdown == 25);
+    CHECK(state.TailCountdown() == 25);
+    CHECK(state.SubElementCursor() == 1);
+
+    const NoteTypeResult second = state.Press(Event(9, 1'220'000.0, NativeEventKind::Press, 45), 1'220'000.0);
+    CHECK(second.outcomes[0].sub_element == 1);
+    CHECK(second.outcomes[0].length_frames == 10);
+
+    const NoteTypeResult third = state.Press(Event(9, 1'240'000.0, NativeEventKind::Press, 46), 1'240'000.0);
+    CHECK(third.outcomes[0].sub_element == 2);
+    CHECK(state.SubElementCursor() == 0); // wrapped at chart+36 == 3
+
+    // With the countdown re-armed the tail still scores the head rank / 100.
+    const NoteTypeResult tail = state.Advance(2'000'000.0, 2'000'000.0);
+    CHECK(tail.count == 1);
+    CHECK(tail.outcomes[0].kind == NoteTypeOutcomeKind::Scored);
+    CHECK(tail.outcomes[0].rank == NormalRank::Just);
+    CHECK(tail.outcomes[0].scale == 100);
+
+    // 25 frames later the countdown has expired: Good(2)/40.
+    {
+        NativeTrillState expired;
+        CHECK(expired.Configure(spec, config) == NoteTypeStatus::Ok);
+        CHECK(expired.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(expired.Press(Event(9, 1'000'000.0), 1'000'000.0).count == 1);
+        CHECK(expired.Press(Event(9, 1'200'000.0), 1'200'000.0).count == 1);
+        expired.SetTailCountdown(0); // the periodic tick ran 25 frames
+        const NoteTypeResult finish = expired.Advance(2'000'000.0, 2'000'000.0);
+        CHECK(finish.count == 2);
+        CHECK(finish.outcomes[0].rank == NormalRank::Good);
+        CHECK(finish.outcomes[0].scale == 40);
+    }
+    // chart+12 bit 3 drives the id from the rolling serial instead of the event.
+    {
+        NativeTrillSpec driven = spec;
+        driven.chart_flags = 0x8;
+        driven.sub_elements[0] = TrillSubElement{200, 190, 0, 0, 0xDD}; // end < start
+        NativeTrillState serial;
+        CHECK(serial.Configure(driven, config) == NoteTypeStatus::Ok);
+        CHECK(serial.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(serial.Press(Event(9, 1'000'000.0), 1'000'000.0).count == 1);
+        const NoteTypeResult hit = serial.Press(Event(9, 1'200'000.0, NativeEventKind::Press, 9), 1'200'000.0);
+        CHECK(hit.outcomes[0].sound_id == 10'002); // head took 10001
+        CHECK(hit.outcomes[0].length_frames == 1); // clamped, not driven
+        CHECK(hit.outcomes[0].cue_reference == 0xDD);
+    }
+    // No sub-element array: refused rather than invented.
+    {
+        NativeTrillState empty;
+        CHECK(empty.Configure(TrillSpec(), config) == NoteTypeStatus::Ok);
+        CHECK(empty.Begin(7, 0.0) == NoteTypeStatus::Ok);
+        CHECK(empty.Press(Event(9, 1'000'000.0), 1'000'000.0).count == 1);
+        const NoteTypeResult hit = empty.Press(Event(9, 1'200'000.0), 1'200'000.0);
+        CHECK(OnlyOutcome(hit, NoteTypeOutcomeKind::Unsupported));
+        CHECK(hit.outcomes[0].reason != nullptr);
+        CHECK(empty.TailCountdown() == 99999); // unchanged
+    }
+    // An over-long array is rejected at Configure.
+    {
+        NativeTrillSpec too_many = TrillSpec();
+        too_many.sub_element_count = 33;
+        NativeTrillState rejected;
+        CHECK(rejected.Configure(too_many, config) == NoteTypeStatus::InvalidSpec);
+    }
+}
+
 } // namespace
 
 int main() {
     TestConfigurationAndStatus();
     TestChartTypeAndEligibility();
+    TestReleaseGateRule();
+    TestConnectorScanRule();
     TestLongPressHoldFinish();
     TestLongPendingEarlyAndResolution();
     TestLongPendingResolvedByPress();
@@ -1017,7 +1255,7 @@ int main() {
     TestGlissPendingAndConnectorVariants();
     TestGlissRefusedBranches();
     TestTrillHeadTail();
-    TestTrillAlternationCounter();
+    TestTrillTailCountdown();
     TestTrillPendingAndLate();
     TestTrillTailEvents();
     TestChordsAcrossLanes();

@@ -221,6 +221,59 @@ void TestEveryLevel() {
     }
 }
 
+void TestThresholdProvenance() {
+    // The two documented readings of the pre-config byte, and the field the
+    // proven writer (0x3525D0 at 0x352687) copies from config+0x2C.
+    CHECK(kPanbThresholdImageFiller == 0xFF);
+    CHECK(kPanbThresholdPreConfig == 0);
+    CHECK(kPanbThresholdConfigOffset == 0x2C);
+    CHECK(kPanbThresholdWriterRva == 0x3525D0);
+    CHECK(kPanbThresholdStoreRva == 0x352687);
+
+    // Threshold 255: nothing can ever reach it, so every key gates to zero.
+    {
+        Fixture fixture;
+        CHECK(fixture.state.Configure(Verified(kPanbThresholdImageFiller)) == PanbStatus::Ok);
+        CHECK(fixture.state.Verified());
+        CHECK(fixture.state.Threshold() == 0xFF);
+        Frame frame;
+        frame.SetSamples(1);
+        frame.SetKey(0, 15);
+        frame.SetKey(1, 7);
+        CHECK(fixture.Apply(frame) == PanbStatus::Ok);
+        CHECK(fixture.samples[0].level == 0);
+        CHECK(fixture.samples[1].level == 0);
+        CHECK(fixture.samples[0].average == 15); // the raw average is still kept
+        CHECK(fixture.counts.edges == 0);
+        CHECK(fixture.state.PressedCount() == 0);
+    }
+    // Threshold 0: nothing is gated, every nonzero nibble presses.
+    {
+        Fixture fixture;
+        CHECK(fixture.state.Configure(Verified(kPanbThresholdPreConfig)) == PanbStatus::Ok);
+        Frame frame;
+        frame.SetSamples(1);
+        frame.SetKey(0, 1);
+        frame.SetKey(1, 15);
+        CHECK(fixture.Apply(frame) == PanbStatus::Ok);
+        CHECK(fixture.samples[0].level == 1);
+        CHECK(fixture.samples[1].level == 15);
+        CHECK(fixture.counts.presses == 2);
+    }
+    // A mid-range threshold is the "press iff mean >= t" rule.
+    {
+        Fixture fixture;
+        CHECK(fixture.state.Configure(Verified(8)) == PanbStatus::Ok);
+        Frame frame;
+        frame.SetSamples(1);
+        frame.SetKey(0, 7);
+        frame.SetKey(1, 8);
+        CHECK(fixture.Apply(frame) == PanbStatus::Ok);
+        CHECK(fixture.samples[0].level == 0);
+        CHECK(fixture.samples[1].level == 8);
+    }
+}
+
 void TestBufferValidation() {
     Fixture fixture;
     CHECK(fixture.state.Configure(Verified(0)) == PanbStatus::Ok);
@@ -439,6 +492,7 @@ int main() {
     TestNibbleGeometry();
     TestAveragingAndThreshold();
     TestEveryLevel();
+    TestThresholdProvenance();
     TestBufferValidation();
     TestEdgesHeldCounterAndReset();
     TestChordsAndRapidRepeats();
