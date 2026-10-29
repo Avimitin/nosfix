@@ -1,0 +1,84 @@
+{
+  "n": 19,
+  "matches": [
+    {
+      "addr": "0x1803b0c07",
+      "string": "Z\t\t\t\t\t\t\t\n\t//! -----------------------------------------------------\t\t\t\n\tfloat func_calc_hls_to_rgb_elem(float H, float cmin, float cmax)\t\n\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tfloat ret = 0.0f;\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tif( H < 0.0f )\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tH += 360.0f;\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tif( H >= 360.0f )\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tH -= 360.0f;\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tif( H<60.0f )\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tret = cmin+(cmax-cmin)*H/60.0f;\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\telse if(H>=60.0f && H<180.0f )\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tret = cmax;\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\telse if(H>=180.0f && H<240.0f )\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tret = cmin+(cmax-cmin)*(240.0f-H)/60.0f;\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\telse if(H>=240.0f)\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tret = cmin;\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tret = clamp(ret, 0.0f, 1.0f);\t\t\t\t\t\t\t\t\t\n\t\treturn ret;\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t//! -----------------------------------------------------\t\t\t\n\t//! HLS -> RGB"
+    },
+    {
+      "addr": "0x1803b1514",
+      "string": "[\t\t\t\t\t\t\t\n\t\tfloat H = g_hue * 360.0f;\t\t\t\t\t\t\t\t\t\t\n\t\tfloat L = g_value;\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tfloat S = g_saturation+1.0f;\t\t\t\t\t\t\t\t\t\n\t\tif( S > 1.0f )\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t{\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\tS = pow(S, 2);\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t//////! "
+    },
+    {
+      "addr": "0x1803b161e",
+      "string": "Z\t\t\t\t\t\t\t\t\t\t\n\t\tbaseHLS.x += H;\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tif(baseHLS.x>=360.0f){ baseHLS.x -= 360.0f; }\t\t\t\t\t\n\t\tbaseHLS.y += L;\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tbaseHLS.y = clamp(baseHLS.y, 0, 1.0);\t\t\t\t\t\t\t\n\t\tbaseHLS.z *= S;\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tbaseHLS.z = clamp(baseHLS.z, 0, 1.0);\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t//! HLS -> RGB \t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\tcolor.rgb = func_hls_to_rgb(baseHLS.x, baseHLS.y, baseHLS.z);\t\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n\t\treturn color * In.Color + g_pixelColor;\t\t\t\t\t\t\t\n}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n"
+    },
+    {
+      "addr": "0x180453920",
+      "string": "VSYNC / Present"
+    },
+    {
+      "addr": "0x1804c8a28",
+      "string": "FPS = %.3f"
+    },
+    {
+      "addr": "0x1805da8b0",
+      "string": "CMusicTimer"
+    },
+    {
+      "addr": "0x1805da8d0",
+      "string": "Music Timer Reserve Skip %d\n"
+    },
+    {
+      "addr": "0x18062fd50",
+      "string": "FrameRate > 60.000"
+    },
+    {
+      "addr": "0x18062fd68",
+      "string": "FrameRate > 59.977"
+    },
+    {
+      "addr": "0x180642ba8",
+      "string": "SoundCtrl"
+    },
+    {
+      "addr": "0x180642bd0",
+      "string": "SoundCtrl"
+    },
+    {
+      "addr": "0x180642bf0",
+      "string": "SoundCtrl"
+    },
+    {
+      "addr": "0x180642c10",
+      "string": "SoundCtrl"
+    },
+    {
+      "addr": "0x180642c30",
+      "string": "SoundCtrl"
+    },
+    {
+      "addr": "0x1806f9562",
+      "string": "?GetSoundLabelLapse@CLibXact@@QEAAMPEBD@Z"
+    },
+    {
+      "addr": "0x1806f9c5c",
+      "string": "QueryPerformanceFrequency"
+    },
+    {
+      "addr": "0x1806f9c78",
+      "string": "QueryPerformanceCounter"
+    },
+    {
+      "addr": "0x18070e330",
+      "string": ".?AV?$TimelineTemplate@VMClipForPan@NullSafeBM2D@@PEAVCMovieClip@BM2D@@@NullSafeBM2D@@"
+    },
+    {
+      "addr": "0x18070e930",
+      "string": ".?AV?$TimelineTemplate@VLayerForPan@NullSafeBM2D@@PEAVCLayer@BM2D@@@NullSafeBM2D@@"
+    }
+  ],
+  "cursor": {
+    "done": true
+  }
+}

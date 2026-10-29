@@ -1,0 +1,88 @@
+Timing pipeline coding and review, 2026-10-29
+
+Three DeepSeek workers were run concurrently through D:\Share\meka.exe using
+the configured deepseek profile (deepseek-flash). Each had an isolated workspace
+under build/meka/timing-20261029 and a fixed file ownership list. They received
+the shared timing_events.hpp and song_clock.hpp contracts and could read the
+main repository. They were instructed not to edit the main repository, live
+game, configuration/credentials, or another worker's files. task.txt, review.txt,
+REPORT.txt and harness output in each directory record the assignments/reviews.
+
+Reviewed components
+
+InputNormalizer converts decoded digital control levels into logical lane
+transitions. It preserves report QPC/sequence/ordinal, suppresses typematic,
+aggregates alternative controls per lane, and emits synthetic releases after
+stream loss. Capacity failures leave state and output unchanged for retry.
+Bindings include device generation so reused device handles cannot inherit a
+previous device's held state. This does not decode a HID descriptor or obtain
+device identity: those belong to the future capture adapter.
+
+Normal judgment uses double microseconds and inclusive asymmetric windows.
+The legacy units adapter takes an explicit units-per-second value; the kernel
+does not infer time from render counts. Early-hit deferral is metadata only:
+pending-note resolution, repeated hits, scoring/combo, keysound side effects,
+and native lifetime remain outside this stateless kernel. Eligibility uses the
+total judgment-plus-visual offset separately from the judgment offset.
+
+ChartEventCursor copies and validates events at setup, stable-sorts equal times
+in source order, and emits bounded prefixes without skipping events after a
+stall. Its completion watermark advances only after every event through the
+requested time has been emitted. It is NOT an input-completion watermark.
+Generation floors survive chart reload; stale/reset calls cannot reopen events.
+
+Review findings and corrections
+
+- Input reset could reopen an already consumed report identity. The revision
+  tracks consumption separately from an unconsumed reset boundary.
+  Parent review also rejected attempts to change the QPC of an unconsumed
+  marker: idempotent retries must preserve both identity and capture time.
+- Chart Configure cleared the generation floor, permitting reuse after reload.
+  The floor now survives configuration and cannot wrap at UINT64_MAX.
+- Default cursor move left inconsistent moved-from state. Unsupported copy and
+  move operations are deleted; the instance has one playback owner.
+- Eligibility offset comments confused the extra visual offset with the total.
+  The API names the total explicitly. Parent IDA verification of 0x1802F7900
+  confirmed both offsets and the inclusive window union; pseudocode is saved in
+  evidence/native_normal_eligibility_0x1802f7900.c.
+- Direct classification now rejects malformed windows, and miss-decision
+  diagnostics reject arithmetic overflow instead of accepting infinities.
+
+Integration boundary
+
+The parent replay combines capture-time SongClockSegment snapshots, input
+normalization, normal judgments, and event dispatch at all seven requested
+consumer cadences. Later audio observations cannot change queued capture times.
+The replay's producer explicitly certifies input completion. An empty live
+concurrent queue alone cannot certify that no earlier input is still in flight.
+Live integration needs a producer fence/watermark and safe snapshot publication.
+
+These components are compiled into the project but have no new live detours.
+Native note selection, expiry, early-hit resolution, automatic notes, hold/
+gliss/trill subevents, input bindings/descriptor decoding, UI timelines and ASIO
+remain to be connected/migrated. Tests of a portable kernel are not proof of
+frame-independent live judgment, input latency, or audible keysound latency.
+The running game and packaged 0.4 trial are not changed by this work.
+
+Validation
+
+Parent ran scripts/build.ps1 -RunTests with MSVC x64 Release/C++20 and /W4.
+Build succeeded with no warnings in the incremental build; all 23 CTest suites
+passed, including the original 19 suites and four new suites:
+input_normalizer, normal_judgment, chart_event_cursor, timing_pipeline.
+Full output: build/timing-pipeline-build.log.
+
+The combined replay compares a 1000 Hz reference with 60, 90, 120, 144, 165,
+240 and 360 Hz consumers, with jitter and both with/without a 1.53-second stall.
+It uses 120 normal-note press fixtures, chords, typematic reports, 700 us taps,
+a later audio-clock observation, a three-report input drain limit and a two-event
+chart drain limit. All 240 edges (including stamps/identity/velocity), all 120
+judgment ranks and deltas, and all 360 chart event IDs match exactly. It also
+rejects queued input and completion watermarks from before a seek. Note targets
+are supplied by the fixture; this is not validation of a native note matcher.
+
+Component suites cover inclusive/submillisecond boundaries, asymmetric windows,
+invalid/overflowing times, generations, same-QPC report ordinals, output-capacity
+retry, held-lane aggregation, ordered reset recovery, chart reload, bounded
+drains, event ties, and allocation-free hot paths. These deterministic tests do
+not measure physical controller polling, acoustic latency, or actual displays.

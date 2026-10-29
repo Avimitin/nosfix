@@ -1,0 +1,193 @@
+<nostalgia_input_bindings>
+  <buttons>
+    <button name="Service" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Test" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Coin Mech" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 5" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 6" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 7" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 8" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 9" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 10" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 11" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 12" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 13" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 14" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 15" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 16" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 17" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 18" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 19" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 20" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 21" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 22" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 23" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 24" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 25" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 26" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 27" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 28" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 1 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 2 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 3 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 4 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 5 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 6 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 7 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 8 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 9 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 10 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 11 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 12 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 13 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 14 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 15 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 16 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 17 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 18 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 19 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 20 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 21 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 22 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 23 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 24 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 25 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 26 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 27 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 28 Soft" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 1 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 2 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 3 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 4 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 5 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 6 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 7 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 8 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 9 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 10 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 11 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 12 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 13 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 14 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 15 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 16 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 17 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 18 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 19 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 20 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 21 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 22 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 23 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 24 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 25 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 26 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 27 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 28 Medium" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 1 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 2 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 3 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 4 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 5 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 6 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 7 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 8 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 9 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 10 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 11 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 12 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 13 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 14 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 15 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 16 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 17 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 18 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 19 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 20 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 21 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 22 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 23 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 24 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 25 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 26 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 27 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Key 28 Hard" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Swipe Next Page" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Swipe Previous Page" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Confirm" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Back" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 5" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Song 6" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Difficulty 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Difficulty 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Difficulty 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Touch Difficulty 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" velocity_threshold="0" invert="false" devid="" bat_threshold="0" modifiers="0" />
+    <button name="Modifier 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="Modifier 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="Modifier 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="Modifier 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 0" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 5" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 6" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 7" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 8" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 9" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad 00" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad Decimal" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P1 Keypad Insert Card" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 0" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 1" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 2" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 3" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 4" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 5" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 6" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 7" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 8" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 9" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad 00" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad Decimal" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+    <button name="P2 Keypad Insert Card" vkey="255" analogtype="0" debounce_up="0" debounce_down="0" bat_threshold="0" velocity_threshold="0" invert="false" devid="" modifiers="0" />
+  </buttons>
+  <analogs>
+    <analog name="Key 1" index="4" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 2" index="5" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 3" index="6" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 4" index="7" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 5" index="8" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 6" index="9" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 7" index="10" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 8" index="11" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 9" index="12" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 10" index="13" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 11" index="14" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 12" index="15" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 13" index="16" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 14" index="17" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 15" index="18" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 16" index="19" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 17" index="20" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 18" index="21" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 19" index="22" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 20" index="23" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 21" index="24" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 22" index="25" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 23" index="26" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 24" index="27" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 25" index="28" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 26" index="29" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 27" index="30" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+    <analog name="Key 28" index="31" sensivity="1" deadzone="0" devid="\\?\HID#VID_0E8F&amp;PID_1212&amp;MI_04#8&amp;1cb9ee58&amp;0&amp;0000#{4d1e55b2-f16f-11cf-88cb-001111000030}" deadzone_mirror="false" invert="false" smoothing="false" multiplier="1" relative="false" delay="0" delay_ms="0" />
+  </analogs>
+</nostalgia_input_bindings>

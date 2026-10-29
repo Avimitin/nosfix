@@ -1,0 +1,221 @@
+{
+  "addr": "0x180001260",
+  "asm": {
+    "name": "sub_180001260",
+    "start_ea": "0x180001260",
+    "segment": ".text",
+    "lines": [
+      {
+        "addr": "180001260",
+        "instruction": "sub rsp, 48h",
+        "label": "sub_180001260"
+      },
+      {
+        "addr": "180001264",
+        "instruction": "mov rax, cs:__security_cookie",
+        "refs": [
+          {
+            "addr": "0x180029a40",
+            "name": "__security_cookie"
+          }
+        ]
+      },
+      {
+        "addr": "18000126b",
+        "instruction": "xor rax, rsp"
+      },
+      {
+        "addr": "18000126e",
+        "instruction": "mov [rsp+48h+var_10], rax"
+      },
+      {
+        "addr": "180001273",
+        "instruction": "mov rcx, [rcx+15930h]"
+      },
+      {
+        "addr": "18000127a",
+        "instruction": "test rcx, rcx"
+      },
+      {
+        "addr": "18000127d",
+        "instruction": "jz short loc_1800012C9",
+        "refs": [
+          {
+            "addr": "0x1800012c9",
+            "name": "loc_1800012C9"
+          }
+        ]
+      },
+      {
+        "addr": "18000127f",
+        "instruction": "mov rax, [rcx]"
+      },
+      {
+        "addr": "180001282",
+        "instruction": "lea rdx, [rsp+48h+var_28]"
+      },
+      {
+        "addr": "180001287",
+        "instruction": "call qword ptr [rax+0C8h]"
+      },
+      {
+        "addr": "18000128d",
+        "instruction": "mov rax, [rsp+48h+var_1C]"
+      },
+      {
+        "addr": "180001292",
+        "instruction": "xorps xmm0, xmm0"
+      },
+      {
+        "addr": "180001295",
+        "instruction": "cvtsi2ss xmm0, rax"
+      },
+      {
+        "addr": "18000129a",
+        "instruction": "test rax, rax"
+      },
+      {
+        "addr": "18000129d",
+        "instruction": "jns short loc_1800012A7",
+        "refs": [
+          {
+            "addr": "0x1800012a7",
+            "name": "loc_1800012A7"
+          }
+        ]
+      },
+      {
+        "addr": "18000129f",
+        "instruction": "addss xmm0, cs:dword_18001B9E0",
+        "refs": [
+          {
+            "addr": "0x18001b9e0",
+            "name": "dword_18001B9E0"
+          }
+        ]
+      },
+      {
+        "addr": "1800012a7",
+        "instruction": "mulss xmm0, cs:dword_18001B9CC",
+        "label": "loc_1800012A7",
+        "refs": [
+          {
+            "addr": "0x18001b9cc",
+            "name": "dword_18001B9CC"
+          }
+        ]
+      },
+      {
+        "addr": "1800012af",
+        "instruction": "divss xmm0, cs:dword_18001B9DC",
+        "refs": [
+          {
+            "addr": "0x18001b9dc",
+            "name": "dword_18001B9DC"
+          }
+        ]
+      },
+      {
+        "addr": "1800012b7",
+        "instruction": "mov rcx, [rsp+48h+var_10]"
+      },
+      {
+        "addr": "1800012bc",
+        "instruction": "xor rcx, rsp; StackCookie",
+        "comments": [
+          "StackCookie"
+        ]
+      },
+      {
+        "addr": "1800012bf",
+        "instruction": "call __security_check_cookie",
+        "refs": [
+          {
+            "addr": "0x18000b140",
+            "name": "__security_check_cookie"
+          }
+        ]
+      },
+      {
+        "addr": "1800012c4",
+        "instruction": "add rsp, 48h"
+      },
+      {
+        "addr": "1800012c8",
+        "instruction": "retn"
+      },
+      {
+        "addr": "1800012c9",
+        "instruction": "xorps xmm0, xmm0",
+        "label": "loc_1800012C9"
+      },
+      {
+        "addr": "1800012cc",
+        "instruction": "mov rcx, [rsp+48h+var_10]"
+      },
+      {
+        "addr": "1800012d1",
+        "instruction": "xor rcx, rsp; StackCookie",
+        "comments": [
+          "StackCookie"
+        ]
+      },
+      {
+        "addr": "1800012d4",
+        "instruction": "call __security_check_cookie",
+        "refs": [
+          {
+            "addr": "0x18000b140",
+            "name": "__security_check_cookie"
+          }
+        ]
+      },
+      {
+        "addr": "1800012d9",
+        "instruction": "add rsp, 48h"
+      },
+      {
+        "addr": "1800012dd",
+        "instruction": "retn"
+      }
+    ],
+    "stack_frame": [
+      {
+        "name": "var_28",
+        "offset": "0x20",
+        "size": "0xc",
+        "type": "_BYTE[12]"
+      },
+      {
+        "name": "var_1C",
+        "offset": "0x2c",
+        "size": "0x8",
+        "type": "_QWORD"
+      },
+      {
+        "name": "var_10",
+        "offset": "0x38",
+        "size": "0x8",
+        "type": "_QWORD"
+      },
+      {
+        "name": "__return_address",
+        "offset": "0x48",
+        "size": "0x8",
+        "type": "_UNKNOWN *"
+      }
+    ],
+    "return_type": "__int64",
+    "arguments": [
+      {
+        "name": "arg0",
+        "type": "__int64"
+      }
+    ]
+  },
+  "instruction_count": 29,
+  "total_instructions": null,
+  "cursor": {
+    "done": true
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "nostalgia": [
+    [
+      "0x1801c3fe0",
+      "Main loop: QPC frame-duration measurement; IO; audio/frame phase comparison; BM2D; Update; Render/Present. Not a general delta-time simulation."
+    ],
+    [
+      "0x1801c31c0",
+      "Render/present path. Also dispatches process transitions before Present: repeated rendering requires auditing/extracting these side effects. SleepEx at 0x1801c3a01; IDirect3DDevice9::Present at 0x1801c3a1e."
+    ],
+    [
+      "0x1801c6510",
+      "D3D9 device setup. Multi-adapter present-parameter copies occur before base struct is assigned 60 Hz / INTERVAL_ONE; copied entries initially retain 0/default. Corroborated by installation log."
+    ],
+    [
+      "0x180218aa0",
+      "Monitor calibration: measures frames / QPC seconds and only accepts 59 <= float(rate) <= 60 before updating legacy frame-rate globals."
+    ],
+    [
+      "0x1801a43e0",
+      "Chart/event data preparation: numerous timestamp_ms * legacy_rate / 1000 conversions to INTEGER frame indices."
+    ],
+    [
+      "0x1802fc9d0",
+      "Music timeline tick: increments integer frame by one, advances tempo/beat state. Tempo event equality check means jumping frame numbers can skip events."
+    ],
+    [
+      "0x1802fdb30",
+      "Gameplay synchronization: drift below -5 ms accumulates toward a held update (10); drift >=10 ms accumulates and >25 ms with count>=5 runs an extra update. Executes delayed key sounds in frame units."
+    ],
+    [
+      "0x1802ff090",
+      "Gameplay update: frame-based chart event dispatch, note processing, and conditional one-frame music counter advance. Called by synchronization routine."
+    ],
+    [
+      "0x1802f4e80",
+      "Note update/placement: computes 180*(note_frame-song_frame-offsets)/(legacy_rate*legacy_rate). Contains LongNotes handling. Must separate visual evaluation from state mutation."
+    ],
+    [
+      "0x1802f4e20",
+      "Judgment eligibility compares note frame minus song frame and offset against integer timing-window globals."
+    ],
+    [
+      "0x180304f30",
+      "Gameplay key-sound dispatch: velocity/volume plus cue ID; immediate branch calls CLibXact::SetSoundWithParam(..., false), delayed branch records frame deadlines."
+    ],
+    [
+      "0x18070b2f8",
+      "Legacy chart/simulation rate (double), initialized 60.0. Neighbor 0x18070b300 float 60.0 and 0x18070b304 int 60. Not merely display-refresh settings."
+    ],
+    [
+      "0x18070a610",
+      "Music timeline integer frame counter. Initialized/reset to -200; incremented by music tick."
+    ],
+    [
+      "0x18070a718",
+      "Low DWORD: signed audio-minus-frame drift milliseconds. High DWORD: timeGetTime fallback start timestamp. Keep meanings separate."
+    ],
+    [
+      "0x1801c4135",
+      "QPC frame statistics use low 32-bit modulo difference, then zero-extended conversion to double (assembly checked). Not a full 64-bit long-stall-safe elapsed-time implementation."
+    ]
+  ],
+  "libxact": [
+    [
+      "0x1800012e0",
+      "Creates XAudio2 engine/master/submix/effects and looping 44.1 kHz mono 16-bit clock voice; supplies XAudio2/master voice to native XACT initialization. ASIO engine substitution candidate, compatibility untested."
+    ],
+    [
+      "0x180001260",
+      "Audio clock: IXAudio2SourceVoice::GetState at vtable byte offset 200; SamplesPlayed converted to float *1000/44100. Assembly uses 64-bit sample count despite misleading decompiler casts."
+    ],
+    [
+      "0x180004040",
+      "Cue elapsed ms: audio sample-clock elapsed versus QPC elapsed; returns QPC if disagreement <=100ms, otherwise audio. QPC absolute 64-bit values converted separately to float BEFORE subtraction; precision hazard confirmed in assembly 0x180004110/117/11d."
+    ],
+    [
+      "0x180004870",
+      "Prepare/configure/play cue; records global audio-clock and QPC start anchors at 0x180004e53 and 0x180004e66."
+    ],
+    [
+      "0x180007230",
+      "Export CLibXact::GetSoundLabelLapse; delegates cue elapsed calculation to 0x180004040."
+    ],
+    [
+      "0x180008a10",
+      "SetSoundWithParam by ID: async false -> nosync_nowait; true -> sync_wait. Native gameplay key-sound call uses false."
+    ],
+    [
+      "0x1800092e0",
+      "Sound command worker. Sleeps 2 ms when command is empty, then processes command switch. Queue polling contributes latency; not a measured 2ms upper bound."
+    ],
+    [
+      "0x18000a9b0",
+      "Builds async cue command and queues via add_cue."
+    ]
+  ]
+}

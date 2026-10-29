@@ -1,0 +1,564 @@
+{
+  "result": [
+    {
+      "data": [
+        {
+          "addr": "0x18001b308",
+          "imported_name": "avs2_core_5",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b300",
+          "imported_name": "avs2_core_7",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2f8",
+          "imported_name": "avs2_core_11",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b298",
+          "imported_name": "avs2_core_12",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2e8",
+          "imported_name": "avs2_core_14",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2e0",
+          "imported_name": "avs2_core_15",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2d8",
+          "imported_name": "avs2_core_16",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2d0",
+          "imported_name": "avs2_core_17",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2c8",
+          "imported_name": "avs2_core_23",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2c0",
+          "imported_name": "avs2_core_24",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2b8",
+          "imported_name": "avs2_core_25",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2b0",
+          "imported_name": "avs2_core_26",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b280",
+          "imported_name": "avs2_core_53",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b278",
+          "imported_name": "avs2_core_54",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b328",
+          "imported_name": "avs2_core_55",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b320",
+          "imported_name": "avs2_core_57",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b310",
+          "imported_name": "avs2_core_58",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b270",
+          "imported_name": "avs2_core_79",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b290",
+          "imported_name": "avs2_core_80",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b288",
+          "imported_name": "avs2_core_82",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b368",
+          "imported_name": "avs2_core_86",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b360",
+          "imported_name": "avs2_core_99",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2a8",
+          "imported_name": "avs2_core_222",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b348",
+          "imported_name": "avs2_core_223",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2a0",
+          "imported_name": "avs2_core_229",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b340",
+          "imported_name": "avs2_core_234",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b338",
+          "imported_name": "avs2_core_235",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b358",
+          "imported_name": "avs2_core_240",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b350",
+          "imported_name": "avs2_core_244",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b330",
+          "imported_name": "avs2_core_247",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b2f0",
+          "imported_name": "avs2_core_380",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b318",
+          "imported_name": "avs2_core_382",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x18001b260",
+          "imported_name": "CreateFX",
+          "module": "XAPOFX1_5"
+        },
+        {
+          "addr": "0x18001b248",
+          "imported_name": "waveInOpen",
+          "module": "WINMM"
+        },
+        {
+          "addr": "0x18001b250",
+          "imported_name": "waveInClose",
+          "module": "WINMM"
+        },
+        {
+          "addr": "0x18001b020",
+          "imported_name": "SetStdHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b028",
+          "imported_name": "GetStringTypeW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b030",
+          "imported_name": "SetFilePointerEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b038",
+          "imported_name": "GetConsoleMode",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b040",
+          "imported_name": "GetConsoleCP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b048",
+          "imported_name": "HeapReAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b050",
+          "imported_name": "LCMapStringW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b058",
+          "imported_name": "LoadLibraryW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b060",
+          "imported_name": "LoadLibraryExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b068",
+          "imported_name": "OutputDebugStringW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b070",
+          "imported_name": "WriteConsoleW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b078",
+          "imported_name": "LeaveCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b080",
+          "imported_name": "EnterCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b088",
+          "imported_name": "GetCPInfo",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b090",
+          "imported_name": "GetOEMCP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b098",
+          "imported_name": "GetACP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0a0",
+          "imported_name": "IsValidCodePage",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0a8",
+          "imported_name": "GetModuleHandleW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0b0",
+          "imported_name": "TlsFree",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0b8",
+          "imported_name": "TlsSetValue",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0c0",
+          "imported_name": "TlsGetValue",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0c8",
+          "imported_name": "TlsAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0d0",
+          "imported_name": "TerminateProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0d8",
+          "imported_name": "GetCurrentProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0e0",
+          "imported_name": "GetCurrentDirectoryA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0e8",
+          "imported_name": "QueryPerformanceCounter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0f0",
+          "imported_name": "QueryPerformanceFrequency",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b0f8",
+          "imported_name": "Sleep",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b100",
+          "imported_name": "FlushFileBuffers",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b108",
+          "imported_name": "CreateFileW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b110",
+          "imported_name": "HeapFree",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b118",
+          "imported_name": "SetUnhandledExceptionFilter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b120",
+          "imported_name": "UnhandledExceptionFilter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b128",
+          "imported_name": "RtlVirtualUnwind",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b130",
+          "imported_name": "RtlCaptureContext",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b138",
+          "imported_name": "WideCharToMultiByte",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b140",
+          "imported_name": "FreeEnvironmentStringsW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b148",
+          "imported_name": "RtlPcToFileHeader",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b150",
+          "imported_name": "RaiseException",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b158",
+          "imported_name": "RtlLookupFunctionEntry",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b160",
+          "imported_name": "RtlUnwindEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b168",
+          "imported_name": "EncodePointer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b170",
+          "imported_name": "DecodePointer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b178",
+          "imported_name": "GetCommandLineA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b180",
+          "imported_name": "GetCurrentThreadId",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b188",
+          "imported_name": "IsDebuggerPresent",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b190",
+          "imported_name": "IsProcessorFeaturePresent",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b198",
+          "imported_name": "HeapAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1a0",
+          "imported_name": "GetLastError",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1a8",
+          "imported_name": "CloseHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1b0",
+          "imported_name": "SetLastError",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1b8",
+          "imported_name": "GetStdHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1c0",
+          "imported_name": "WriteFile",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1c8",
+          "imported_name": "GetModuleFileNameW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1d0",
+          "imported_name": "ExitProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1d8",
+          "imported_name": "GetModuleHandleExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1e0",
+          "imported_name": "GetProcAddress",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1e8",
+          "imported_name": "MultiByteToWideChar",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1f0",
+          "imported_name": "HeapSize",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b1f8",
+          "imported_name": "GetProcessHeap",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b200",
+          "imported_name": "GetFileType",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b208",
+          "imported_name": "InitializeCriticalSectionAndSpinCount",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b210",
+          "imported_name": "DeleteCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b218",
+          "imported_name": "GetStartupInfoW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b220",
+          "imported_name": "GetModuleFileNameA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b228",
+          "imported_name": "GetCurrentProcessId",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b230",
+          "imported_name": "GetSystemTimeAsFileTime",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b238",
+          "imported_name": "GetEnvironmentStringsW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x18001b000",
+          "imported_name": "RegOpenKeyExA",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x18001b008",
+          "imported_name": "RegCloseKey",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x18001b010",
+          "imported_name": "RegQueryValueExA",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x18001b378",
+          "imported_name": "CoTaskMemAlloc",
+          "module": "ole32"
+        },
+        {
+          "addr": "0x18001b380",
+          "imported_name": "CoTaskMemFree",
+          "module": "ole32"
+        },
+        {
+          "addr": "0x18001b388",
+          "imported_name": "CoUninitialize",
+          "module": "ole32"
+        },
+        {
+          "addr": "0x18001b390",
+          "imported_name": "CoInitializeEx",
+          "module": "ole32"
+        },
+        {
+          "addr": "0x18001b398",
+          "imported_name": "CoCreateInstance",
+          "module": "ole32"
+        }
+      ],
+      "next_offset": null
+    }
+  ]
+}

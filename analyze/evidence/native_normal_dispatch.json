@@ -1,0 +1,235 @@
+{
+  "module": "nostalgia.dll",
+  "start": "0x1802f94c0",
+  "end": "0x1802f9570",
+  "lines": [
+    {
+      "addr": "1802f94c1",
+      "instruction": "mov r8, [rax+0D0h]"
+    },
+    {
+      "addr": "1802f94c8",
+      "instruction": "cmp r8, r12"
+    },
+    {
+      "addr": "1802f94cb",
+      "instruction": "jnz loc_1802FA91F",
+      "refs": [
+        {
+          "addr": "0x1802fa91f",
+          "name": "loc_1802FA91F"
+        }
+      ]
+    },
+    {
+      "addr": "1802f94d1",
+      "instruction": "mov rbx, [rdx+8]"
+    },
+    {
+      "addr": "1802f94d5",
+      "instruction": "mov rdx, [rdi]",
+      "label": "loc_1802F94D5"
+    },
+    {
+      "addr": "1802f94d8",
+      "instruction": "mov r8, [rdx+0D0h]"
+    },
+    {
+      "addr": "1802f94df",
+      "instruction": "cmp r8, r12"
+    },
+    {
+      "addr": "1802f94e2",
+      "instruction": "jnz loc_1802FA931",
+      "refs": [
+        {
+          "addr": "0x1802fa931",
+          "name": "loc_1802FA931"
+        }
+      ]
+    },
+    {
+      "addr": "1802f94e8",
+      "instruction": "mov rax, [rdi+8]"
+    },
+    {
+      "addr": "1802f94ec",
+      "instruction": "mov eax, [rax+38h]",
+      "label": "loc_1802F94EC"
+    },
+    {
+      "addr": "1802f94ef",
+      "instruction": "lea edi, [rsi+1]"
+    },
+    {
+      "addr": "1802f94f2",
+      "instruction": "cmp eax, [rbx+38h]"
+    },
+    {
+      "addr": "1802f94f5",
+      "instruction": "cmovnz edi, esi"
+    },
+    {
+      "addr": "1802f94f8",
+      "instruction": "add rcx, 8"
+    },
+    {
+      "addr": "1802f94fc",
+      "instruction": "mov [rbp+1F0h+var_258], rcx"
+    },
+    {
+      "addr": "1802f9500",
+      "instruction": "lea rdx, [rbp+1F0h+var_1F0]"
+    },
+    {
+      "addr": "1802f9504",
+      "instruction": "lea rcx, [rbp+1F0h+var_1E8]"
+    },
+    {
+      "addr": "1802f9508",
+      "instruction": "call ?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::end(void)",
+      "refs": [
+        {
+          "addr": "0x1800caa10",
+          "name": "?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ"
+        }
+      ]
+    },
+    {
+      "addr": "1802f950d",
+      "instruction": "mov rcx, [rbp+1F0h+var_258]"
+    },
+    {
+      "addr": "1802f9511",
+      "instruction": "cmp rcx, [rax]"
+    },
+    {
+      "addr": "1802f9514",
+      "instruction": "jnz short loc_1802F94B0",
+      "refs": [
+        {
+          "addr": "0x1802f94b0",
+          "name": "loc_1802F94B0"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9516",
+      "instruction": "movzx r14d, r14b"
+    },
+    {
+      "addr": "1802f951a",
+      "instruction": "cmp edi, 3"
+    },
+    {
+      "addr": "1802f951d",
+      "instruction": "mov edi, 1"
+    },
+    {
+      "addr": "1802f9522",
+      "instruction": "cmovge r14d, edi"
+    },
+    {
+      "addr": "1802f9526",
+      "instruction": "lea r12, sub_1800A2C80",
+      "refs": [
+        {
+          "addr": "0x1800a2c80",
+          "name": "sub_1800A2C80"
+        }
+      ]
+    },
+    {
+      "addr": "1802f952d",
+      "instruction": "jmp short loc_1802F9534",
+      "refs": [
+        {
+          "addr": "0x1802f9534",
+          "name": "loc_1802F9534"
+        }
+      ]
+    },
+    {
+      "addr": "1802f952f",
+      "instruction": "mov edi, 1",
+      "label": "loc_1802F952F"
+    },
+    {
+      "addr": "1802f9534",
+      "instruction": "mov rdx, [rsp+2F0h+var_2A0]",
+      "label": "loc_1802F9534"
+    },
+    {
+      "addr": "1802f9539",
+      "instruction": "mov rcx, [rdx+10h]"
+    },
+    {
+      "addr": "1802f953d",
+      "instruction": "mov rax, [rcx]"
+    },
+    {
+      "addr": "1802f9540",
+      "instruction": "movzx r8d, r14b"
+    },
+    {
+      "addr": "1802f9544",
+      "instruction": "mov rdx, [rdx+18h]"
+    },
+    {
+      "addr": "1802f9548",
+      "instruction": "call qword ptr [rax+20h]"
+    },
+    {
+      "addr": "1802f954b",
+      "instruction": "test al, al"
+    },
+    {
+      "addr": "1802f954d",
+      "instruction": "jz short loc_1802F95C4",
+      "refs": [
+        {
+          "addr": "0x1802f95c4",
+          "name": "loc_1802F95C4"
+        }
+      ]
+    },
+    {
+      "addr": "1802f954f",
+      "instruction": "mov byte ptr [rbp+1F0h+var_16F+1], 1"
+    },
+    {
+      "addr": "1802f9556",
+      "instruction": "mov rcx, [rsp+2F0h+var_2A0]"
+    },
+    {
+      "addr": "1802f955b",
+      "instruction": "mov rax, [rcx+18h]"
+    },
+    {
+      "addr": "1802f955f",
+      "instruction": "cmp dword ptr [rax+4], 1"
+    },
+    {
+      "addr": "1802f9563",
+      "instruction": "jnz loc_1802F9697",
+      "refs": [
+        {
+          "addr": "0x1802f9697",
+          "name": "loc_1802F9697"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9569",
+      "instruction": "mov rcx, [rcx+10h]"
+    },
+    {
+      "addr": "1802f956d",
+      "instruction": "mov rax, [rcx]"
+    },
+    {
+      "addr": "1802f9570",
+      "instruction": "mov rdx, [rax+0D0h]"
+    }
+  ]
+}

@@ -1,0 +1,433 @@
+NOSTALGIA PAN-2025020501: TIMING AND ASIO FEASIBILITY
+Analysis date: 2026-10-29
+Source: \\popn.lan.sh1mar.in\Games\PAN-2025020501\modules
+Local workspace: D:\Share\nosfix\analyze
+
+1. Conclusion
+
+This build uses a MIXED timing model:
+- D3D9 vsync plus a millisecond sleep/deadline path pace the main loop.
+- QPC measures frame duration and profiles stages.
+- Chart events, the music timeline, judgment eligibility, and note placement use
+  integer frame units based on a nominal/calibrated rate near 60.
+- Audio elapsed time is compared with the frame timeline. The gameplay controller
+  sometimes holds or repeats an update to correct the difference.
+- libxact's reported audio elapsed time itself combines an XAudio2 source-voice
+  sample clock and QPC.
+
+It is therefore neither purely vsync-driven nor already frame-rate independent.
+Removing the limiter or changing a refresh constant alone is insufficient.
+The existing correction can mask some drift through held/extra updates; it does
+not make every animation or gameplay subsystem independent of rendering.
+
+Supporting 60/90/120/144/165/240/360 Hz without speed changes is technically
+plausible, but requires separating time, simulation, rendering, and input/audio
+dispatch. Smooth output at those rates must mean new visual positions each
+refresh, not merely presenting a repeated 60 Hz picture.
+
+ASIO is also plausible. The best initial substitution boundary is the XAudio2
+2.7 engine beneath the existing XACT/cue system. This is a compatibility/backend
+project, not an audio device name patch. Actual latency and compatibility remain
+unmeasured.
+
+2. Files and confidence
+
+nostalgia.dll: 7,640,728 bytes
+SHA-256: 339247b90b6de067ab0daa4355c7410487bae9b6f84ad61a4050700fa2d5638b
+libxact.dll: 192,664 bytes
+SHA-256: 6ceee6952cfa636fd96deaaf11bc72e7ca6d7b7499560ef15b033b18cb9bfb9e
+
+Both copies were compared with the source SHA-256. See manifest.json.
+IDA MCP autoanalysis completed; databases were annotated and saved.
+Game database: 20,472 functions. Audio database: 480 functions.
+All VAs below assume preferred image base 0x180000000 and are module-qualified.
+address_index.json also supplies RVAs. These are not raw patch-file offsets.
+
+Confidence:
+- High: identified instructions, constants, call sites, and existing log contents.
+- Strong inference: architectural consequences of those paths.
+- Unverified: live timing distributions, exact active scene variants, device
+  callback behavior, all animation assets, and achievable maximum render rate.
+No live experiment was performed and no binary bytes were patched.
+
+3. Main loop and presentation
+
+nostalgia!0x1801C3FE0 is the application loop. Important ordering:
+  QPC frame measurement
+  window/network/service work
+  input/device update: 0x18036A640
+  audio-minus-frame phase calculation
+  BM2D/AFP update: 0x1800D63F0
+  application/scene update: 0x1801C3B20
+  rendering and presentation: 0x1801C31C0
+  next millisecond deadline = timeGetTime() + 16
+
+QPC at 0x1801C412A updates qword_1813E7FE8 and a 30-entry history.
+Assembly at 0x1801C4135 uses a low-32-bit modulo subtraction, followed by
+zero-extended conversion to double. This is adequate for ordinary short frame
+intervals but is not a general full-64-bit elapsed-time implementation. The
+decompiler's signed/LowPart expression must not be copied as source code.
+
+The rendering routine calculates:
+  remaining_ms = clamp(deadline_ms - timeGetTime(), 0, 12)
+  if remaining_ms > 2: SleepEx(remaining_ms - 2, false)
+  IDirect3DDevice9::Present(...)
+
+SleepEx call: 0x1801C3A01.
+Present call: 0x1801C3A1E, device vtable byte offset 136.
+Profiler label: "VSYNC / Present".
+At short workloads the sleep can still request up to 10 ms, so higher display
+refresh alone does not even imply one main-loop iteration per display refresh.
+
+Device setup at 0x1801C6510 creates D3D9 and a 1280x720 backbuffer configuration.
+The base presentation structure is eventually assigned refresh 60 in fullscreen
+and interval ONE. However, the multi-adapter structures are copied before those
+two assignments; the copies retain refresh 0 and interval DEFAULT. This explains
+the existing launch log:
+  two adapters, 1280x720, two backbuffers, fullscreen
+  FullScreen_RefreshRateInHz: 0
+  PresentationInterval: 0x0
+  D3DCREATE_ADAPTERGROUP_DEVICE
+
+Thus this installed dual-adapter path does not necessarily force the physical
+monitor to 60 Hz. Its simulation still assumes approximately 60 Hz.
+D3DPRESENT_INTERVAL_DEFAULT is vsynced behavior, not IMMEDIATE [S1].
+
+Important extraction hazard: 0x1801C31C0 contains process transition/dispatch
+work before Present, including calls around 0x1801C38E5 and 0x1801C390C.
+Repeatedly calling the entire existing render function is not yet proven safe.
+Move or gate these side effects to the simulation schedule before rendering
+additional frames. Also audit secondary swap-chain Present and device Reset.
+
+4. Calibration and frame-based music/gameplay
+
+Monitor calibration: nostalgia!0x180218AA0.
+It estimates frames / measured QPC seconds in 180-frame batches, checks stability,
+and only accepts a final floating-point rate between 59 and 60 inclusive.
+It writes:
+  0x18070B2F8: double legacy rate (initial 60.0)
+  0x18070B300: float legacy rate (initial 60.0)
+  0x18070B304: integer rate (initial 60)
+
+These globals are not simply display options. Chart preparation at
+0x1801A43E0 repeatedly performs:
+  chart_frame = integer(timestamp_ms * legacy_rate / 1000)
+
+Music state begins at 0x18070A610. Its current frame is an integer; several
+initializers reset it to -200. Tick function 0x1802FC9D0 increments it by ONE,
+then updates tempo/beat state. A tempo event uses equality with the new frame,
+so skipping directly over frame values can miss such events.
+
+Gameplay update 0x1802FF090:
+- dispatches chart events against the frame counter and offsets;
+- updates notes;
+- calls 0x1802FC9D0 to advance the music frame on the applicable branch.
+Other scene variants at 0x180197330 and 0x1801AD660 share the tick routine.
+
+Note placement/update at 0x1802F4E80 includes:
+  distance_parameter =
+    180 * (note_frame - music_frame - offsets) / (legacy_rate * legacy_rate)
+and also handles LongNotes. Related calculations appear in 0x1802FF090.
+
+Judgment eligibility at 0x1802F4E20 compares:
+  note_frame - music_frame - timing_offset
+against integer timing-window globals.
+
+Consequences:
+- Display refresh must not redefine these legacy chart units.
+- Replacing all instances of 60 with the target Hz changes chart quantization,
+  timing windows, beat calculations, and scroll scaling.
+- Fractional song position needs a separate representation. Reinterpreting the
+  existing integer global as float would corrupt its consumers.
+- Preserving legacy judgments initially is possible; improving timestamp
+  resolution later needs explicit equivalence/calibration tests.
+
+5. Existing audio drift correction
+
+Main-loop phase calculation (inlined equivalent of 0x1802FC670):
+  expected_ms = integer(music_frame * 1000 / legacy_rate)
+  actual_ms = CLibXact::GetSoundLabelLapse(cue)
+              or timeGetTime() - fallback_start
+  apply existing frame-offset adjustment
+  drift_ms = actual_ms - expected_ms
+
+0x18070A718 contains two distinct DWORDs:
+  low: signed drift in milliseconds
+  high: timeGetTime fallback start timestamp
+
+Gameplay controller 0x1802FDB30 consumes this drift:
+- With valid playback, drift below -5 ms increments a persistence counter;
+  after 10 accumulated counts it requests a held gameplay update.
+  Counts decay when the condition is absent; these need not be consecutive.
+- Drift >=10 ms increments a second counter.
+- Drift >25 ms with that counter >=5 calls 0x1802FF090 once extra.
+- It normally calls 0x1802FF090 again unless the hold flag is set.
+
+This is discrete frame correction, not continuous clock-driven evaluation.
+A new timeline/scheduler must take ownership of these paths. Leaving the old
+hold/extra-update control active on top of a new scheduler risks jitter,
+duplicate progression, and competing correction. Preserve real pause and
+gameplay stop semantics separately.
+
+6. Audio architecture and the clock precision issue
+
+nostalgia imports CLibXact functions from libxact.dll, including:
+  InitSound, LoadWaveBank, LoadSoundBank, SetSoundWithParam,
+  FadeOutSound, StopSound, GetSoundLabelLapse.
+
+libxact!0x1800012E0 creates the XAudio2 engine, mastering voice, multiple submix
+voices and effects, and initializes XACT with the engine/master voice.
+The existing log identifies XAudio2 2.7 and shows:
+  CreateMasteringVoice(channels=2, rate=44100 Hz)
+  endpoint name: Focusrite USB Audio
+  XACT and XAPO effect creation
+This is consistent with the static code's 44.1 kHz mix graph.
+
+The library also creates a looping mono 16-bit 44.1 kHz source voice.
+libxact!0x180001260 queries that voice through GetState and computes:
+  audio_clock_ms = float(SamplesPlayed) * 1000 / 44100
+The sample count is 64-bit in assembly; some decompiler casts are misleading.
+This is an engine/source progress clock, not proof of the exact DAC position.
+GetState semantics, callbacks, and source-rate counters must remain consistent
+if the engine is replaced [S3].
+
+libxact!0x180007230 (GetSoundLabelLapse) calls 0x180004040.
+For a matching active cue it computes:
+  audio_elapsed = audio_clock_ms - stored_audio_start
+  qpc_elapsed = (float(QPC_now) - float(QPC_start)) * 1000 / float(QPF)
+  if abs(audio_elapsed - qpc_elapsed) <= 100 ms:
+      return qpc_elapsed
+  else:
+      return audio_elapsed
+
+Assembly confirms separate 64-bit-to-float conversions at 0x180004110 and
+0x180004117, followed by float subtraction at 0x18000411D. Converting absolute
+QPC values before subtraction loses precision as the absolute count grows.
+The correct replacement should subtract integer timestamps first and convert
+the difference to double. The current audio sample clock also converts to float;
+retain 64-bit source/device sample positions and use double for time.
+
+This is a verified precision hazard, not a measured diagnosis of a particular
+visible drift on this machine. A long-uptime test should measure its actual size.
+
+7. Keysound latency and why an ASIO selector is insufficient
+
+A concrete gameplay cue path:
+  gameplay/note processor 0x1802F7C10
+    -> nostalgia!0x180304F30 (cue/velocity dispatch)
+    -> CLibXact::SetSoundWithParam(cue_ID, ..., false)
+    -> libxact!0x180008A10
+    -> libxact!0x18000A9B0 (nosync_nowait)
+    -> add_cue queue
+    -> libxact!0x1800092E0 (worker)
+    -> libxact!0x180004870 (prepare/configure/play cue)
+    -> XACT / XAudio2 / output endpoint
+
+The worker requests Sleep(2) when its command is empty. This is a source of
+polling delay, not a guaranteed 2 ms upper bound. Cue play records an audio
+clock anchor and QPC anchor at 0x180004E53 / 0x180004E66.
+0x180304F30 and 0x1802FDB30 also support delayed cue starts/stops in frame units.
+
+Game-side input/device consumption occurs in the presentation-coupled loop.
+At exactly 60 polls per second, an asynchronously arriving event can wait
+0..16.67 ms (8.33 ms average under uniform phase), before any audio buffering.
+The launcher/hardware may sample earlier; that does not by itself remove the
+game-side wait. Pressure, velocity and filtering need tracing before changing
+the consumption cadence.
+
+The launch command requests -asioconvert Focusrite USB ASIO, but the log shows
+the XAudio2 endpoint path and no audio::asio device initialization. Spice's
+documented conversion targets WASAPI EXCLUSIVE [S2]. That flag alone is not
+evidence of ASIO operation for this XAudio2 path. The installed executable also
+logs custom-looking XACT/XAudio wrappers; their complete implementation was
+not inspected, so this report does not assert that every possible hook is absent.
+
+8. ASIO implementation choices
+
+A. Preserve XACT; substitute its XAudio2 2.7 engine (recommended prototype).
+   Intercept the actual COM creation path or the libxact engine factory.
+   Provide a correct x64 IXAudio2 2.7/voice ABI, back it with a controllable
+   software mixer, and let ASIO callbacks pull audio.
+   Preserve cue semantics, submix routing, volume, pitch, effects, callbacks,
+   operation sets, streaming, voice lifetime and SamplesPlayed.
+
+   FAudio is a credible implementation to evaluate [S4], not a ready-made
+   drop-in ASIO DLL. COM/voice wrappers and native XACT/XAPO compatibility must
+   be proven. Its published engine procedure API is a hook; it does not by
+   itself prove arbitrary callback-size, ASIO-driven rendering. Mixer backend
+   and quantum work may be necessary.
+
+   Start by testing one cue and the clock voice, then simultaneous voices,
+   effects, streaming backtrack, bank lifecycle, and timing under load.
+   Keep original behavior available as a fallback during development.
+
+B. Replace libxact's exported cue interface and implement XACT behavior.
+   Provides maximum scheduling control but is substantially larger:
+   XWB/XSB/XGS parsing, actual codecs, cue rules, envelopes, variations,
+   looping, streaming, effects, routing and handle/notification semantics.
+   A FACT/FAudio-based implementation is a possible basis, subject to testing.
+   Not the first experiment.
+
+C. Tap mixed output and forward it to ASIO.
+   Useful for proving device routing. It retains upstream XAudio/XACT batching
+   and introduces buffering/clock-domain handling, so it is a weaker route to
+   minimum key-to-sound latency.
+
+An XAudio2 2.7-to-2.9 adapter is another WASAPI-based experiment; it is not ASIO.
+Microsoft documents processing quanta around 10 ms on most PCs for 2.9 [S5].
+Do not promise low single-digit key latency simply from an API version change.
+
+ASIO design requirements:
+- Query actual supported rate, buffer granularity, channels and sample types.
+  Begin with 44.1 kHz to match this mix graph, if the selected driver supports it.
+- Try 128 samples, then 64 if stable. At 44.1 kHz these periods are 2.90 and
+  1.45 ms. These are buffer periods, NOT total end-to-end latency.
+- Preallocate callback resources; perform disk I/O, decoding setup and logging
+  elsewhere. Use bounded queues and measure underruns.
+- Correlate output sample position and QPC. Distinguish rendered/queued samples
+  from audible output and include driver/device latency [S6].
+- Preserve per-source SamplesPlayed semantics even if output runs at another
+  rate. Do not blindly replace every source counter with ASIO device samples.
+- Replace or improve the Sleep(2) command worker and frame-gated cue dispatch
+  if low latency is the objective.
+- Measure hardware input-to-analog-output, including pressure processing,
+  game dispatch, mixing, driver and DAC. Buffer size alone cannot establish it.
+
+9. Proposed display-independent design
+
+Use separate quantities:
+  real_time = (QPC_now - QPC_origin) / QPF
+  song_time = audio/output progress mapped to a common monotonic timebase
+  simulation_tick = legacy 60 Hz tick count (initial compatibility mode)
+  visual_song_frame = song_time * fixed_legacy_chart_rate + phase_offset
+  display_refresh = presentation setting only
+
+Song starts, preroll, pause/resume, bank changes and the existing offsets require
+explicit anchor/reset handling. Do not use an unrelated system-clock start as
+the audible song origin. Before playback starts, QPC can drive preroll; align
+the song anchor to the actual scheduled audio start.
+
+Keep ordinary game state/menus/authored animation events on a fixed 60 Hz
+schedule initially. Drive the schedule with elapsed time, using an accumulator
+and bounded catch-up. Never derive simulation speed from target display Hz.
+For severe stalls, use an explicit recovery policy rather than unbounded replay
+or silently dropping scoring/audio events.
+
+At each render:
+- evaluate notes and long-note geometry from continuous song time;
+- interpolate appropriate visual transforms between stable simulation states;
+- keep score changes, cue starts and state transitions out of render-only calls;
+- retain original authored animation speed. Interpolation/evaluation of AFP/
+  BM2D content needs a separate asset/engine audit; rendering it more often
+  without that work can still produce repeated frames or faster effects.
+
+Do not run the entire game update 360 times per second with a fractional scale
+and assume correctness. Integer timers, equal-to-frame events and side effects
+make that unsafe.
+
+For low latency, capture input timestamps independently of blocking Present and
+run a small, audited input/judgment/keysound path at an appropriate cadence.
+Preserve the legacy score windows initially, expressed in fixed chart time.
+A 60 Hz-only compatibility prototype can prove speed correctness, but alone it
+cannot satisfy the full latency objective. Retiming judgments is a later,
+explicitly tested change.
+
+Keep D3D ownership on one thread where feasible. Publish coherent snapshots to
+render/input consumers; do not allow gameplay pointers to race with rendering.
+Move the process-dispatch side effects identified in section 3 before adding
+extra render calls.
+
+60/90/120/144/165/240/360 Hz need no separate gameplay constants. Fractional
+ratios (especially 90, 144, 165) are handled by time and interpolation.
+Use actual measured/selected display rates, including fractional refresh modes.
+Treat the second monitor independently so its vsync does not cap the primary.
+Vsync may remain enabled for presentation: the goal is to stop using it as the
+simulation clock, not necessarily to remove it.
+
+10. Suggested implementation order and validation gates
+
+Phase 1: Instrumentation and unchanged 60 Hz baseline.
+- Build a version/hash-checked local hook with an off switch.
+- Record QPC, Present enter/exit, IO consumption, music frame, drift,
+  held/extra updates, cue enqueue/dequeue/play and audio sample positions.
+- Trace pressure/velocity processing and scene call chains.
+- Measure frame/render cost and key-to-output latency with real hardware.
+- Correct the QPC subtraction precision in an isolated comparison experiment.
+
+Phase 2: Separate presentation from legacy simulation.
+- Remove the old fixed 16 ms pacing from render scheduling.
+- Fix main/secondary presentation configuration.
+- Extract render-side state changes.
+- Schedule legacy ticks independently; coordinate retirement of the old
+  audio hold/repeat correction with the new audio-aligned timeline.
+- Prove baseline behavior at 60, then present at 120. This phase may still
+  display some 60 Hz animation until phase 3 is complete.
+
+Phase 3: Smooth visuals and independent input/audio.
+- Use continuous song time for note/long-note placement.
+- Audit AFP/BM2D, particles, fades, countdowns and screen transitions.
+- Add timestamped input and event scheduling without repeating scoring events.
+- Validate 90, 144 and 165 Hz before 240 and 360 Hz.
+- Ensure the second screen, alt-tab/device reset and stalls preserve time.
+
+Phase 4: ASIO backend prototype and integration.
+- First prove correct XAudio2/XACT compatibility and actual ASIO initialization.
+- Integrate sample-clock mapping and low-latency event delivery.
+- Tune buffer size only after voice/effect/lifecycle behavior is correct.
+
+Acceptance checks (proposed, not completed):
+- Same recorded input/chart produces the same legacy scoring/event sequence at
+  every refresh rate; no duplicate or skipped notes/cues/tempo events.
+- Note position sampled at identical song times agrees across refresh rates;
+  target subpixel agreement for equivalent view configuration.
+- Animation/countdown duration matches the 60 Hz baseline in real seconds.
+- Multi-minute songs and a 30-60 minute soak show no accumulating audio/visual
+  phase trend. Report phase offset, jitter and correction counts separately.
+- Long notes, dense chords, key pressure/velocity, fast releases, bank changes,
+  song transitions, paused states, CPU/GPU spikes and mixed-refresh dual screens.
+- Distinct high-rate visual frames, plus render-time budget and frame-pacing
+  measurements. 360 Hz requires roughly 2.78 ms per displayed frame.
+- ASIO: callback timing/underruns and input-to-output p50/p95/p99/max latency,
+  measured under gameplay load. No claim of guaranteed latency beforehand.
+
+Recommended first milestone:
+A diagnostic hook and a reproducible 60 Hz timing/latency baseline, followed by
+a 120 Hz renderer with fixed legacy timing. In parallel as project tracks
+(not work performed in this analysis), test XAudio2 engine substitution with a
+single XACT cue and the clock voice. These two proof points de-risk the larger
+high-refresh and ASIO changes.
+
+11. Open questions for implementation
+
+- Which gameplay variants and presentation path are active in each mode?
+- Full pressure/velocity sampling/filtering chain and its time assumptions.
+- Complete AFP/BM2D animation semantics and safe render-only evaluation.
+- Active source codecs, XACT features and XAPO compatibility requirements.
+- Actual Focusrite ASIO buffer/rate support and end-to-end latency.
+- Existing launcher's XAudio/XACT hook behavior and possible hook conflicts.
+- Actual display-rate support and sustained dual-screen 360 Hz render cost.
+
+These do not prevent the architectural conclusion above. They do prevent
+claiming a finished high-refresh patch or guaranteed ASIO latency.
+
+12. External references
+
+S1. Microsoft: D3DPRESENT, DEFAULT/ONE/IMMEDIATE behavior.
+https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent
+
+S2. spice2x: Audio modes demystified, Nostalgia and exclusive WASAPI-to-ASIO.
+https://github.com/spice2x/spice2x.github.io/wiki/Audio-modes-demystified
+
+S3. Microsoft: IXAudio2SourceVoice::GetState, sample cursor and callback semantics.
+https://learn.microsoft.com/en-us/windows/win32/api/xaudio2/nf-xaudio2-ixaudio2sourcevoice-getstate
+
+S4. FAudio project and public API (candidate implementation, not tested here).
+https://github.com/FNA-XNA/FAudio
+https://raw.githubusercontent.com/FNA-XNA/FAudio/master/include/FAudio.h
+
+S5. Microsoft: XAudio 2.9 redistributable guide, processing quantum.
+https://learn.microsoft.com/en-us/windows/win32/xaudio2/xaudio2-redistributable
+
+S6. PortAudio ASIO implementation, callback buffers and latency accounting.
+https://raw.githubusercontent.com/PortAudio/portaudio/master/src/hostapi/asio/pa_asio.cpp
+

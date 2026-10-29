@@ -1,0 +1,144 @@
+{
+  "preferred_image_base": "0x180000000",
+  "note": "Module-relative virtual addresses, NOT raw file offsets. Descriptions are analyst annotations.",
+  "items": [
+    {
+      "module": "nostalgia",
+      "va": "0x1801c3fe0",
+      "description": "Main loop: QPC frame-duration measurement; IO; audio/frame phase comparison; BM2D; Update; Render/Present. Not a general delta-time simulation.",
+      "rva": "0x1c3fe0"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1801c31c0",
+      "description": "Render/present path. Also dispatches process transitions before Present: repeated rendering requires auditing/extracting these side effects. SleepEx at 0x1801c3a01; IDirect3DDevice9::Present at 0x1801c3a1e.",
+      "rva": "0x1c31c0"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1801c6510",
+      "description": "D3D9 device setup. Multi-adapter present-parameter copies occur before base struct is assigned 60 Hz / INTERVAL_ONE; copied entries initially retain 0/default. Corroborated by installation log.",
+      "rva": "0x1c6510"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x180218aa0",
+      "description": "Monitor calibration: measures frames / QPC seconds and only accepts 59 <= float(rate) <= 60 before updating legacy frame-rate globals.",
+      "rva": "0x218aa0"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1801a43e0",
+      "description": "Chart/event data preparation: numerous timestamp_ms * legacy_rate / 1000 conversions to INTEGER frame indices.",
+      "rva": "0x1a43e0"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1802fc9d0",
+      "description": "Music timeline tick: increments integer frame by one, advances tempo/beat state. Tempo event equality check means jumping frame numbers can skip events.",
+      "rva": "0x2fc9d0"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1802fdb30",
+      "description": "Gameplay synchronization: drift below -5 ms accumulates toward a held update (10); drift >=10 ms accumulates and >25 ms with count>=5 runs an extra update. Executes delayed key sounds in frame units.",
+      "rva": "0x2fdb30"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1802ff090",
+      "description": "Gameplay update: frame-based chart event dispatch, note processing, and conditional one-frame music counter advance. Called by synchronization routine.",
+      "rva": "0x2ff090"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1802f4e80",
+      "description": "Note update/placement: computes 180*(note_frame-song_frame-offsets)/(legacy_rate*legacy_rate). Contains LongNotes handling. Must separate visual evaluation from state mutation.",
+      "rva": "0x2f4e80"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1802f4e20",
+      "description": "Judgment eligibility compares note frame minus song frame and offset against integer timing-window globals.",
+      "rva": "0x2f4e20"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x180304f30",
+      "description": "Gameplay key-sound dispatch: velocity/volume plus cue ID; immediate branch calls CLibXact::SetSoundWithParam(..., false), delayed branch records frame deadlines.",
+      "rva": "0x304f30"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x18070b2f8",
+      "description": "Legacy chart/simulation rate (double), initialized 60.0. Neighbor 0x18070b300 float 60.0 and 0x18070b304 int 60. Not merely display-refresh settings.",
+      "rva": "0x70b2f8"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x18070a610",
+      "description": "Music timeline integer frame counter. Initialized/reset to -200; incremented by music tick.",
+      "rva": "0x70a610"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x18070a718",
+      "description": "Low DWORD: signed audio-minus-frame drift milliseconds. High DWORD: timeGetTime fallback start timestamp. Keep meanings separate.",
+      "rva": "0x70a718"
+    },
+    {
+      "module": "nostalgia",
+      "va": "0x1801c4135",
+      "description": "QPC frame statistics use low 32-bit modulo difference, then zero-extended conversion to double (assembly checked). Not a full 64-bit long-stall-safe elapsed-time implementation.",
+      "rva": "0x1c4135"
+    },
+    {
+      "module": "libxact",
+      "va": "0x1800012e0",
+      "description": "Creates XAudio2 engine/master/submix/effects and looping 44.1 kHz mono 16-bit clock voice; supplies XAudio2/master voice to native XACT initialization. ASIO engine substitution candidate, compatibility untested.",
+      "rva": "0x12e0"
+    },
+    {
+      "module": "libxact",
+      "va": "0x180001260",
+      "description": "Audio clock: IXAudio2SourceVoice::GetState at vtable byte offset 200; SamplesPlayed converted to float *1000/44100. Assembly uses 64-bit sample count despite misleading decompiler casts.",
+      "rva": "0x1260"
+    },
+    {
+      "module": "libxact",
+      "va": "0x180004040",
+      "description": "Cue elapsed ms: audio sample-clock elapsed versus QPC elapsed; returns QPC if disagreement <=100ms, otherwise audio. QPC absolute 64-bit values converted separately to float BEFORE subtraction; precision hazard confirmed in assembly 0x180004110/117/11d.",
+      "rva": "0x4040"
+    },
+    {
+      "module": "libxact",
+      "va": "0x180004870",
+      "description": "Prepare/configure/play cue; records global audio-clock and QPC start anchors at 0x180004e53 and 0x180004e66.",
+      "rva": "0x4870"
+    },
+    {
+      "module": "libxact",
+      "va": "0x180007230",
+      "description": "Export CLibXact::GetSoundLabelLapse; delegates cue elapsed calculation to 0x180004040.",
+      "rva": "0x7230"
+    },
+    {
+      "module": "libxact",
+      "va": "0x180008a10",
+      "description": "SetSoundWithParam by ID: async false -> nosync_nowait; true -> sync_wait. Native gameplay key-sound call uses false.",
+      "rva": "0x8a10"
+    },
+    {
+      "module": "libxact",
+      "va": "0x1800092e0",
+      "description": "Sound command worker. Sleeps 2 ms when command is empty, then processes command switch. Queue polling contributes latency; not a measured 2ms upper bound.",
+      "rva": "0x92e0"
+    },
+    {
+      "module": "libxact",
+      "va": "0x18000a9b0",
+      "description": "Builds async cue command and queues via add_cue.",
+      "rva": "0xa9b0"
+    }
+  ]
+}

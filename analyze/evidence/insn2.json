@@ -1,0 +1,105 @@
+{
+  "result": [
+    {
+      "query": {
+        "mnem": null,
+        "op0": null,
+        "op1": null,
+        "op2": null,
+        "op_any": null,
+        "func": null,
+        "segment": null,
+        "start": "0x1801c4120",
+        "end": "0x1801c4178",
+        "offset": 0,
+        "count": 40,
+        "max_scan_insns": 200000,
+        "allow_broad": false
+      },
+      "ranges": [
+        {
+          "start": "0x1801c4120",
+          "end": "0x1801c4178"
+        }
+      ],
+      "matches": [
+        {
+          "addr": "0x1801c4120",
+          "disasm": "mov qword ptr [rsp+140h+PerformanceCount], r12"
+        },
+        {
+          "addr": "0x1801c4125",
+          "disasm": "lea rcx, [rsp+140h+PerformanceCount]; lpPerformanceCount"
+        },
+        {
+          "addr": "0x1801c412a",
+          "disasm": "call cs:QueryPerformanceCounter; KERNEL32"
+        },
+        {
+          "addr": "0x1801c4130",
+          "disasm": "mov rax, qword ptr [rsp+140h+PerformanceCount]"
+        },
+        {
+          "addr": "0x1801c4135",
+          "disasm": "mov ecx, eax"
+        },
+        {
+          "addr": "0x1801c4137",
+          "disasm": "sub ecx, dword ptr cs:qword_1813E6D98"
+        },
+        {
+          "addr": "0x1801c413d",
+          "disasm": "xorps xmm1, xmm1"
+        },
+        {
+          "addr": "0x1801c4140",
+          "disasm": "cvtsi2sd xmm1, rcx"
+        },
+        {
+          "addr": "0x1801c4145",
+          "disasm": "mov ecx, dword ptr cs:Frequency"
+        },
+        {
+          "addr": "0x1801c414b",
+          "disasm": "xorps xmm0, xmm0"
+        },
+        {
+          "addr": "0x1801c414e",
+          "disasm": "cvtsi2sd xmm0, rcx"
+        },
+        {
+          "addr": "0x1801c4153",
+          "disasm": "divsd xmm1, xmm0"
+        },
+        {
+          "addr": "0x1801c4157",
+          "disasm": "mov cs:qword_1813E6D98, rax"
+        },
+        {
+          "addr": "0x1801c415e",
+          "disasm": "movsxd rcx, cs:dword_1813E6C28"
+        },
+        {
+          "addr": "0x1801c4165",
+          "disasm": "lea rdx, dbl_1812CF790"
+        },
+        {
+          "addr": "0x1801c416c",
+          "disasm": "movsd qword ptr [rdx+rcx*8], xmm1"
+        },
+        {
+          "addr": "0x1801c4171",
+          "disasm": "movsd cs:qword_1813E7FE8, xmm1"
+        }
+      ],
+      "count": 17,
+      "cursor": {
+        "done": true
+      },
+      "scanned": 17,
+      "truncated": false,
+      "next_start": null,
+      "error": null
+    }
+  ]
+}

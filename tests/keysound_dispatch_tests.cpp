@@ -1,0 +1,348 @@
+#include "test_support.hpp"
+
+#include "nosfix/keysound_dispatch.hpp"
+
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+#include <thread>
+
+namespace {
+
+using nosfix::audio::KeysoundDispatch;
+using nosfix::audio::KeysoundDispatchOutcome;
+using nosfix::audio::KeysoundPushStatus;
+using nosfix::audio::KeysoundQueue;
+using nosfix::audio::KeysoundRequest;
+
+constexpr std::int64_t kQpcOrigin = 5'000'000;
+constexpr std::int64_t kQpcFrequency = 10'000'000;
+constexpr std::uint32_t kRate = 44100;
+
+struct Mapper {
+    bool valid = true;
+};
+
+bool MapQpc(void* context, std::int64_t qpc, std::int64_t& sample) noexcept {
+    auto* mapper = static_cast<Mapper*>(context);
+    if (!mapper->valid) return false;
+    const long double delta = static_cast<long double>(qpc - kQpcOrigin);
+    const long double value =
+        delta * static_cast<long double>(kRate) / static_cast<long double>(kQpcFrequency);
+    sample = static_cast<std::int64_t>(std::llround(value));
+    return true;
+}
+
+struct Sink {
+    KeysoundDispatch items[512]{};
+    std::uint32_t count = 0;
+    bool reject = false;
+    std::uint32_t rejected = 0;
+};
+
+bool Receive(void* context, const KeysoundDispatch& dispatch) noexcept {
+    auto* sink = static_cast<Sink*>(context);
+    if (sink->reject) {
+        ++sink->rejected;
+        return false;
+    }
+    if (sink->count < 512) sink->items[sink->count++] = dispatch;
+    return true;
+}
+
+KeysoundRequest Request(std::uint64_t sequence, std::uint64_t generation,
+                        std::int64_t capture_qpc, std::uint32_t cue = 1) {
+    KeysoundRequest request;
+    request.sequence = sequence;
+    request.generation = generation;
+    request.capture_qpc = capture_qpc;
+    request.cue_id = cue;
+    request.variation = 0;
+    request.volume_db = -3.0F;
+    request.pan = 0.25F;
+    return request;
+}
+
+std::int64_t SampleAtQpc(std::int64_t qpc) noexcept {
+    Mapper mapper;
+    std::int64_t sample = 0;
+    MapQpc(&mapper, qpc, sample);
+    return sample;
+}
+
+constexpr std::uint32_t kStressEvents = 4'000;
+
+bool StressMap(void* context, std::int64_t qpc, std::int64_t& sample) noexcept {
+    (void)context;
+    sample = qpc - kQpcOrigin;
+    return true;
+}
+
+bool MinimumMap(void* context, std::int64_t qpc, std::int64_t& sample) noexcept {
+    (void)context;
+    (void)qpc;
+    sample = std::numeric_limits<std::int64_t>::min();
+    return true;
+}
+
+struct StressSink {
+    std::array<std::atomic<std::uint32_t>, kStressEvents + 1> seen{};
+    std::atomic<std::uint32_t> duplicates{0};
+    std::atomic<std::uint32_t> count{0};
+};
+
+bool StressReceive(void* context, const KeysoundDispatch& dispatch) noexcept {
+    auto* sink = static_cast<StressSink*>(context);
+    if (dispatch.sequence == 0 || dispatch.sequence > kStressEvents) {
+        sink->duplicates.fetch_add(1, std::memory_order_relaxed);
+        return true;
+    }
+    if (sink->seen[dispatch.sequence].exchange(1, std::memory_order_acq_rel) != 0) {
+        sink->duplicates.fetch_add(1, std::memory_order_relaxed);
+    }
+    sink->count.fetch_add(1, std::memory_order_relaxed);
+    return true;
+}
+
+} // namespace
+
+int main() {
+    using nosfix::audio::KeysoundQueueStats;
+
+    KeysoundQueue invalid_queue(100);
+    CHECK(!invalid_queue.Valid());
+    KeysoundQueue tiny_queue(32);
+    CHECK(!tiny_queue.Valid());
+
+    KeysoundQueue queue(64);
+    CHECK(queue.Valid());
+    CHECK(queue.Capacity() == 64);
+
+    Mapper mapper;
+    queue.SetMapper(&MapQpc, &mapper);
+
+    // Invalid requests never reach the ring.
+    KeysoundRequest bad;
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    bad = Request(0, 1, kQpcOrigin);
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    bad = Request(1, 0, kQpcOrigin);
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    bad = Request(1, 1, 0);
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    bad = Request(1, 1, kQpcOrigin);
+    bad.pan = 2.0F;
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    bad = Request(1, 1, kQpcOrigin);
+    bad.volume_db = std::numeric_limits<float>::quiet_NaN();
+    CHECK(queue.Push(bad).status == KeysoundPushStatus::InvalidArgument);
+    CHECK(queue.SnapshotStats().rejected_invalid == 6);
+
+    // Once-only producer sequence, including a duplicate that carries new data.
+    CHECK(queue.Push(Request(1, 7, kQpcOrigin + 1000, 10)).accepted());
+    CHECK(queue.Push(Request(2, 7, kQpcOrigin + 2000, 11)).accepted());
+    CHECK(queue.Push(Request(2, 7, kQpcOrigin + 2000, 12)).status ==
+          KeysoundPushStatus::Duplicate);
+    CHECK(queue.Push(Request(1, 7, kQpcOrigin + 1000, 12)).status ==
+          KeysoundPushStatus::Duplicate);
+    CHECK(queue.SnapshotStats().rejected_duplicate == 2);
+    CHECK(queue.Pending() == 2);
+
+    Sink sink;
+    // Samples: request 1 = 4, request 2 = 8 (at 44.1 kHz, 1000 ticks ~= 4.41).
+    KeysoundDispatchOutcome outcome =
+        queue.DispatchDue(0, 128, 7, &Receive, &sink);
+    CHECK(outcome.dispatched == 2);
+    CHECK(sink.count == 2);
+    CHECK(sink.items[0].cue_id == 10);
+    CHECK(sink.items[0].offset_in_block == 4);
+    CHECK(sink.items[0].late_frames == 0);
+    CHECK(sink.items[1].cue_id == 11);
+    CHECK(sink.items[1].offset_in_block == 9);
+    CHECK(queue.Pending() == 0);
+
+    // Second dispatch of the same block must not repeat anything.
+    CHECK(queue.DispatchDue(0, 128, 7, &Receive, &sink).dispatched == 0);
+    CHECK(sink.count == 2);
+
+    // A future due time stays queued until the containing block.
+    CHECK(queue.Push(Request(3, 7, kQpcOrigin + 10'000, 20)).accepted()); // 44
+    CHECK(queue.DispatchDue(0, 32, 7, &Receive, &sink).dispatched == 0);
+    CHECK(queue.Pending() == 1);
+    CHECK(queue.DispatchDue(32, 32, 7, &Receive, &sink).dispatched == 1);
+    CHECK(sink.items[2].offset_in_block == 12); // sample 44
+
+    // Late event: due sample before the block start -> offset 0 and accounting.
+    CHECK(queue.Push(Request(4, 7, kQpcOrigin - 100'000, 30)).accepted()); // -441
+    outcome = queue.DispatchDue(0, 128, 7, &Receive, &sink);
+    CHECK(outcome.dispatched == 1);
+    CHECK(outcome.late == 1);
+    CHECK(sink.items[3].offset_in_block == 0);
+    CHECK(sink.items[3].late_frames == 441);
+    CHECK(queue.SnapshotStats().total_late_frames == 441);
+    CHECK(queue.SnapshotStats().max_late_frames == 441);
+
+    // Out-of-order scheduled events: a future event at the head must not block
+    // a later queued event whose due time is already inside this block.
+    CHECK(queue.Push(Request(5, 7, kQpcOrigin + 60'000, 40)).accepted()); // 265
+    CHECK(queue.Push(Request(6, 7, kQpcOrigin + 30'000, 41)).accepted()); // 132
+    outcome = queue.DispatchDue(128, 128, 7, &Receive, &sink);
+    CHECK(outcome.dispatched == 1);
+    CHECK(sink.items[4].cue_id == 41);
+    CHECK(sink.items[4].offset_in_block == 4);
+    CHECK(queue.Pending() == 1);
+    outcome = queue.DispatchDue(256, 128, 7, &Receive, &sink);
+    CHECK(outcome.dispatched == 1);
+    CHECK(sink.items[5].cue_id == 40);
+    CHECK(sink.items[5].offset_in_block == 9);
+
+    // Scheduled due_qpc is used instead of capture_qpc.
+    KeysoundRequest scheduled = Request(7, 7, kQpcOrigin + 2000, 50);
+    scheduled.due_qpc = kQpcOrigin + 50'000; // 220
+    CHECK(queue.Push(scheduled).accepted());
+    CHECK(queue.DispatchDue(0, 128, 7, &Receive, &sink).dispatched == 0);
+    CHECK(queue.DispatchDue(128, 128, 7, &Receive, &sink).dispatched == 1);
+    CHECK(sink.items[6].due_device_sample == 221);
+
+    // Events from another generation are dropped, not played late.
+    CHECK(queue.Push(Request(8, 7, kQpcOrigin + 1000, 60)).accepted());
+    outcome = queue.DispatchDue(0, 128, 8, &Receive, &sink);
+    CHECK(outcome.dispatched == 0);
+    CHECK(outcome.dropped_stale == 1);
+    CHECK(queue.Pending() == 0);
+    CHECK(queue.SnapshotStats().dropped_stale_generation == 1);
+
+    // Mapper failure leaves events queued; installing a working mapper
+    // dispatches them exactly once.
+    mapper.valid = false;
+    CHECK(queue.Push(Request(9, 7, kQpcOrigin + 1000, 70)).accepted());
+    CHECK(queue.DispatchDue(0, 128, 7, &Receive, &sink).dispatched == 0);
+    CHECK(queue.Pending() == 1);
+    mapper.valid = true;
+    CHECK(queue.DispatchDue(0, 128, 7, &Receive, &sink).dispatched == 1);
+    CHECK(sink.items[7].cue_id == 70);
+
+    // Sink refusal is counted and the event is retired (never replayed).
+    sink.reject = true;
+    CHECK(queue.Push(Request(10, 7, kQpcOrigin + 1000, 80)).accepted());
+    outcome = queue.DispatchDue(0, 128, 7, &Receive, &sink);
+    CHECK(outcome.dispatched == 1);
+    CHECK(outcome.sink_rejected == 1);
+    CHECK(sink.rejected == 1);
+    CHECK(queue.Pending() == 0);
+    sink.reject = false;
+    CHECK(queue.DispatchDue(0, 128, 7, &Receive, &sink).dispatched == 0);
+
+    // Overflow is explicit and counted; the newest request is rejected.
+    KeysoundQueue small(64);
+    small.SetMapper(&MapQpc, &mapper);
+    for (std::uint64_t i = 1; i <= 64; ++i) {
+        CHECK(small.Push(Request(i, 9, kQpcOrigin + static_cast<std::int64_t>(i))).accepted());
+    }
+    CHECK(small.Push(Request(65, 9, kQpcOrigin + 65)).status ==
+          KeysoundPushStatus::Overflow);
+    KeysoundQueueStats stats = small.SnapshotStats();
+    CHECK(stats.rejected_overflow == 1);
+    CHECK(stats.pending == 64);
+    CHECK(stats.high_watermark == 64);
+    Sink overflow_sink;
+    outcome = small.DispatchDue(0, 128, 9, &Receive, &overflow_sink);
+    CHECK(outcome.dispatched == 64);
+    CHECK(overflow_sink.count == 64);
+    CHECK(small.Pending() == 0);
+    CHECK(small.SnapshotStats().dispatched == 64);
+
+    // Allocation freedom for push and dispatch, including the late path.
+    KeysoundQueue rt_queue(64);
+    rt_queue.SetMapper(&MapQpc, &mapper);
+    for (std::uint64_t i = 1; i <= 32; ++i) {
+        CHECK(rt_queue.Push(Request(100 + i, 11, kQpcOrigin +
+                                    static_cast<std::int64_t>(i * 50))).accepted());
+    }
+    Sink rt_sink;
+    test::BeginAllocationProbe();
+    const KeysoundDispatchOutcome rt_outcome =
+        rt_queue.DispatchDue(0, 128, 11, &Receive, &rt_sink);
+    const long long allocations = test::EndAllocationProbe();
+    CHECK(rt_outcome.dispatched == 32);
+    CHECK(allocations == 0);
+
+    // Pending is an undispatched-event count; an event remains pending until a
+    // block containing its due time is dispatched.
+    CHECK(rt_queue.Push(Request(200, 11, kQpcOrigin + 1000)).accepted());
+    CHECK(rt_queue.Pending() == 1);
+    CHECK(rt_queue.DispatchDue(0, 128, 11, &Receive, &rt_sink).dispatched == 1);
+    CHECK(rt_queue.Pending() == 0);
+
+    // Concurrent producer/consumer stress: correct SPSC publication must not
+    // lose, duplicate or transiently underflow the pending count.
+    {
+        KeysoundQueue concurrent(1024);
+        concurrent.SetMapper(&StressMap, nullptr);
+        StressSink stress_sink;
+        for (auto& slot : stress_sink.seen) slot.store(0, std::memory_order_relaxed);
+        std::atomic<std::uint32_t> accepted{0};
+        std::atomic<bool> producer_done{false};
+        std::thread producer([&]() {
+            for (std::uint32_t sequence = 1; sequence <= kStressEvents; ++sequence) {
+                for (;;) {
+                    const auto result = concurrent.Push(
+                        Request(sequence, 1, kQpcOrigin + sequence));
+                    if (result.accepted()) {
+                        accepted.fetch_add(1, std::memory_order_relaxed);
+                        break;
+                    }
+                    if (result.status != KeysoundPushStatus::Overflow) break;
+                    std::this_thread::yield();
+                }
+            }
+            producer_done.store(true, std::memory_order_release);
+        });
+        std::thread consumer([&]() {
+            std::int64_t block_start = 0;
+            for (int iteration = 0; iteration < 200'000; ++iteration) {
+                (void)concurrent.DispatchDue(block_start, 256, 1, &StressReceive,
+                                             &stress_sink);
+                block_start += 256;
+                if (producer_done.load(std::memory_order_acquire) &&
+                    concurrent.Pending() == 0) {
+                    break;
+                }
+                std::this_thread::yield();
+            }
+        });
+        producer.join();
+        consumer.join();
+        const KeysoundQueueStats stress_stats = concurrent.SnapshotStats();
+        CHECK(accepted.load() == kStressEvents);
+        CHECK(stress_sink.count.load() == kStressEvents);
+        CHECK(stress_sink.duplicates.load() == 0);
+        CHECK(stress_stats.pushed == kStressEvents);
+        CHECK(stress_stats.dispatched == kStressEvents);
+        CHECK(stress_stats.pending == 0);
+        CHECK(stress_stats.pending <= concurrent.Capacity());
+        CHECK(stress_stats.high_watermark <= concurrent.Capacity());
+    }
+
+    // Extreme mapper output: a late INT64_MIN due sample must not overflow the
+    // signed late-frame subtraction; the reported lateness saturates.
+    {
+        KeysoundQueue edge(64);
+        edge.SetMapper(&MinimumMap, nullptr);
+        Sink edge_sink;
+        CHECK(edge.Push(Request(1, 5, 1)).accepted());
+        const auto edge_outcome = edge.DispatchDue(1'000'000, 128, 5,
+                                                   &Receive, &edge_sink);
+        CHECK(edge_outcome.dispatched == 1);
+        CHECK(edge_outcome.late == 1);
+        CHECK(edge_sink.count == 1);
+        CHECK(edge_sink.items[0].offset_in_block == 0);
+        CHECK(edge_sink.items[0].late_frames ==
+              std::numeric_limits<std::uint32_t>::max());
+    }
+
+    return test::Finish("keysound_dispatch");
+}

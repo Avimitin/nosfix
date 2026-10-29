@@ -1,0 +1,48 @@
+{
+  "image_base": "0x180000000",
+  "size_of_image": "0x4b89000",
+  "sections": [
+    {
+      "name": ".text",
+      "rva": "0x1000",
+      "virtual_size": "0x3a6048",
+      "raw_size": "0x3a6200",
+      "flags": "0x60000020"
+    },
+    {
+      "name": ".rdata",
+      "rva": "0x3a8000",
+      "virtual_size": "0x352a38",
+      "raw_size": "0x352c00",
+      "flags": "0x40000040"
+    },
+    {
+      "name": ".data",
+      "rva": "0x6fb000",
+      "virtual_size": "0x4455aac",
+      "raw_size": "0x1a200",
+      "flags": "0xc0000040"
+    },
+    {
+      "name": ".pdata",
+      "rva": "0x4b51000",
+      "virtual_size": "0x2d468",
+      "raw_size": "0x2d600",
+      "flags": "0x40000040"
+    },
+    {
+      "name": ".rsrc",
+      "rva": "0x4b7f000",
+      "virtual_size": "0x2d0",
+      "raw_size": "0x400",
+      "flags": "0x40000040"
+    },
+    {
+      "name": ".reloc",
+      "rva": "0x4b80000",
+      "virtual_size": "0x8118",
+      "raw_size": "0x8200",
+      "flags": "0x42000040"
+    }
+  ]
+}

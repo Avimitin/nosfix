@@ -1,0 +1,89 @@
+{
+  "metadata": {
+    "path": "D:\\Share\\nosfix\\analyze\\nostalgia.dll.i64",
+    "module": "nostalgia.dll",
+    "arch": "64",
+    "base_address": "0x180000000",
+    "image_size": "0x4b89000",
+    "md5": "98ca5347ae392dc3797e041e854e14a3",
+    "sha256": "339247b90b6de067ab0daa4355c7410487bae9b6f84ad61a4050700fa2d5638b"
+  },
+  "statistics": {
+    "total_functions": 20472,
+    "named_functions": 415,
+    "library_functions": 3662,
+    "unnamed_functions": 16395,
+    "total_strings": 95143,
+    "total_segments": 5
+  },
+  "segments": [
+    {
+      "name": ".text",
+      "start": "0x180001000",
+      "end": "0x1803a8000",
+      "size": "0x3a7000",
+      "permissions": "rx"
+    },
+    {
+      "name": ".idata",
+      "start": "0x1803a8000",
+      "end": "0x1803a8f08",
+      "size": "0xf08",
+      "permissions": "r"
+    },
+    {
+      "name": ".rdata",
+      "start": "0x1803a8f08",
+      "end": "0x1806fb000",
+      "size": "0x3520f8",
+      "permissions": "r"
+    },
+    {
+      "name": ".data",
+      "start": "0x1806fb000",
+      "end": "0x184b51000",
+      "size": "0x4456000",
+      "permissions": "rw"
+    },
+    {
+      "name": ".pdata",
+      "start": "0x184b51000",
+      "end": "0x184b7f000",
+      "size": "0x2e000",
+      "permissions": "r"
+    }
+  ],
+  "entrypoints": [
+    {
+      "addr": "0x180076fd0",
+      "name": "??0CLibXact@@AEAA@XZ",
+      "ordinal": 1
+    },
+    {
+      "addr": "0x180076fe0",
+      "name": "??1CLibXact@@AEAA@XZ",
+      "ordinal": 2
+    },
+    {
+      "addr": "0x180076ff0",
+      "name": "?GetSoundThreadID@CLibXact@@QEAAHXZ",
+      "ordinal": 3
+    },
+    {
+      "addr": "0x1801c7d50",
+      "name": "dll_entry_init",
+      "ordinal": 4
+    },
+    {
+      "addr": "0x1801c7b50",
+      "name": "dll_entry_main",
+      "ordinal": 5
+    },
+    {
+      "addr": "0x1800e49c0",
+      "name": "DllEntryPoint",
+      "ordinal": 6443387328
+    }
+  ],
+  "_note": "Binary has 20472 functions; xref analysis was limited to the first 10000 for performance."
+}

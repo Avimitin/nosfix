@@ -1,0 +1,405 @@
+{
+  "result": [
+    {
+      "query": {
+        "mnem": null,
+        "op0": null,
+        "op1": null,
+        "op2": null,
+        "op_any": null,
+        "func": null,
+        "segment": null,
+        "start": "0x1802fc800",
+        "end": "0x1802fc9d0",
+        "offset": 0,
+        "count": 180,
+        "max_scan_insns": 200000,
+        "allow_broad": false
+      },
+      "ranges": [
+        {
+          "start": "0x1802fc800",
+          "end": "0x1802fc9d0"
+        }
+      ],
+      "matches": [
+        {
+          "addr": "0x1802fc800",
+          "disasm": "movss xmm0, dword ptr [rcx+124h]"
+        },
+        {
+          "addr": "0x1802fc808",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc809",
+          "disasm": "align 10h"
+        },
+        {
+          "addr": "0x1802fc810",
+          "disasm": "mov [rsp+arg_0], rbx"
+        },
+        {
+          "addr": "0x1802fc815",
+          "disasm": "mov [rsp+arg_8], rsi"
+        },
+        {
+          "addr": "0x1802fc81a",
+          "disasm": "mov [rsp+arg_10], rdi"
+        },
+        {
+          "addr": "0x1802fc81f",
+          "disasm": "push r14"
+        },
+        {
+          "addr": "0x1802fc821",
+          "disasm": "sub rsp, 20h"
+        },
+        {
+          "addr": "0x1802fc825",
+          "disasm": "movss xmm0, cs:dword_1806872A0"
+        },
+        {
+          "addr": "0x1802fc82d",
+          "disasm": "lea rdi, [rcx+148h]"
+        },
+        {
+          "addr": "0x1802fc834",
+          "disasm": "mov rax, [rdi]"
+        },
+        {
+          "addr": "0x1802fc837",
+          "disasm": "lea r14, [rcx+160h]"
+        },
+        {
+          "addr": "0x1802fc83e",
+          "disasm": "mov [rdi+8], rax"
+        },
+        {
+          "addr": "0x1802fc842",
+          "disasm": "mov rsi, rdx"
+        },
+        {
+          "addr": "0x1802fc845",
+          "disasm": "mov rax, [r14]"
+        },
+        {
+          "addr": "0x1802fc848",
+          "disasm": "add rdx, 10h"
+        },
+        {
+          "addr": "0x1802fc84c",
+          "disasm": "mov [r14+8], rax"
+        },
+        {
+          "addr": "0x1802fc850",
+          "disasm": "mov rbx, rcx"
+        },
+        {
+          "addr": "0x1802fc853",
+          "disasm": "mov rcx, [rdx]"
+        },
+        {
+          "addr": "0x1802fc856",
+          "disasm": "mov rax, [rdx+8]"
+        },
+        {
+          "addr": "0x1802fc85a",
+          "disasm": "sub rax, rcx"
+        },
+        {
+          "addr": "0x1802fc85d",
+          "disasm": "test rax, 0FFFFFFFFFFFFFFF8h"
+        },
+        {
+          "addr": "0x1802fc863",
+          "disasm": "jnz short loc_1802FC86A"
+        },
+        {
+          "addr": "0x1802fc865",
+          "disasm": "movaps xmm1, xmm0"
+        },
+        {
+          "addr": "0x1802fc868",
+          "disasm": "jmp short loc_1802FC86E"
+        },
+        {
+          "addr": "0x1802fc86a",
+          "disasm": "movss xmm1, dword ptr [rcx]"
+        },
+        {
+          "addr": "0x1802fc86e",
+          "disasm": "movss dword ptr [rbx+110h], xmm1"
+        },
+        {
+          "addr": "0x1802fc876",
+          "disasm": "mov rcx, [rdx]"
+        },
+        {
+          "addr": "0x1802fc879",
+          "disasm": "mov rax, [rdx+8]"
+        },
+        {
+          "addr": "0x1802fc87d",
+          "disasm": "sub rax, rcx"
+        },
+        {
+          "addr": "0x1802fc880",
+          "disasm": "test rax, 0FFFFFFFFFFFFFFF8h"
+        },
+        {
+          "addr": "0x1802fc886",
+          "disasm": "jz short loc_1802FC88C"
+        },
+        {
+          "addr": "0x1802fc888",
+          "disasm": "movss xmm0, dword ptr [rcx]"
+        },
+        {
+          "addr": "0x1802fc88c",
+          "disasm": "movss dword ptr [rbx+114h], xmm0"
+        },
+        {
+          "addr": "0x1802fc894",
+          "disasm": "mov eax, [rsi+0A8h]"
+        },
+        {
+          "addr": "0x1802fc89a",
+          "disasm": "mov [rbx+4], eax"
+        },
+        {
+          "addr": "0x1802fc89d",
+          "disasm": "mov eax, [rsi+0ACh]"
+        },
+        {
+          "addr": "0x1802fc8a3",
+          "disasm": "mov [rbx+130h], eax"
+        },
+        {
+          "addr": "0x1802fc8a9",
+          "disasm": "cmp rdi, rdx"
+        },
+        {
+          "addr": "0x1802fc8ac",
+          "disasm": "jz short loc_1802FC8BD"
+        },
+        {
+          "addr": "0x1802fc8ae",
+          "disasm": "mov r8, [rdx+8]"
+        },
+        {
+          "addr": "0x1802fc8b2",
+          "disasm": "mov rcx, rdi"
+        },
+        {
+          "addr": "0x1802fc8b5",
+          "disasm": "mov rdx, [rdx]"
+        },
+        {
+          "addr": "0x1802fc8b8",
+          "disasm": "call sub_1800CB490"
+        },
+        {
+          "addr": "0x1802fc8bd",
+          "disasm": "lea rdx, [rsi+28h]"
+        },
+        {
+          "addr": "0x1802fc8c1",
+          "disasm": "cmp r14, rdx"
+        },
+        {
+          "addr": "0x1802fc8c4",
+          "disasm": "jz short loc_1802FC8D5"
+        },
+        {
+          "addr": "0x1802fc8c6",
+          "disasm": "mov r8, [rdx+8]"
+        },
+        {
+          "addr": "0x1802fc8ca",
+          "disasm": "mov rcx, r14"
+        },
+        {
+          "addr": "0x1802fc8cd",
+          "disasm": "mov rdx, [rdx]"
+        },
+        {
+          "addr": "0x1802fc8d0",
+          "disasm": "call sub_1800CB490"
+        },
+        {
+          "addr": "0x1802fc8d5",
+          "disasm": "mov rax, [rdi+8]"
+        },
+        {
+          "addr": "0x1802fc8d9",
+          "disasm": "sub rax, [rdi]"
+        },
+        {
+          "addr": "0x1802fc8dc",
+          "disasm": "mov rsi, [rsp+28h+arg_8]"
+        },
+        {
+          "addr": "0x1802fc8e1",
+          "disasm": "mov rdi, [rsp+28h+arg_10]"
+        },
+        {
+          "addr": "0x1802fc8e6",
+          "disasm": "sar rax, 3"
+        },
+        {
+          "addr": "0x1802fc8ea",
+          "disasm": "dec eax"
+        },
+        {
+          "addr": "0x1802fc8ec",
+          "disasm": "mov dword ptr [rbx], 0FFFFFF38h"
+        },
+        {
+          "addr": "0x1802fc8f2",
+          "disasm": "mov [rbx+138h], eax"
+        },
+        {
+          "addr": "0x1802fc8f8",
+          "disasm": "mov eax, [rbx+110h]"
+        },
+        {
+          "addr": "0x1802fc8fe",
+          "disasm": "mov [rbx+114h], eax"
+        },
+        {
+          "addr": "0x1802fc904",
+          "disasm": "xor eax, eax"
+        },
+        {
+          "addr": "0x1802fc906",
+          "disasm": "mov [rbx+108h], rax"
+        },
+        {
+          "addr": "0x1802fc90d",
+          "disasm": "mov [rbx+120h], al"
+        },
+        {
+          "addr": "0x1802fc913",
+          "disasm": "mov [rbx+134h], eax"
+        },
+        {
+          "addr": "0x1802fc919",
+          "disasm": "mov [rbx+124h], rax"
+        },
+        {
+          "addr": "0x1802fc920",
+          "disasm": "mov [rbx+12Ch], eax"
+        },
+        {
+          "addr": "0x1802fc926",
+          "disasm": "mov [rbx+13Ch], rax"
+        },
+        {
+          "addr": "0x1802fc92d",
+          "disasm": "mov dword ptr [rbx+118h], 3F800000h"
+        },
+        {
+          "addr": "0x1802fc937",
+          "disasm": "mov dword ptr [rbx+11Ch], 3F800000h"
+        },
+        {
+          "addr": "0x1802fc941",
+          "disasm": "mov rbx, [rsp+28h+arg_0]"
+        },
+        {
+          "addr": "0x1802fc946",
+          "disasm": "add rsp, 20h"
+        },
+        {
+          "addr": "0x1802fc94a",
+          "disasm": "pop r14"
+        },
+        {
+          "addr": "0x1802fc94c",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc94d",
+          "disasm": "align 20h"
+        },
+        {
+          "addr": "0x1802fc960",
+          "disasm": "lea rax, dword_18070A610"
+        },
+        {
+          "addr": "0x1802fc967",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc968",
+          "disasm": "align 10h"
+        },
+        {
+          "addr": "0x1802fc970",
+          "disasm": "mov eax, [rcx+110h]"
+        },
+        {
+          "addr": "0x1802fc976",
+          "disasm": "mov [rcx+114h], eax"
+        },
+        {
+          "addr": "0x1802fc97c",
+          "disasm": "xor eax, eax"
+        },
+        {
+          "addr": "0x1802fc97e",
+          "disasm": "mov [rcx+108h], rax"
+        },
+        {
+          "addr": "0x1802fc985",
+          "disasm": "mov [rcx+120h], al"
+        },
+        {
+          "addr": "0x1802fc98b",
+          "disasm": "mov [rcx+134h], eax"
+        },
+        {
+          "addr": "0x1802fc991",
+          "disasm": "mov [rcx+124h], rax"
+        },
+        {
+          "addr": "0x1802fc998",
+          "disasm": "mov [rcx+12Ch], eax"
+        },
+        {
+          "addr": "0x1802fc99e",
+          "disasm": "mov [rcx+13Ch], rax"
+        },
+        {
+          "addr": "0x1802fc9a5",
+          "disasm": "mov dword ptr [rcx], 0FFFFFF38h"
+        },
+        {
+          "addr": "0x1802fc9ab",
+          "disasm": "mov dword ptr [rcx+118h], 3F800000h"
+        },
+        {
+          "addr": "0x1802fc9b5",
+          "disasm": "mov dword ptr [rcx+11Ch], 3F800000h"
+        },
+        {
+          "addr": "0x1802fc9bf",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc9c0",
+          "disasm": "db 10h dup(0CCh)"
+        }
+      ],
+      "count": 92,
+      "cursor": {
+        "done": true
+      },
+      "scanned": 92,
+      "truncated": false,
+      "next_start": null,
+      "error": null
+    }
+  ]
+}

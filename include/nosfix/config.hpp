@@ -1,0 +1,23 @@
+#pragma once
+
+#include <filesystem>
+#include <string>
+
+namespace nosfix {
+
+struct Config {
+    bool enabled = true;
+    bool smooth_motion = true;
+    bool smooth_ui = true;
+    bool precise_audio_clock = true;
+    bool skip_monitor_check = true;
+    bool capture_input = false; // Experimental raw event observation; no judgments yet.
+    bool clock_motion = false; // Experimental: normal notes follow the cue clock.
+    unsigned target_hz = 0; // 0 selects the primary display's current rate.
+    int log_level = 2;
+};
+
+[[nodiscard]] std::filesystem::path DllDirectory();
+[[nodiscard]] Config LoadConfig(const std::filesystem::path& path);
+
+} // namespace nosfix

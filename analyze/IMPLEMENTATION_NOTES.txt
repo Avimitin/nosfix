@@ -1,0 +1,93 @@
+Historical nosfix 0.1.0 prototype notes, 2026-10-29
+
+Superseded for motion scope by MOTION_NOTES.txt (0.2.0). The scheduling,
+render-tail and presentation architecture below remains in use. References
+below to no fractional geometry describe 0.1.0 only.
+
+Implemented by the requested Luna agent under parent review. Parent supplied
+the binary contracts, reviewed/fixed implementation, wrote the presentation
+proxy and additional tests. No original installation files were written.
+
+This is the FIRST decoupling milestone, not a complete smooth-note patch.
+The original main loop still performs one complete legacy iteration, including
+input, BM2D/AFP advance, gameplay and audio correction. Its render call is
+intercepted and services presentation slots until the next fixed 60 Hz QPC
+boundary. Update work consumes time inside the next interval; deadlines are
+never re-anchored to each call's entry. Pending render slots at exact simulation
+boundaries are serviced after the following update. Late render slots are
+discarded; simulation boundaries are retired one per original loop iteration.
+Long stalls therefore retain simulation debt and rely on the original game's
+audio correction too. This needs real gameplay/stall validation.
+
+The original render function is called at each presentation opportunity with
+its millisecond deadline set to current timeGetTime, bypassing its legacy sleep.
+Rendering repeats the current simulation state. No fractional note position,
+visual interpolation, scoring refinement or high-rate input path is included.
+Do not infer native smooth 360 Hz note motion from the presentation count.
+
+Binary contract (nostalgia.dll; image base + RVA):
+- 0x1C31C0: render function entry, one MinHook x64 detour.
+- 0x1C3883: first has-entry CALL in the render dispatch tail.
+  Original bytes E8 48 24 19 00.
+- 0x1C390C: process-dispatch CALL in the render dispatch tail.
+  Original bytes E8 5F 18 19 00.
+- 0x355CD0, 0x355170, 0x356010: original helpers called only by the extracted
+  once-per-iteration dispatch; exact prologues checked, entries not detoured.
+- 0x3A8C70: Direct3DCreate9 IAT slot, verified against import name metadata.
+- 0x13E94E0: original millisecond pacing deadline.
+
+Why CALL-site redirects are required:
+IDA assembly at 0x356055 loads XMM1, 0x35606F calls 0x355CD0, and 0x3560A4
+stores XMM1 without reloading it. The original compiler knows this helper's
+register behavior. A global C++ detour could violate that private convention.
+Only the two verified render-tail calls are redirected through nearby RX jump
+stubs. All other callers execute the untouched helpers. The extracted tail
+preserves the game's nested vector layout and cursor mutation semantics.
+
+The D3D9 factory proxy retains Spice's existing factory underneath. It sets
+primary/group/secondary parameters to immediate presentation, requests an
+enumerated refresh at the existing resolution, and uses display default if
+unsupported. It never equates display Hz with legacy chart rate. Initial
+device creation/recreation through the factory is intercepted. Independent
+device Reset/ResetEx wrappers are not implemented and require runtime audit.
+Driver overrides, fullscreen mode availability, mixed-monitor behavior and
+sustained frame cost remain unverified. Immediate mode may tear.
+
+Startup uses Spice's exported plugin callback spice_sdk_entry_point, invoked
+after -k loading and before game main. The installed spice64.exe contains this
+callback name. This avoids a worker/loader-lock initialization race. DllMain
+does no work and leaves CRT thread notifications enabled (/MT, thread_local).
+The DLL pins itself after successful installation; hot-unload is unsupported.
+Remove -k or set enabled=false before a fresh launch to disable it.
+
+Version guard: original nostalgia.dll file size and SHA-256 plus mapped x64 PE,
+exact helper/target bytes and import identity. Other builds or prepatched files
+are rejected. Runtime-only conflicts at checked targets are rejected too.
+
+Validation completed:
+- Native MSVC x64 Release build using a workspace-local Microsoft Windows SDK.
+- Scheduler: all seven requested rates, 10 minutes simulated duration per rate,
+  update cost, jitter, stall behavior and exactly-once dispatch callbacks.
+- Synthetic process/list layout exercises the extracted dispatch traversal.
+- Actual DLL load/export and rejection when Nostalgia is absent.
+- Actual DLL SDK initialization against an inert mapped Nostalgia image.
+- Real-image MinHook installation/relocation/rollback and mismatch rejection.
+- Real-image CALL-site installation/rollback; decoded near-stub destinations,
+  RX protection and execution of generated stubs into test-owned functions.
+  No game instruction executes in any of these tests; DONT_RESOLVE_DLL_REFERENCES
+  mappings do not run game DllMain or load its dependencies.
+- All five CTest cases pass. Native play, rendering, audio sync and input
+  latency have not been measured. Build/nosfix.log contains TEST initialization
+  entries, not evidence that the real game has run with the hook.
+
+Next work: baseline/live display validation, then derive pure visual note and
+long-note evaluation from continuous audio-aligned time. Audit scene render
+callbacks for additional side effects and AFP/BM2D interpolation. Preserve the
+legacy chart/judgment units while separating input/keysound latency later.
+
+Primary references:
+https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/launcher/options.cpp
+https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/launcher/launcher.cpp
+https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/sdk/sdk.cpp
+https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/sdk/include/spicesdk.h
+https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-disablethreadlibrarycalls

@@ -1,0 +1,135 @@
+{
+  "result": [
+    {
+      "addr": "0x1802fc9d0",
+      "xrefs": [
+        {
+          "addr": "0x1801975ef",
+          "type": "code",
+          "fn": {
+            "addr": "0x180197330",
+            "name": "sub_180197330",
+            "size": "0x2c4"
+          }
+        },
+        {
+          "addr": "0x1801ad981",
+          "type": "code",
+          "fn": {
+            "addr": "0x1801ad660",
+            "name": "sub_1801AD660",
+            "size": "0x358"
+          }
+        },
+        {
+          "addr": "0x1802ff329",
+          "type": "code",
+          "fn": {
+            "addr": "0x1802ff090",
+            "name": "sub_1802FF090",
+            "size": "0x303"
+          }
+        }
+      ],
+      "more": false,
+      "xref_count": 3
+    },
+    {
+      "addr": "0x180304f30",
+      "xrefs": [
+        {
+          "addr": "0x1801a79ab",
+          "type": "code",
+          "fn": {
+            "addr": "0x1801a7910",
+            "name": "sub_1801A7910",
+            "size": "0x1d6"
+          }
+        },
+        {
+          "addr": "0x1802f836f",
+          "type": "code",
+          "fn": {
+            "addr": "0x1802f7c10",
+            "name": "sub_1802F7C10",
+            "size": "0x2e9a"
+          }
+        },
+        {
+          "addr": "0x1802f842c",
+          "type": "code",
+          "fn": {
+            "addr": "0x1802f7c10",
+            "name": "sub_1802F7C10",
+            "size": "0x2e9a"
+          }
+        },
+        {
+          "addr": "0x1802f8664",
+          "type": "code",
+          "fn": {
+            "addr": "0x1802f7c10",
+            "name": "sub_1802F7C10",
+            "size": "0x2e9a"
+          }
+        },
+        {
+          "addr": "0x1802f8735",
+          "type": "code",
+          "fn": {
+            "addr": "0x1802f7c10",
+            "name": "sub_1802F7C10",
+            "size": "0x2e9a"
+          }
+        },
+        {
+          "addr": "0x1803039d9",
+          "type": "code",
+          "fn": {
+            "addr": "0x180303770",
+            "name": "sub_180303770",
+            "size": "0x37c"
+          }
+        },
+        {
+          "addr": "0x180303aae",
+          "type": "code",
+          "fn": {
+            "addr": "0x180303770",
+            "name": "sub_180303770",
+            "size": "0x37c"
+          }
+        },
+        {
+          "addr": "0x1806ed570",
+          "type": "data",
+          "fn": null
+        },
+        {
+          "addr": "0x1806ed5a8",
+          "type": "data",
+          "fn": null
+        },
+        {
+          "addr": "0x184b72180",
+          "type": "data",
+          "fn": null
+        }
+      ],
+      "more": false,
+      "xref_count": 10
+    },
+    {
+      "addr": "0x1803078b0",
+      "xrefs": [
+        {
+          "addr": "0x184b722d0",
+          "type": "data",
+          "fn": null
+        }
+      ],
+      "more": false,
+      "xref_count": 1
+    }
+  ]
+}

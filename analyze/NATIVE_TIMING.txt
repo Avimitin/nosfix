@@ -1,0 +1,265 @@
+NOSTALGIA PAN-2025020501: AUDIO-REFERENCED TIMING INTEGRATION
+Updated 2026-10-29. RVAs below are relative to the named module.
+
+REQUIRED BEHAVIOR
+
+The song must remain playable when presentation cadence changes or stalls.
+Judgment compares captured input song time with chart time, not with the frame
+in which an event happens to be consumed. Notes and UI are evaluated at render
+time, without using presentation count to advance them. Key sounds must be
+scheduled independently of rendering and with low, measured output latency.
+This supersedes the earlier 60 Hz simulation plus vertex prediction prototype.
+
+Rendering can skip a presentation. It must never skip a key transition, replay
+a keysound twice, change a scoring window, or advance song position by one frame.
+Severe CPU starvation can still cause an audio underrun; no clock design can
+promise uninterrupted output if the audio deadline itself is missed.
+
+WHAT IS IMPLEMENTED
+
+0.4 development adds:
+- libxact's QPC arithmetic correction, gated by module hash and 44 exact bytes.
+- SongClock/immutable snapshots: integer QPC subtraction, fractional microseconds,
+  explicit start/seek generations, pause/resume, and bounded audio observations.
+- Experimental normal-note geometry from chart milliseconds and cue-clock time,
+  sampled once per presentation; native float-distance projector, private quads.
+- Startup FPS-calibration bypass through the existing completed-state branch.
+- Optional DLL-only HID/keyboard raw packet observation on Spice's input thread,
+  QPC dequeue timestamps, ordered bounded queue and explicit reset/loss records.
+- Portable decoded-control normalization, continuous-time normal judgment, and
+  a bounded chart event cursor. Combined replay verifies timestamp/rank/event
+  invariance; see TIMING_PIPELINE.txt for review and live integration boundaries.
+- Tests of the actual replacement instruction block, module rejection and rollback,
+  and timestamp invariance under seven render schedules with jitter/stalls.
+
+Logical input mapping, judgment, non-normal geometry, AFP timeline and ASIO integrations
+remain unimplemented. SongClock is not yet a source of game judgment time.
+The 0.4 normal-note trial is deployed: about 119 renders/s, 60 legacy ticks/s,
+and nonzero song-time draws with prediction disabled. All 23 automated tests
+pass in the current source build; the new portable components are not live
+hooks. Live monitor bypass logged 20:37:00, then startup logos appeared.
+
+MONITOR CHECK AND TEMPORARY LEGACY UNITS
+
+Initializer 218CF0 checks byte 12D342F: unset registers calibration 218AA0 and
+sets the byte; set registers completion 218A90 directly. Completion calls the
+scene virtual method at +88 with argument zero. The detour sets the flag and
+the three legacy conversion constants (double 70B2F8, float 70B300, int 70B304)
+to exactly 60 before calling the original initializer. No fake state callback
+or general hardware-check bypass is introduced. skip_monitor_check=false
+retains original calibration. This hook is installed under the existing full
+module hash guard and exact 24-byte initializer guard.
+
+Calibration 218AA0 originally waits 300 ticks, samples successive 180-tick
+windows and compares inferred frequency to the prior window (tolerance .002).
+It succeeds after three stable windows or times out after thirty trials. Its
+success path can replace all three conversion constants with measured 59..60
+values, including integer truncation. A display rate must not define chart units.
+
+Keeping legacy units 60 is temporary, not the final clock resolution. Integer
+frame-based judgments still have about 16.67 ms steps. Chart rows retain original
+scaled millisecond times; the timestamp-aware judgment path must use those.
+
+VERIFIED CLOCK DEFECT AND FIX
+
+libxact.dll SHA256:
+6ceee6952cfa636fd96deaaf11bc72e7ca6d7b7499560ef15b033b18cb9bfb9e
+
+GetSoundLabelLapse at 7230 resolves a cue and calls 4040. Cue records occupy
+1024 slots, stride 56, starting at 38830. A playing cue stores an audio-clock
+anchor at record+44 and a full 64-bit QPC anchor at record+48, after cue Play
+in 4870 (QPC call at 4E66). 4040 compares engine-clock elapsed with QPC elapsed,
+preferring QPC when their difference is at most 100 ms.
+
+Assembly at 4110/4117 converts the two absolute int64 timestamps to float;
+411D subtracts those already-rounded floats. This is NOT a low-32-bit read:
+the decompiler's LowPart/int casts are misleading. Fix 410A..4135 subtracts
+the int64 values first and divides in double precision, returning float in
+the original xmm6 location. The other cue selection/fallback logic is untouched.
+The source for the 44 replacement bytes is evidence/libxact_qpc_fix.asm.
+
+The test executes both instruction sequences with a 10 MHz counter and start
+10,000,000,000,000 ticks: a 2,500-tick interval must return 0.25 ms. The original
+fails this case; the replacement passes. Tests also cover much larger uptimes.
+
+The existing clock voice (1260) reports XAudio2 source SamplesPlayed at 44100 Hz.
+It reports engine/source progress, not proven DAC position. Its absolute sample
+clock is also converted to float. The 0.4 patch does not fix that second issue or
+turn the current 100 ms source-selection threshold into a new synchronization policy.
+
+INPUT PATH: TIMESTAMPS ARE LOST BEFORE JUDGMENT
+
+HID-only controllers do not block the migration. A host QPC timestamp taken
+when each WM_INPUT is dequeued removes render-frame sampling as the timestamp
+source. It is a host-observed time, not the physical switch time or exact USB
+arrival. Device scanning, polling, transport and input-thread scheduling remain
+sources of latency/jitter. Reports batched in one WM_INPUT share the observed
+time; preserve order but never invent per-report spacing from nominal polling Hz.
+
+Spice's dedicated 'SpiceTools Input' thread/window exists before SDK plugins
+initialize (launcher.cpp:2561 vs SDK initialization at 2815). A process-local
+WH_GETMESSAGE observer can see PM_REMOVE WM_INPUT messages before the existing
+parser, copy their payload, and always chain unchanged. It need not register
+raw devices again; Windows permits only one target window per usage class in
+a process. Discover the registered target, verify PID/thread/window class, and
+fail closed if ambiguous. Only the verified Spice binary is enabled initially:
+size 11171328, SHA256
+657ff897b6b2c627ef389c0162a9b4abd935743c45c8cc45e4317d65d1f08409.
+
+The initial observer is diagnostic only. Its bounded ordered packet queue has
+sequence numbers, QPC, loss accounting and epoch boundaries on loss/hotplug.
+The final slot is reserved for reset records (8191 input records + one reset).
+WH_CALLWNDPROC observes sent device changes, which WH_GETMESSAGE alone misses.
+The game-thread diagnostic consumer drains copies and logs aggregate counts
+and consumption age; this is not yet logical input delivery to the game.
+The first live trial confirmed about 1000 HID reports/s while rendering at
+119 Hz, but its queue overflowed during pre-loop loading. Capture startup was
+moved from SDK entry to the first render-loop entry; module validation remains
+at SDK initialization. No raw payload is persisted.
+The next trial exposed a real 886 ms scene-loading stall, exceeding the original
+511-packet capacity at 1 kHz. Retention was increased to 8191 packets and the
+replay test extended to a 1.53-second consumer stall. This is bounded retention,
+not a promise of unlimited starvation tolerance or frame-independent sound dispatch.
+Final live run began 21:10:49 with DLL SHA256
+30d752f51ddb1eeac53282f84ff6ecc6473aac4b77a604ca2a93b941bb2099eb.
+It captured about 1000 HID reports/s through a measured 904 ms scene load with
+zero reported losses/errors, while normal song-time rendering remained active
+at about 119 presentations/s. Evidence: build/runtime/input-buffer-live.log and
+input-buffer-check.jpg. No manual play or device-to-audio latency measurement.
+The next layer must resolve report descriptors and configured logical bindings,
+preserve every normalized press/release, and release/reset held state after
+disconnect or a broken stream. Device handles alone are not stable identities.
+No raw key payload should be written to runtime logs. Keyboard typematic makes
+must not become new physical presses. Judgment must consume immutable mapped
+song times and reject events from a prior seek/retry generation.
+
+References verified 2026-10-29:
+https://learn.microsoft.com/en-us/windows/win32/winmsg/getmsgproc
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowshookexw
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getrawinputdata
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerrawinputdevices
+
+Spice source inspected at:
+D:\Share\chart-requester\reference\spice2x\src\spice2x
+
+rawinput/midi.cpp input_midi_proc receives WinMM dwParam2 timestamps but discards
+them. MIDI V2 records callback QPC-derived time and later exposes latched velocity.
+rawinput/rawinput.cpp stores keyboard key_down/up QPC-derived times, but
+cfg/api.cpp reduces them to pressed/not-pressed for PANB use.
+acio/panb/panb.cpp packs two keys per byte into a 277-byte status buffer. No event
+timestamp survives. Short press/release sequences can coalesce between polls.
+
+nostalgia device update 36A640 -> device driver 365DA0 -> PANB update/get-buffer
+copies that status into driver+2224. Polling this faster does not recover events
+that have already disappeared upstream. Physical input hardware must be selected
+before choosing the callback/reader to intercept. A cabinet/serial reader is not
+automatically covered by a WinMM MIDI hook.
+
+Use discrete {source, lane, edge, velocity, QPC, sequence, playback generation}
+events captured before reduction to state. Map each once through its captured
+clock segment. Consume in chronological order, retaining press AND release.
+Queue overflow must be visible; silent edge loss is unacceptable. Do not log,
+allocate, load files, or wait for the render thread in a realtime input/audio path.
+The existing 8-byte game event can retain its ABI with separate timestamp metadata.
+
+CHART AND JUDGMENT CONTRACTS
+
+nostalgia SHA256:
+339247b90b6de067ab0daa4355c7410487bae9b6f84ad61a4050700fa2d5638b
+
+Chart preparation 1A43E0 creates 104-byte note records. At 1A4907/1A4912 it stores
+speed-adjusted integer millisecond start/end positions at record+0/+4; copies
+rounded to legacy frames go to +20/+24. Original raw fields remain in the source
+score record (2464-byte stride). Therefore main note timestamps are NOT wholly
+lost when frame values are produced. Internal long/gliss subevents need a separate
+audit: the +40 pointer references further event records filled with frame times.
+
+Gameplay judgment traversal 2F7C10 reaches the note vtable+20h at call 2F9548:
+RCX=wrapper+10h note pointer, RDX=wrapper+18h event pointer, R8B=mode.
+Event+0 is ID/lane, +4 is kind (1 press, 3 release). No timestamp is read there.
+The separate vtable+20h call at 2F9AC8 has different arguments and is not this seam.
+
+Per-note judgment routines: normal 2F6800, long 2F4220, gliss 1A60C0, trill 1A7AF0.
+Normal vtable 684328 slot+56 is eligibility 2F7900 (also subtracts offset
+1366918); 2F4E20 is a different layout with state at note+300, not normal.
+Trill eligibility includes 1A8490. Judgment methods use note+24 minus
+music_frame at 70A610 minus timing offset at 136690C. They compare integer windows
+at 13668E8..13668FC. Normal also has pending early-hit handling, auto/miss paths,
+and equality checks. Replacing only its initial rating would not migrate those
+state transitions; all time-dependent branches require coverage.
+
+Integrate timestamp-aware note matching/eligibility first, then rating and hold/
+release paths. Preserve original scoring, sound selection, and one-shot events.
+Keep null-event automatic updates on current song time, distinct from captured
+press/release times. Do not temporarily rewrite the global frame counter to judge
+one key: it is shared by chart dispatch and unrelated events.
+
+RENDERING AND LEGACY EVENT DISPATCH
+
+Main loop 1C3FE0 performs device IO, AFP update, scene update, then render 1C31C0.
+Gameplay controller 2FDB30 holds or doubles updates to chase audio; 2FC9D0 advances
+the integer song frame. A new audio-owned event cursor must replace that competing
+controller, delivering every crossed chart event once, including during catch-up.
+
+Normal note 2F6DF0 calls projection 305430 at 2F6FED. Assembly confirms its second
+parameter is FLOAT in XMM1, despite the decompiler's inferred int64 signature.
+The old caller computes 180 * frame_delta / (legacy_rate * legacy_rate).
+Projection itself can accept fractional distance; it has six scroll modes and
+integer intermediate/output rounding. Pure visual evaluation must use explicit
+song time and note time, without re-running stateful note update/judgment routines.
+Normal-note update also decrements timers and changes eligibility: it cannot be
+called once per render as a shortcut. Long/ribbon geometry needs endpoint and
+subevent timing, not linear extrapolation of previous screen pixels.
+
+AFP UI: use elapsed wall-clock animation time for menus, song time where explicitly
+music-synchronized. Evaluate transforms/colors at fractional timeline position;
+dispatch timeline callbacks only once when crossing their scheduled time. Existing
+0.3 transform prediction is not this rewrite and accepted zero live UI captures.
+
+ASIO / INSTRUMENT RESPONSE
+
+The desired latency budget is physical input -> capture -> cue selection -> mix
+-> driver buffer -> DAC. Low latency also needs low jitter. Timestamping a late
+input can fix scoring attribution but cannot make its already-delayed sound early.
+
+The examined Spice XAudio2 wrapper forwards CreateMasteringVoice to real XAudio2;
+it does not route that legacy engine through the existing WASAPI-to-ASIO backend.
+The old -asioconvert setting is therefore not evidence that Nostalgia uses ASIO.
+The game keysound path 304F30 can queue frame-delayed commands, then libxact's
+worker 92E0 prepares/plays cues through 4870. Worker polling and frame gating must
+both be removed from latency-critical key sounds, with duplicate dispatch prevented.
+
+Keep BGM and key sounds on the same device/sample timeline. Preferred investigation
+boundary remains an XAudio2 2.7-compatible engine feeding a controllable mixer and
+ASIO output. Compatibility includes XACT voice callbacks, looping, volume/pan,
+frequency ratio, submix/reverb effects, operation sets, and source sample counters.
+Forwarding an already-buffered WASAPI mix to ASIO would retain upstream latency.
+
+Anchor QPC to observed device sample position with explicit position semantics and
+reported output latency. Preserve chart/BGM start offsets, source sample rates,
+pause, seek and device-reset generations. Never assume engine progress equals the
+sample currently audible at the DAC. ASIO buffer choice requires device measurements;
+no fixed latency target has yet been verified on this setup.
+
+FAudio remains a candidate mixer, not a validated drop-in replacement. Its upstream
+mastering-voice creation obtains updateSize from the platform backend and allocates
+voice/effect buffers around that size. A custom ASIO platform would need to own
+that processing quantum; simply copying the default output afterward is insufficient.
+The upstream processing callback also contains locks, so callback deadline behavior
+needs measurement under cue creation and gameplay load before claiming low jitter.
+Sources inspected 2026-10-29:
+https://raw.githubusercontent.com/FNA-XNA/FAudio/master/src/FAudio.c
+https://raw.githubusercontent.com/FNA-XNA/FAudio/master/src/FAudio_internal.c
+
+QPC arithmetic reference:
+https://learn.microsoft.com/en-us/windows/win32/sysinfo/acquiring-high-resolution-time-stamps
+
+ACCEPTANCE BEFORE CLAIMING NATIVE DECOUPLING
+
+Replay the same captured input stream and chart at 60, 90, 120, 144, 165, 240 and
+360 Hz, uncapped and with injected presentation jitter/stalls. Compare per-note
+judgments, score, note crossing times, and key-sound dispatch counts. Test rapid
+same-key repetitions, chords, release/hold/gliss/trill paths and retry/pause/reset.
+Results must be invariant to render schedule. Measure long-song audio drift and
+input-to-audible latency/jitter with loopback; report underruns and actual ASIO
+sample rate/buffer size. Clock unit tests and FPS counters alone do not meet this.

@@ -1,0 +1,16 @@
+﻿11:                                      -asioconvert Focusrite USB ASIO
+324:[2026/10/29 12:52:10] I:audio::xact: libxact hooks installed: CoCreateInstance=true, CreateFX=true
+678:[2026/10/29 12:52:12] I:graphics::d3d9: D3D9 presentation parameters for adapter 0: BackBufferWidth: 1280, BackBufferHeight: 720, Format: D3DFMT_A8R8G8B8, BackBufferCount: 2, MultiSampleType: 0, MultiSampleQuality: 0, SwapEffect: 1, Windowed: 0, EnableAutoDepthStencil: 1, AutoDepthStencilFormat: D3DFMT_D24S8, Flags: 0, FullScreen_RefreshRateInHz: 0, PresentationInterval: 0x0
+679:[2026/10/29 12:52:12] I:graphics::d3d9: D3D9 presentation parameters for adapter 1: BackBufferWidth: 1280, BackBufferHeight: 720, Format: D3DFMT_A8R8G8B8, BackBufferCount: 2, MultiSampleType: 0, MultiSampleQuality: 0, SwapEffect: 1, Windowed: 0, EnableAutoDepthStencil: 1, AutoDepthStencilFormat: D3DFMT_D24S8, Flags: 0, FullScreen_RefreshRateInHz: 0, PresentationInterval: 0x0
+680:[2026/10/29 12:52:12] W:graphics::d3d9: This game sets FullScreen_RefreshRateInHz to 0, which means it will boot with whatever refresh rate you have set in the desktop. If the game is launching at the wrong Hz, either use -graphics-force-refresh option or change the desktop resolution beforehand.
+708:[2026/10/29 12:52:13] M:graphics::d3d9: WrappedIDirect3DDevice9::Present
+1093:[2026/10/29 12:52:21] I:audio::xact: CoCreateInstance(clsid={5A508685-A254-4FBA-9B82-9A24B00306AF}, iid={8BCF1F58-9FE7-4583-8AC6-E2ADC465C8BB}, context=0x00000001) -> 0x00000000, object=0x4cc10090
+1094:[2026/10/29 12:52:21] I:audio::xaudio2: wrapping IXAudio2 2.7 engine 0x4cc10090
+1095:[2026/10/29 12:52:21] I:audio::xaudio2: IXAudio2::Initialize(flags=0x00000000, processor=0xffffffff) -> 0x00000000
+1096:[2026/10/29 12:52:21] I:audio::xaudio2: IXAudio2::GetDeviceDetails(0) -> 0x00000000, id='{0.0.0.00000000}.{4d8f47d2-dded-4226-b0bc-cc9541074c70}', name='������ (Focusrite USB Audio)', role=0x0000000b, tag=0xfffe, channels=2, rate=44100 Hz, bits=24, valid_block=6 B, avg=264600 B/s, mask=0x00000003
+1097:[2026/10/29 12:52:21] I:audio::xact: CoCreateInstance(clsid={6A93130E-1D53-41D1-A9CF-E758800BB179}, iid={00000000-0000-0000-C000-000000000046}, context=0x00000001) -> 0x00000000, object=0x4cda4440
+1098:[2026/10/29 12:52:21] I:audio::xapofx: CreateFX(clsid={A90BC001-E897-E897-7439-435500000003}, init_data=0x1485e80, size=1) -> 0x00000000, effect=0x5cb5e30
+1099:[2026/10/29 12:52:21] I:audio::xapofx: CreateFX(clsid={A90BC001-E897-E897-7439-435500000000}, init_data=0x0, size=0) -> 0x00000000, effect=0x379e1020
+1100:[2026/10/29 12:52:21] I:audio::xaudio2: IXAudio2::CreateMasteringVoice(channels=2, rate=44100 Hz, flags=0x00000000, device=0, effects=0) -> 0x00000000, voice=0x4cda4570
+1101:[2026/10/29 12:52:21] I:audio::xact: CoCreateInstance(clsid={BCC782BC-6492-4C22-8C35-F5D72FE73C6E}, iid={B1EE676A-D9CD-4D2A-89A8-FA53EB9E480B}, context=0x00000001) -> 0x00000000, object=0x4465280
+1102:[2026/10/29 12:52:21] I:audio::xaudio2: IXAudio2::RegisterForCallbacks(0x4549498) -> 0x00000000

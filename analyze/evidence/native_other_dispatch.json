@@ -1,0 +1,166 @@
+{
+  "module": "nostalgia.dll",
+  "start": "0x1802f9a80",
+  "end": "0x1802f9b00",
+  "lines": [
+    {
+      "addr": "1802f9a80",
+      "instruction": "mov rax, [rsp+2F0h+var_298]",
+      "label": "loc_1802F9A80"
+    },
+    {
+      "addr": "1802f9a85",
+      "instruction": "mov rcx, [rax+10h]"
+    },
+    {
+      "addr": "1802f9a89",
+      "instruction": "mov rcx, [rcx+10h]"
+    },
+    {
+      "addr": "1802f9a8d",
+      "instruction": "mov rax, [rcx]"
+    },
+    {
+      "addr": "1802f9a90",
+      "instruction": "mov rdx, [rax+0B8h]"
+    },
+    {
+      "addr": "1802f9a97",
+      "instruction": "lea rax, sub_1800A2C20",
+      "refs": [
+        {
+          "addr": "0x1800a2c20",
+          "name": "sub_1800A2C20"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9a9e",
+      "instruction": "cmp rdx, rax"
+    },
+    {
+      "addr": "1802f9aa1",
+      "instruction": "jnz loc_1802FA9E9",
+      "refs": [
+        {
+          "addr": "0x1802fa9e9",
+          "name": "loc_1802FA9E9"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9aa7",
+      "instruction": "movzx eax, byte ptr [rcx+44h]"
+    },
+    {
+      "addr": "1802f9aab",
+      "instruction": "test al, al",
+      "label": "loc_1802F9AAB"
+    },
+    {
+      "addr": "1802f9aad",
+      "instruction": "jnz loc_1802F9CA3",
+      "refs": [
+        {
+          "addr": "0x1802f9ca3",
+          "name": "loc_1802F9CA3"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9ab3",
+      "instruction": "mov rax, [rsp+2F0h+var_298]"
+    },
+    {
+      "addr": "1802f9ab8",
+      "instruction": "mov rcx, [rax+10h]"
+    },
+    {
+      "addr": "1802f9abc",
+      "instruction": "mov rcx, [rcx+10h]"
+    },
+    {
+      "addr": "1802f9ac0",
+      "instruction": "mov rax, [rcx]"
+    },
+    {
+      "addr": "1802f9ac3",
+      "instruction": "xor r8d, r8d"
+    },
+    {
+      "addr": "1802f9ac6",
+      "instruction": "xor edx, edx"
+    },
+    {
+      "addr": "1802f9ac8",
+      "instruction": "call qword ptr [rax+20h]"
+    },
+    {
+      "addr": "1802f9acb",
+      "instruction": "mov rax, [rsp+2F0h+var_298]"
+    },
+    {
+      "addr": "1802f9ad0",
+      "instruction": "mov rcx, [rax+10h]"
+    },
+    {
+      "addr": "1802f9ad4",
+      "instruction": "mov rcx, [rcx+10h]"
+    },
+    {
+      "addr": "1802f9ad8",
+      "instruction": "mov rax, [rcx]"
+    },
+    {
+      "addr": "1802f9adb",
+      "instruction": "mov rdx, [rax+110h]"
+    },
+    {
+      "addr": "1802f9ae2",
+      "instruction": "lea rax, sub_1800A2CC0",
+      "refs": [
+        {
+          "addr": "0x1800a2cc0",
+          "name": "sub_1800A2CC0"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9ae9",
+      "instruction": "cmp rdx, rax"
+    },
+    {
+      "addr": "1802f9aec",
+      "instruction": "jnz loc_1802FA9F0",
+      "refs": [
+        {
+          "addr": "0x1802fa9f0",
+          "name": "loc_1802FA9F0"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9af2",
+      "instruction": "movzx eax, byte ptr [rcx+6Ch]"
+    },
+    {
+      "addr": "1802f9af6",
+      "instruction": "test al, al",
+      "label": "loc_1802F9AF6"
+    },
+    {
+      "addr": "1802f9af8",
+      "instruction": "jz loc_1802F9CA3",
+      "refs": [
+        {
+          "addr": "0x1802f9ca3",
+          "name": "loc_1802F9CA3"
+        }
+      ]
+    },
+    {
+      "addr": "1802f9afe",
+      "instruction": "xor sil, sil"
+    }
+  ]
+}

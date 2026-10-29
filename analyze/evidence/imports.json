@@ -1,0 +1,2334 @@
+{
+  "result": [
+    {
+      "data": [
+        {
+          "addr": "0x1803a8c80",
+          "imported_name": "D3DXMatrixRotationYawPitchRoll",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8c88",
+          "imported_name": "D3DXMatrixInverse",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8c90",
+          "imported_name": "D3DXMatrixPerspectiveFovLH",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8c98",
+          "imported_name": "D3DXMatrixOrthoOffCenterLH",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8ca0",
+          "imported_name": "D3DXMatrixLookAtLH",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8ca8",
+          "imported_name": "D3DXMatrixMultiply",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cb0",
+          "imported_name": "D3DXMatrixRotationAxis",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cb8",
+          "imported_name": "D3DXMatrixScaling",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cc0",
+          "imported_name": "D3DXCreateEffect",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cc8",
+          "imported_name": "D3DXCreateTextureFromFileInMemory",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cd0",
+          "imported_name": "D3DXMatrixTranspose",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cd8",
+          "imported_name": "D3DXMatrixOrthoOffCenterRH",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8ce0",
+          "imported_name": "D3DXAssembleShader",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8ce8",
+          "imported_name": "D3DXMatrixTranslation",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8cf0",
+          "imported_name": "D3DXCompileShader",
+          "module": "d3dx9_43"
+        },
+        {
+          "addr": "0x1803a8c70",
+          "imported_name": "Direct3DCreate9",
+          "module": "d3d9"
+        },
+        {
+          "addr": "0x1803a8508",
+          "imported_name": "SetupDiEnumDeviceInfo",
+          "module": "SETUPAPI"
+        },
+        {
+          "addr": "0x1803a8510",
+          "imported_name": "SetupDiGetDeviceRegistryPropertyA",
+          "module": "SETUPAPI"
+        },
+        {
+          "addr": "0x1803a8518",
+          "imported_name": "SetupDiDestroyDeviceInfoList",
+          "module": "SETUPAPI"
+        },
+        {
+          "addr": "0x1803a8520",
+          "imported_name": "SetupDiGetClassDevsA",
+          "module": "SETUPAPI"
+        },
+        {
+          "addr": "0x1803a8650",
+          "imported_name": "timeEndPeriod",
+          "module": "WINMM"
+        },
+        {
+          "addr": "0x1803a8658",
+          "imported_name": "timeBeginPeriod",
+          "module": "WINMM"
+        },
+        {
+          "addr": "0x1803a8660",
+          "imported_name": "timeGetTime",
+          "module": "WINMM"
+        },
+        {
+          "addr": "0x1803a8970",
+          "imported_name": "avs2_core_1",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a60",
+          "imported_name": "avs2_core_5",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a48",
+          "imported_name": "avs2_core_6",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a50",
+          "imported_name": "avs2_core_7",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b18",
+          "imported_name": "avs2_core_8",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8948",
+          "imported_name": "avs2_core_9",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8950",
+          "imported_name": "avs2_core_10",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a58",
+          "imported_name": "avs2_core_12",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8af0",
+          "imported_name": "avs2_core_14",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ae8",
+          "imported_name": "avs2_core_15",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b28",
+          "imported_name": "avs2_core_16",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b20",
+          "imported_name": "avs2_core_17",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8848",
+          "imported_name": "avs2_core_44",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89f0",
+          "imported_name": "avs2_core_45",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a10",
+          "imported_name": "avs2_core_48",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a08",
+          "imported_name": "avs2_core_50",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8aa0",
+          "imported_name": "avs2_core_52",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a88",
+          "imported_name": "avs2_core_71",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8958",
+          "imported_name": "avs2_core_73",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8978",
+          "imported_name": "avs2_core_76",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8968",
+          "imported_name": "avs2_core_77",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8840",
+          "imported_name": "avs2_core_79",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8aa8",
+          "imported_name": "avs2_core_80",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ac0",
+          "imported_name": "avs2_core_82",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88a0",
+          "imported_name": "avs2_core_84",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88b0",
+          "imported_name": "avs2_core_86",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88a8",
+          "imported_name": "avs2_core_87",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a40",
+          "imported_name": "avs2_core_88",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89c8",
+          "imported_name": "avs2_core_93",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89c0",
+          "imported_name": "avs2_core_94",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89b8",
+          "imported_name": "avs2_core_95",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a30",
+          "imported_name": "avs2_core_96",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a38",
+          "imported_name": "avs2_core_97",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ad0",
+          "imported_name": "avs2_core_98",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ac8",
+          "imported_name": "avs2_core_99",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ad8",
+          "imported_name": "avs2_core_100",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ae0",
+          "imported_name": "avs2_core_102",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8990",
+          "imported_name": "avs2_core_107",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a18",
+          "imported_name": "avs2_core_119",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8930",
+          "imported_name": "avs2_core_122",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8918",
+          "imported_name": "avs2_core_123",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8928",
+          "imported_name": "avs2_core_125",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8920",
+          "imported_name": "avs2_core_129",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8910",
+          "imported_name": "avs2_core_132",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8908",
+          "imported_name": "avs2_core_136",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a98",
+          "imported_name": "avs2_core_145",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a90",
+          "imported_name": "avs2_core_146",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8900",
+          "imported_name": "avs2_core_147",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ab0",
+          "imported_name": "avs2_core_152",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8878",
+          "imported_name": "avs2_core_159",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8868",
+          "imported_name": "avs2_core_162",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8860",
+          "imported_name": "avs2_core_163",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88e0",
+          "imported_name": "avs2_core_167",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88d0",
+          "imported_name": "avs2_core_171",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89a8",
+          "imported_name": "avs2_core_172",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89a0",
+          "imported_name": "avs2_core_173",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88e8",
+          "imported_name": "avs2_core_174",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8870",
+          "imported_name": "avs2_core_175",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8850",
+          "imported_name": "avs2_core_176",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88c8",
+          "imported_name": "avs2_core_177",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88c0",
+          "imported_name": "avs2_core_178",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88f8",
+          "imported_name": "avs2_core_182",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8858",
+          "imported_name": "avs2_core_183",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89b0",
+          "imported_name": "avs2_core_191",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88d8",
+          "imported_name": "avs2_core_199",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a28",
+          "imported_name": "avs2_core_202",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89d8",
+          "imported_name": "avs2_core_203",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89d0",
+          "imported_name": "avs2_core_212",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a20",
+          "imported_name": "avs2_core_213",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b08",
+          "imported_name": "avs2_core_222",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89f8",
+          "imported_name": "avs2_core_223",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8880",
+          "imported_name": "avs2_core_224",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8980",
+          "imported_name": "avs2_core_227",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b40",
+          "imported_name": "avs2_core_229",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8af8",
+          "imported_name": "avs2_core_230",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8988",
+          "imported_name": "avs2_core_234",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8ab8",
+          "imported_name": "avs2_core_240",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8940",
+          "imported_name": "avs2_core_242",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b48",
+          "imported_name": "avs2_core_244",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88f0",
+          "imported_name": "avs2_core_245",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b30",
+          "imported_name": "avs2_core_250",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89e0",
+          "imported_name": "avs2_core_257",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8890",
+          "imported_name": "avs2_core_258",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a88b8",
+          "imported_name": "avs2_core_266",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b50",
+          "imported_name": "avs2_core_268",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b58",
+          "imported_name": "avs2_core_269",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8938",
+          "imported_name": "avs2_core_271",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b60",
+          "imported_name": "avs2_core_298",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b10",
+          "imported_name": "avs2_core_315",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b38",
+          "imported_name": "avs2_core_317",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a80",
+          "imported_name": "avs2_core_320",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a78",
+          "imported_name": "avs2_core_322",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a70",
+          "imported_name": "avs2_core_323",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a68",
+          "imported_name": "avs2_core_324",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8a00",
+          "imported_name": "avs2_core_325",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8998",
+          "imported_name": "avs2_core_328",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8960",
+          "imported_name": "avs2_core_346",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8888",
+          "imported_name": "avs2_core_379",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8898",
+          "imported_name": "avs2_core_380",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8b00",
+          "imported_name": "avs2_core_381",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a89e8",
+          "imported_name": "avs2_core_383",
+          "module": "avs2-core"
+        },
+        {
+          "addr": "0x1803a8c00",
+          "imported_name": "avs2_ea3_1",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c08",
+          "imported_name": "avs2_ea3_14",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b88",
+          "imported_name": "avs2_ea3_15",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b90",
+          "imported_name": "avs2_ea3_16",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8be8",
+          "imported_name": "avs2_ea3_17",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8be0",
+          "imported_name": "avs2_ea3_18",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bd8",
+          "imported_name": "avs2_ea3_19",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bc0",
+          "imported_name": "avs2_ea3_20",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8ba8",
+          "imported_name": "avs2_ea3_21",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bd0",
+          "imported_name": "__imp_avs2_ea3_22",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bc8",
+          "imported_name": "avs2_ea3_23",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bb8",
+          "imported_name": "__imp_avs2_ea3_24",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bf8",
+          "imported_name": "avs2_ea3_25",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c10",
+          "imported_name": "avs2_ea3_26",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8ba0",
+          "imported_name": "avs2_ea3_29",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b98",
+          "imported_name": "avs2_ea3_30",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b70",
+          "imported_name": "avs2_ea3_31",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bb0",
+          "imported_name": "avs2_ea3_33",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c60",
+          "imported_name": "avs2_ea3_37",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8bf0",
+          "imported_name": "avs2_ea3_38",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b78",
+          "imported_name": "avs2_ea3_55",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8b80",
+          "imported_name": "avs2_ea3_59",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c30",
+          "imported_name": "avs2_ea3_79",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c40",
+          "imported_name": "avs2_ea3_80",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c38",
+          "imported_name": "avs2_ea3_81",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c18",
+          "imported_name": "avs2_ea3_82",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c48",
+          "imported_name": "avs2_ea3_83",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c28",
+          "imported_name": "avs2_ea3_84",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c50",
+          "imported_name": "avs2_ea3_85",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c58",
+          "imported_name": "avs2_ea3_86",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8c20",
+          "imported_name": "avs2_ea3_89",
+          "module": "avs2-ea3"
+        },
+        {
+          "addr": "0x1803a8e18",
+          "imported_name": "?LoadSoundBank@CLibXact@@QEAAJPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e20",
+          "imported_name": "?LoadWaveBank@CLibXact@@QEAAJPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e28",
+          "imported_name": "?getInstance@CLibXact@@SAAEAV1@XZ",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e30",
+          "imported_name": "?IsSoundBankLoaded@CLibXact@@QEAA?AW4STATUS_MESSAGE@1@PEBD@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e38",
+          "imported_name": "?ReleaseSound@CLibXact@@QEAAXXZ",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e40",
+          "imported_name": "?InitSound@CLibXact@@QEAAJPEBD_N1@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e48",
+          "imported_name": "?SetVolumeInAttractMode@CLibXact@@QEAAXJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e50",
+          "imported_name": "?SetHeadphoneVolume@CLibXact@@QEAAXJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e58",
+          "imported_name": "?SetWooferVolume@CLibXact@@QEAAXJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e60",
+          "imported_name": "?SetMasterVolume@CLibXact@@QEAAXJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e68",
+          "imported_name": "?SetKernelVolume@CLibXact@@QEAAXJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e70",
+          "imported_name": "?SetAttractModeStatus@CLibXact@@QEAAXH@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e78",
+          "imported_name": "?SetEqParam@CLibXact@@QEAAXJMMJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e80",
+          "imported_name": "?SetEchoParam@CLibXact@@QEAAXJJJJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e88",
+          "imported_name": "?SetReverbParam@CLibXact@@QEAAXJJ@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e90",
+          "imported_name": "?GetSoundLabelLapse@CLibXact@@QEAAMPEBD@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8e98",
+          "imported_name": "?GetSoundID@CLibXact@@QEAA_JPEBD@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ea0",
+          "imported_name": "?GetSoundLabelStatus@CLibXact@@QEAA_NPEBD@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ea8",
+          "imported_name": "?FadeOutSound@CLibXact@@QEAAXPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8eb0",
+          "imported_name": "?StopSound@CLibXact@@QEAAXPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8eb8",
+          "imported_name": "?FadeoutSoundAll@CLibXact@@QEAAXXZ",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ec0",
+          "imported_name": "?StopSoundAll@CLibXact@@QEAAXXZ",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ec8",
+          "imported_name": "?FadeOutSound@CLibXact@@QEAAX_J_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ed0",
+          "imported_name": "?LoadAndPlayWithParam@CLibXact@@QEAAXPEBD0MMMM@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ed8",
+          "imported_name": "?SetSoundWithParam@CLibXact@@QEAAX_JMMMM_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ee0",
+          "imported_name": "?SetSoundWithParam@CLibXact@@QEAAXPEBDMMMM_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ee8",
+          "imported_name": "?ReleaseWaveBank@CLibXact@@QEAAXPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ef0",
+          "imported_name": "?ReleaseSoundBank@CLibXact@@QEAAXPEBD_N@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8ef8",
+          "imported_name": "?IsWaveBankLoaded@CLibXact@@QEAA?AW4STATUS_MESSAGE@1@PEBD@Z",
+          "module": "libxact"
+        },
+        {
+          "addr": "0x1803a8d00",
+          "imported_name": "ac_io_begin",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d08",
+          "imported_name": "ac_io_is_active2",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d10",
+          "imported_name": "ac_io_reset",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d18",
+          "imported_name": "ac_io_icca_cardunit_init",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d20",
+          "imported_name": "ac_io_icca_cardunit_init_isfinished",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d28",
+          "imported_name": "ac_io_get_version",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d30",
+          "imported_name": "ac_io_get_rs232c_status",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d38",
+          "imported_name": "ac_io_kfca_req_volume_control",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d40",
+          "imported_name": "ac_io_kfca_lock_coincounter",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d48",
+          "imported_name": "ac_io_kfca_unlock_coincounter",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d50",
+          "imported_name": "ac_io_kfca_control_coin_blocker_open",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d58",
+          "imported_name": "ac_io_kfca_control_coin_blocker_close",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d60",
+          "imported_name": "ac_io_panb_control_led_bright",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d68",
+          "imported_name": "ac_io_panb_get_control_status_buffer",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d70",
+          "imported_name": "ac_io_panb_update_control_status_buffer",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d78",
+          "imported_name": "ac_io_panb_start_auto_input",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d80",
+          "imported_name": "ac_io_kfca_current_coinstock",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d88",
+          "imported_name": "ac_io_update",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d90",
+          "imported_name": "ac_io_icca_get_uid_felica",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8d98",
+          "imported_name": "ac_io_icca_req_uid_isfinished",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8da0",
+          "imported_name": "ac_io_icca_req_uid",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8da8",
+          "imported_name": "ac_io_icca_device_control_iccard_power_supply_on",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8db0",
+          "imported_name": "ac_io_icca_device_control_isfinished",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8db8",
+          "imported_name": "ac_io_icca_device_control_iccard_power_supply_off",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8dc0",
+          "imported_name": "ac_io_icca_get_status",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8dc8",
+          "imported_name": "ac_io_kfca_control_led_bright",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8dd0",
+          "imported_name": "ac_io_kfca_req_volume_control_isfinished",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8dd8",
+          "imported_name": "ac_io_kfca_get_control_status_buffer",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8de0",
+          "imported_name": "ac_io_kfca_update_control_status_buffer",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8de8",
+          "imported_name": "ac_io_is_active_device",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8df0",
+          "imported_name": "ac_io_begin_get_status",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8df8",
+          "imported_name": "ac_io_kfca_set_watchdog_time",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8e00",
+          "imported_name": "ac_io_set_soft_watch_dog",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a8e08",
+          "imported_name": "ac_io_icca_crypt_init",
+          "module": "libacio"
+        },
+        {
+          "addr": "0x1803a80e8",
+          "imported_name": "GetNetworkParams",
+          "module": "IPHLPAPI"
+        },
+        {
+          "addr": "0x1803a8690",
+          "imported_name": "afp_core_3",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8688",
+          "imported_name": "afp_core_4",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8680",
+          "imported_name": "afp_core_6",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8678",
+          "imported_name": "afp_core_9",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86c0",
+          "imported_name": "afp_core_15",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8788",
+          "imported_name": "afp_core_18",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8700",
+          "imported_name": "afp_core_22",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8670",
+          "imported_name": "afp_core_30",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8708",
+          "imported_name": "afp_core_31",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a87a8",
+          "imported_name": "afp_core_32",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8740",
+          "imported_name": "afp_core_33",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86b0",
+          "imported_name": "afp_core_34",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86a8",
+          "imported_name": "afp_core_35",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86a0",
+          "imported_name": "afp_core_36",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8698",
+          "imported_name": "afp_core_37",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8738",
+          "imported_name": "afp_core_41",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8780",
+          "imported_name": "afp_core_42",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a87a0",
+          "imported_name": "afp_core_43",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8730",
+          "imported_name": "afp_core_45",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8728",
+          "imported_name": "afp_core_47",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8720",
+          "imported_name": "afp_core_48",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8718",
+          "imported_name": "afp_core_49",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8710",
+          "imported_name": "afp_core_50",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8778",
+          "imported_name": "afp_core_51",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86d0",
+          "imported_name": "afp_core_52",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86c8",
+          "imported_name": "afp_core_53",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8798",
+          "imported_name": "afp_core_56",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8790",
+          "imported_name": "afp_core_71",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86b8",
+          "imported_name": "afp_core_76",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8748",
+          "imported_name": "afp_core_85",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86d8",
+          "imported_name": "afp_core_103",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8770",
+          "imported_name": "afp_core_104",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86e8",
+          "imported_name": "afp_core_106",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8768",
+          "imported_name": "afp_core_111",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8758",
+          "imported_name": "afp_core_114",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8750",
+          "imported_name": "afp_core_115",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86f8",
+          "imported_name": "afp_core_116",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86e0",
+          "imported_name": "afp_core_122",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a86f0",
+          "imported_name": "afp_core_136",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a8760",
+          "imported_name": "afp_core_137",
+          "module": "afp-core"
+        },
+        {
+          "addr": "0x1803a87e8",
+          "imported_name": "afp_utils_1",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87f0",
+          "imported_name": "afp_utils_2",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8800",
+          "imported_name": "afp_utils_4",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8808",
+          "imported_name": "afp_utils_6",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8810",
+          "imported_name": "afp_utils_7",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87d0",
+          "imported_name": "afp_utils_35",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8828",
+          "imported_name": "afp_utils_55",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8830",
+          "imported_name": "afp_utils_59",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87d8",
+          "imported_name": "afp_utils_65",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87e0",
+          "imported_name": "afp_utils_67",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87b8",
+          "imported_name": "afp_utils_70",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87c0",
+          "imported_name": "afp_utils_71",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8820",
+          "imported_name": "afp_utils_77",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87f8",
+          "imported_name": "afp_utils_99",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a87c8",
+          "imported_name": "afp_utils_101",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a8818",
+          "imported_name": "afp_utils_113",
+          "module": "afp-utils"
+        },
+        {
+          "addr": "0x1803a80f8",
+          "imported_name": "HeapReAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8100",
+          "imported_name": "GetFileType",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8108",
+          "imported_name": "GetStdHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8110",
+          "imported_name": "HeapAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8118",
+          "imported_name": "HeapFree",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8120",
+          "imported_name": "HeapSize",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8128",
+          "imported_name": "GetModuleHandleExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8130",
+          "imported_name": "ExitProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8138",
+          "imported_name": "RtlPcToFileHeader",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8140",
+          "imported_name": "RtlUnwindEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8148",
+          "imported_name": "LoadLibraryW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8150",
+          "imported_name": "CreateTimerQueue",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8158",
+          "imported_name": "UnregisterWaitEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8160",
+          "imported_name": "QueryDepthSList",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8168",
+          "imported_name": "InterlockedFlushSList",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8170",
+          "imported_name": "InterlockedPushEntrySList",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8178",
+          "imported_name": "InterlockedPopEntrySList",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8180",
+          "imported_name": "ReleaseSemaphore",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8188",
+          "imported_name": "DuplicateHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8190",
+          "imported_name": "VirtualFree",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8198",
+          "imported_name": "VirtualProtect",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81a0",
+          "imported_name": "VirtualAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81a8",
+          "imported_name": "GetVersionExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81b0",
+          "imported_name": "LoadLibraryExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81b8",
+          "imported_name": "GetModuleFileNameW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81c0",
+          "imported_name": "FreeLibraryAndExitThread",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81c8",
+          "imported_name": "GetThreadTimes",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81d0",
+          "imported_name": "GetCurrentThread",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81d8",
+          "imported_name": "UnregisterWait",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81e0",
+          "imported_name": "RegisterWaitForSingleObject",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81e8",
+          "imported_name": "SetThreadAffinityMask",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81f0",
+          "imported_name": "GetProcessAffinityMask",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a81f8",
+          "imported_name": "GetNumaHighestNodeNumber",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8200",
+          "imported_name": "DeleteTimerQueueTimer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8208",
+          "imported_name": "ChangeTimerQueueTimer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8210",
+          "imported_name": "CreateTimerQueueTimer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8218",
+          "imported_name": "GetLogicalProcessorInformation",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8220",
+          "imported_name": "GetThreadPriority",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8228",
+          "imported_name": "SetThreadPriority",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8230",
+          "imported_name": "CreateThread",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8238",
+          "imported_name": "SignalObjectAndWait",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8240",
+          "imported_name": "WaitForSingleObjectEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8248",
+          "imported_name": "SetEvent",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8250",
+          "imported_name": "GetCurrentProcessId",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8258",
+          "imported_name": "GetStartupInfoW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8260",
+          "imported_name": "IsProcessorFeaturePresent",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8268",
+          "imported_name": "TerminateProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8270",
+          "imported_name": "SetUnhandledExceptionFilter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8278",
+          "imported_name": "UnhandledExceptionFilter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8280",
+          "imported_name": "RtlVirtualUnwind",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8288",
+          "imported_name": "RtlLookupFunctionEntry",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8290",
+          "imported_name": "RtlCaptureContext",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8298",
+          "imported_name": "InitializeSListHead",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82a0",
+          "imported_name": "IsDebuggerPresent",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82a8",
+          "imported_name": "GetStringTypeW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82b0",
+          "imported_name": "GetLocaleInfoW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82b8",
+          "imported_name": "LCMapStringW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82c0",
+          "imported_name": "CompareStringW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82c8",
+          "imported_name": "EncodePointer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82d0",
+          "imported_name": "GetModuleHandleW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82d8",
+          "imported_name": "GetTickCount",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82e0",
+          "imported_name": "GetSystemTimeAsFileTime",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82e8",
+          "imported_name": "TlsFree",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82f0",
+          "imported_name": "TlsSetValue",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a82f8",
+          "imported_name": "TlsGetValue",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8300",
+          "imported_name": "TlsAlloc",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8308",
+          "imported_name": "SwitchToThread",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8310",
+          "imported_name": "CreateEventW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8318",
+          "imported_name": "InitializeCriticalSectionAndSpinCount",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8320",
+          "imported_name": "SetLastError",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8328",
+          "imported_name": "WideCharToMultiByte",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8330",
+          "imported_name": "GetCurrentThreadId",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8338",
+          "imported_name": "TryEnterCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8340",
+          "imported_name": "LeaveCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8348",
+          "imported_name": "EnterCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8350",
+          "imported_name": "IsValidLocale",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8358",
+          "imported_name": "GetUserDefaultLCID",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8360",
+          "imported_name": "EnumSystemLocalesW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8368",
+          "imported_name": "GetConsoleCP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8370",
+          "imported_name": "GetConsoleMode",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8378",
+          "imported_name": "GetFileSizeEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8380",
+          "imported_name": "SetFilePointerEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8388",
+          "imported_name": "GetProcessHeap",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8390",
+          "imported_name": "HeapQueryInformation",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8398",
+          "imported_name": "FindClose",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83a0",
+          "imported_name": "FindFirstFileExW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83a8",
+          "imported_name": "FindNextFileW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83b0",
+          "imported_name": "IsValidCodePage",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83b8",
+          "imported_name": "GetACP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83c0",
+          "imported_name": "GetOEMCP",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83c8",
+          "imported_name": "GetCommandLineA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83d0",
+          "imported_name": "GetCommandLineW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83d8",
+          "imported_name": "GetEnvironmentStringsW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83e0",
+          "imported_name": "FreeEnvironmentStringsW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83e8",
+          "imported_name": "SetEnvironmentVariableW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83f0",
+          "imported_name": "SetStdHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a83f8",
+          "imported_name": "CreateFileW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8400",
+          "imported_name": "ReadConsoleW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8408",
+          "imported_name": "SetEndOfFile",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8410",
+          "imported_name": "WriteConsoleW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8418",
+          "imported_name": "OutputDebugStringW",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8420",
+          "imported_name": "DeleteFileA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8428",
+          "imported_name": "CreateDirectoryA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8430",
+          "imported_name": "FreeLibrary",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8438",
+          "imported_name": "GetProcAddress",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8440",
+          "imported_name": "LoadLibraryA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8448",
+          "imported_name": "FlushFileBuffers",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8450",
+          "imported_name": "ReadFile",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8458",
+          "imported_name": "WriteFile",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8460",
+          "imported_name": "CloseHandle",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8468",
+          "imported_name": "SleepEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8470",
+          "imported_name": "DeleteCriticalSection",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8478",
+          "imported_name": "RaiseException",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8480",
+          "imported_name": "InitializeCriticalSectionEx",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8488",
+          "imported_name": "K32GetPerformanceInfo",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8490",
+          "imported_name": "GlobalMemoryStatus",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8498",
+          "imported_name": "QueryPerformanceCounter",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84a0",
+          "imported_name": "QueryPerformanceFrequency",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84a8",
+          "imported_name": "GetLastError",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84b0",
+          "imported_name": "CreateFileA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84b8",
+          "imported_name": "DeviceIoControl",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84c0",
+          "imported_name": "GetVersionExA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84c8",
+          "imported_name": "MultiByteToWideChar",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84d0",
+          "imported_name": "OutputDebugStringA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84d8",
+          "imported_name": "Sleep",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84e0",
+          "imported_name": "GetModuleHandleA",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84e8",
+          "imported_name": "GetCurrentProcess",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84f0",
+          "imported_name": "GetCPInfo",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a84f8",
+          "imported_name": "DecodePointer",
+          "module": "KERNEL32"
+        },
+        {
+          "addr": "0x1803a8548",
+          "imported_name": "AttachThreadInput",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8550",
+          "imported_name": "GetForegroundWindow",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8558",
+          "imported_name": "GetWindowThreadProcessId",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8560",
+          "imported_name": "SetFocus",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8568",
+          "imported_name": "UpdateWindow",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8570",
+          "imported_name": "ShowWindow",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8578",
+          "imported_name": "SystemParametersInfoA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8580",
+          "imported_name": "SetForegroundWindow",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8588",
+          "imported_name": "GetDC",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8590",
+          "imported_name": "ReleaseDC",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8598",
+          "imported_name": "CreateWindowExA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85a0",
+          "imported_name": "GetSystemMetrics",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85a8",
+          "imported_name": "RegisterTouchWindow",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85b0",
+          "imported_name": "SetRect",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85b8",
+          "imported_name": "RegisterClassExA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85c0",
+          "imported_name": "LoadCursorA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85c8",
+          "imported_name": "LoadIconA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85d0",
+          "imported_name": "UnregisterClassA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85d8",
+          "imported_name": "DispatchMessageA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85e0",
+          "imported_name": "TranslateMessage",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85e8",
+          "imported_name": "PeekMessageA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85f0",
+          "imported_name": "ExitWindowsEx",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a85f8",
+          "imported_name": "ShowCursor",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8600",
+          "imported_name": "CloseTouchInputHandle",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8608",
+          "imported_name": "GetTouchInputInfo",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8610",
+          "imported_name": "DefWindowProcA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8618",
+          "imported_name": "GetPropA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8620",
+          "imported_name": "RemovePropA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8628",
+          "imported_name": "SetPropA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8630",
+          "imported_name": "PostMessageA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8638",
+          "imported_name": "FindWindowA",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8640",
+          "imported_name": "AdjustWindowRect",
+          "module": "USER32"
+        },
+        {
+          "addr": "0x1803a8020",
+          "imported_name": "GetGlyphOutlineA",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8028",
+          "imported_name": "SetBkMode",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8030",
+          "imported_name": "CreatePen",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8038",
+          "imported_name": "BeginPath",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8040",
+          "imported_name": "TextOutA",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8048",
+          "imported_name": "EndPath",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8050",
+          "imported_name": "StrokePath",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8058",
+          "imported_name": "DeleteObject",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8060",
+          "imported_name": "GetStockObject",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8068",
+          "imported_name": "FillPath",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8070",
+          "imported_name": "GetTextMetricsA",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8078",
+          "imported_name": "SetBrushOrgEx",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8080",
+          "imported_name": "StretchBlt",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8088",
+          "imported_name": "CreateCompatibleDC",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8090",
+          "imported_name": "DeleteDC",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8098",
+          "imported_name": "CreateDIBSection",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80a0",
+          "imported_name": "CreateFontA",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80a8",
+          "imported_name": "CreateFontIndirectA",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80b0",
+          "imported_name": "CreateFontIndirectW",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80b8",
+          "imported_name": "GetGlyphOutlineW",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80c0",
+          "imported_name": "GetTextMetricsW",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80c8",
+          "imported_name": "SelectObject",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80d0",
+          "imported_name": "AddFontMemResourceEx",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a80d8",
+          "imported_name": "SetStretchBltMode",
+          "module": "GDI32"
+        },
+        {
+          "addr": "0x1803a8000",
+          "imported_name": "OpenProcessToken",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x1803a8008",
+          "imported_name": "AdjustTokenPrivileges",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x1803a8010",
+          "imported_name": "LookupPrivilegeValueA",
+          "module": "ADVAPI32"
+        },
+        {
+          "addr": "0x1803a8530",
+          "imported_name": "PathIsDirectoryA",
+          "module": "SHLWAPI"
+        },
+        {
+          "addr": "0x1803a8538",
+          "imported_name": "PathFileExistsA",
+          "module": "SHLWAPI"
+        }
+      ],
+      "next_offset": null
+    }
+  ]
+}

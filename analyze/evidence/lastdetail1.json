@@ -1,0 +1,125 @@
+{
+  "result": [
+    {
+      "query": {
+        "mnem": "call",
+        "op0": null,
+        "op1": null,
+        "op2": null,
+        "op_any": null,
+        "func": "0x180004870",
+        "segment": null,
+        "start": null,
+        "end": null,
+        "offset": 0,
+        "count": 100,
+        "max_scan_insns": 200000,
+        "allow_broad": false
+      },
+      "ranges": [
+        {
+          "start": "0x180004870",
+          "end": "0x180004ed6"
+        }
+      ],
+      "matches": [
+        {
+          "addr": "0x18000494d",
+          "disasm": "call qword ptr [rax+18h]"
+        },
+        {
+          "addr": "0x180004993",
+          "disasm": "call sub_180001240"
+        },
+        {
+          "addr": "0x1800049ab",
+          "disasm": "call sub_180001240"
+        },
+        {
+          "addr": "0x1800049c7",
+          "disasm": "call sub_180001240"
+        },
+        {
+          "addr": "0x1800049dd",
+          "disasm": "call sub_180001240"
+        },
+        {
+          "addr": "0x180004a53",
+          "disasm": "call qword ptr [rax+8]"
+        },
+        {
+          "addr": "0x180004a5d",
+          "disasm": "call qword ptr [rax+18h]"
+        },
+        {
+          "addr": "0x180004b17",
+          "disasm": "call qword ptr [rax+8]"
+        },
+        {
+          "addr": "0x180004b20",
+          "disasm": "call qword ptr [rax+18h]"
+        },
+        {
+          "addr": "0x180004ba2",
+          "disasm": "call powf"
+        },
+        {
+          "addr": "0x180004ca5",
+          "disasm": "call qword ptr [rax+50h]"
+        },
+        {
+          "addr": "0x180004cf9",
+          "disasm": "call qword ptr [rax+50h]"
+        },
+        {
+          "addr": "0x180004d4d",
+          "disasm": "call qword ptr [rax+50h]"
+        },
+        {
+          "addr": "0x180004d8e",
+          "disasm": "call qword ptr [rax+50h]"
+        },
+        {
+          "addr": "0x180004dea",
+          "disasm": "call qword ptr [rax+58h]"
+        },
+        {
+          "addr": "0x180004e1f",
+          "disasm": "call qword ptr [rbx+28h]"
+        },
+        {
+          "addr": "0x180004e35",
+          "disasm": "call qword ptr [rbx+28h]"
+        },
+        {
+          "addr": "0x180004e41",
+          "disasm": "call qword ptr [rbx+30h]"
+        },
+        {
+          "addr": "0x180004e4a",
+          "disasm": "call qword ptr [rax]"
+        },
+        {
+          "addr": "0x180004e53",
+          "disasm": "call sub_180001260"
+        },
+        {
+          "addr": "0x180004e66",
+          "disasm": "call cs:QueryPerformanceCounter; KERNEL32"
+        },
+        {
+          "addr": "0x180004eb5",
+          "disasm": "call __security_check_cookie"
+        }
+      ],
+      "count": 22,
+      "cursor": {
+        "done": true
+      },
+      "scanned": 364,
+      "truncated": false,
+      "next_start": null,
+      "error": null
+    }
+  ]
+}

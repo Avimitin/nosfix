@@ -1,0 +1,97 @@
+nosfix 0.2.0 motion implementation, 2026-10-29
+
+Evidence applies only to PAN-2025020501 nostalgia.dll, SHA-256
+339247B90B6DE067AB0DAA4355C7410487BAE9B6F84AD61A4050700FA2D5638B.
+All addresses below are module RVAs. IDA preferred image base 0x180000000.
+The matching motion_*.c pseudocode files are saved in evidence/. Inference
+from pseudocode was checked against vtable entries and instruction bytes.
+Hex-Rays has incorrect inferred argument types for the projection helper;
+the implementation does not call or replace that helper.
+
+Verified note virtual methods (vtable slot +24):
+Type          update RVA   textured objects    filled ribbon objects    state
+Normal        0x2F6DF0     +128                none                     none
+Long          0x2F4E80     +128,+168            +352,+408                +300
+Beats         0x1A5990     +128                none                     none
+Glissando     0x1A6820     +128                +216                     none
+Trill         0x1A84F0     +128,+168            +368,+424                +316
+VelocityZone  0x1AA4D0     +128,+168            +352                     +300
+Object offsets in the table are decimal byte offsets from the note pointer.
+The methods return a char and accept one this pointer, and their only code
+entry references are vtable data. Their original updates run exactly once.
+They include gameplay state changes; repeating them for display frames is
+incorrect. Hooks capture buffers AFTER their one original call.
+
+Common note identity: object address, chart-record pointer at +8, note frame
+at +24, lane +20, key endpoints +44/+48, and type-specific hold state.
+The chart music frame at RVA 0x70A610 is sampled before the update.
+Only a change of exactly +1 between consecutive outer simulation iterations
+is accepted for prediction. A second update within the same iteration resets
+history, covering the existing audio correction's two-update branch. A held
+iteration with no capture has no valid current-iteration track.
+
+BM2D::CTexturePrim:
+Object count DWORD +24, backing pointer +32, record stride 160 bytes.
+Each record begins with four vertices of stride 24: float XYZ, packed color,
+float UV. XY offsets are (0,4), (24,28), (48,52), (72,76).
+Flags DWORD +144; texture pointer +152. Geometry setter RVA 0xD3060 and
+initializer 0xD2AE0 confirm this layout. Persistent active records require
+flags & 0xC0000000 == 0xC0000000. The draw function 0xD2630 clears activity
+only for nonpersistent records; those records are excluded from smoothing.
+
+BM2D::CBoxFillPrim:
+Object count DWORD +24, backing pointer +32, record stride 120 bytes.
+RVA 0xD5460 emits six XYZRHW/color vertices of stride 20 (two triangles).
+RVA 0xD5420 publishes {count, reserved, backing pointer} to AFP.
+Long-note updates can rebuild different numbers of segments each tick;
+changing count resets the corresponding prediction track.
+
+Actual render boundary: RVA 0xDE7C0, AFP primitive callback with four Win64
+arguments. The fourth points to a 16-byte payload:
+  uint32 count; uint32 mode; void* backing_buffer;
+Type is (first_argument >> 1) & 0x3FF, confirmed at RVA 0xDD670.
+Type 2 invokes 0xD2630 for texture primitives. Type 1 invokes 0xDE920 for
+filled triangles. These reach IDirect3DDevice9::DrawPrimitiveUP through
+vtable byte offset 664; strides are respectively 24 and 20.
+The hook substitutes a local payload pointing to an owned geometry copy.
+It never overwrites or temporarily patches any gameplay/source geometry.
+All non-XY bytes remain the latest game values.
+
+DrawPrimitiveUP consumes the user vertices before returning (Microsoft):
+https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-drawprimitiveup
+Thus the copy can be reused after the synchronous original callback returns.
+
+RVA 0xD61C0 tail-calls the BM2D allocator's virtual free method. Its detour
+invalidates matching backing-buffer history before calling the original.
+Unlike the private render-tail helpers discussed in IMPLEMENTATION_NOTES,
+this wrapper already crosses a virtual call with the full volatile-register
+contract. Exact entry bytes are verified for all eight motion hooks before
+the transactional MinHook installation. No global Windows API is hooked.
+
+Prediction: p = current + phase * (current - previous), phase in [0,1].
+The phase comes from the scheduler's absolute enclosing simulation interval,
+including rational QPC rounding and update work. Predictions do not become
+future snapshots. Alpha zero and display rate 60 preserve original geometry.
+No previous-frame interpolation delay is introduced. Nonlinear projection
+curvature and integer quantization mean this is a bounded approximation.
+Maximum accepted step is 128 logical pixels per vertex, coordinate magnitude
+at most 1,000,000, 64 primitives per track, and 4096 tracked buffers per thread.
+Any failing gate uses original drawing. Exact live/captured byte comparison
+also rejects geometry changed by scoring or later update work.
+
+State is local to the analyzed synchronous game thread. A callback on another
+thread passes through if no matching capture exists. Cache entries are never
+dereferenced as saved game pointers; only the live draw argument is read.
+Capture allocates/reuses vectors; draw prediction does not allocate. Unused
+entries are pruned and allocation failure clears the cache.
+
+Scope: note heads, beat lines, and filled note ribbons. AFP animations, hit
+effect sprites, UI timelines, color transitions, input rate, judgments and
+keysounds are not advanced by the motion pass. ASIO remains a separate task.
+Native continuous-time projection and topology-aware ribbon reconstruction
+remain possible later work. This version needs visual validation on the
+actual installation, particularly curved scroll modes and ribbon transitions.
+
+Validation: mathematical rate/endpoint/discontinuity/nonaccumulation tests,
+raw-buffer preservation tests, synthetic actual-detour tests, and inert-image
+installation tests. None executes original game code or starts the game.

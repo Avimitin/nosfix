@@ -1,0 +1,20 @@
+﻿[
+    {
+        "Name":  "nostalgia.dll",
+        "Source":  "\\\\popn.lan.sh1mar.in\\Games\\PAN-2025020501\\modules\\nostalgia.dll",
+        "Copy":  "D:\\Share\\nosfix\\analyze\\nostalgia.dll",
+        "Bytes":  7640728,
+        "SHA256":  "339247B90B6DE067AB0DAA4355C7410487BAE9B6F84AD61A4050700FA2D5638B",
+        "SourceSHA256":  "339247B90B6DE067AB0DAA4355C7410487BAE9B6F84AD61A4050700FA2D5638B",
+        "Match":  true
+    },
+    {
+        "Name":  "libxact.dll",
+        "Source":  "\\\\popn.lan.sh1mar.in\\Games\\PAN-2025020501\\modules\\libxact.dll",
+        "Copy":  "D:\\Share\\nosfix\\analyze\\libxact.dll",
+        "Bytes":  192664,
+        "SHA256":  "6CEEE6952CFA636FD96DEAAF11BC72E7CA6D7B7499560EF15B033B18CB9BFB9E",
+        "SourceSHA256":  "6CEEE6952CFA636FD96DEAAF11BC72E7CA6D7B7499560EF15B033B18CB9BFB9E",
+        "Match":  true
+    }
+]

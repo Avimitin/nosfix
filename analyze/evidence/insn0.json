@@ -1,0 +1,257 @@
+{
+  "result": [
+    {
+      "query": {
+        "mnem": null,
+        "op0": null,
+        "op1": null,
+        "op2": null,
+        "op_any": null,
+        "func": null,
+        "segment": null,
+        "start": "0x1802fc500",
+        "end": "0x1802fc670",
+        "offset": 0,
+        "count": 160,
+        "max_scan_insns": 200000,
+        "allow_broad": false
+      },
+      "ranges": [
+        {
+          "start": "0x1802fc500",
+          "end": "0x1802fc670"
+        }
+      ],
+      "matches": [
+        {
+          "addr": "0x1802fc500",
+          "disasm": "imul eax, edx, 0B4h"
+        },
+        {
+          "addr": "0x1802fc506",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc507",
+          "disasm": "align 10h"
+        },
+        {
+          "addr": "0x1802fc510",
+          "disasm": "xor eax, eax"
+        },
+        {
+          "addr": "0x1802fc512",
+          "disasm": "movss cs:dword_18070A720, xmm1"
+        },
+        {
+          "addr": "0x1802fc51a",
+          "disasm": "mov cs:qword_18070A740, rax"
+        },
+        {
+          "addr": "0x1802fc521",
+          "disasm": "mov cs:qword_18070A748, rax"
+        },
+        {
+          "addr": "0x1802fc528",
+          "disasm": "mov cs:qword_18070A718, rax"
+        },
+        {
+          "addr": "0x1802fc52f",
+          "disasm": "mov cs:byte_18070A730, al"
+        },
+        {
+          "addr": "0x1802fc535",
+          "disasm": "mov cs:qword_18070A734, rax"
+        },
+        {
+          "addr": "0x1802fc53c",
+          "disasm": "mov cs:dword_18070A73C, eax"
+        },
+        {
+          "addr": "0x1802fc542",
+          "disasm": "mov cs:dword_18070A750, eax"
+        },
+        {
+          "addr": "0x1802fc548",
+          "disasm": "movss cs:dword_18070A724, xmm1"
+        },
+        {
+          "addr": "0x1802fc550",
+          "disasm": "mov cs:dword_18070A614, 3E8h"
+        },
+        {
+          "addr": "0x1802fc55a",
+          "disasm": "mov cs:dword_18070A610, 0FFFFFF38h"
+        },
+        {
+          "addr": "0x1802fc564",
+          "disasm": "mov cs:dword_18070A728, 3F800000h"
+        },
+        {
+          "addr": "0x1802fc56e",
+          "disasm": "mov cs:dword_18070A72C, 3F800000h"
+        },
+        {
+          "addr": "0x1802fc578",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc579",
+          "disasm": "align 20h"
+        },
+        {
+          "addr": "0x1802fc580",
+          "disasm": "sub rsp, 28h"
+        },
+        {
+          "addr": "0x1802fc584",
+          "disasm": "lea rcx, xmmword_18070A770"
+        },
+        {
+          "addr": "0x1802fc58b",
+          "disasm": "call sub_180079920"
+        },
+        {
+          "addr": "0x1802fc590",
+          "disasm": "lea rcx, qword_18070A758"
+        },
+        {
+          "addr": "0x1802fc597",
+          "disasm": "add rsp, 28h"
+        },
+        {
+          "addr": "0x1802fc59b",
+          "disasm": "jmp sub_180079920"
+        },
+        {
+          "addr": "0x1802fc5a0",
+          "disasm": "db 10h dup(0CCh)"
+        },
+        {
+          "addr": "0x1802fc5b0",
+          "disasm": "xor eax, eax"
+        },
+        {
+          "addr": "0x1802fc5b2",
+          "disasm": "mov cs:dword_18070A720, 42C80000h"
+        },
+        {
+          "addr": "0x1802fc5bc",
+          "disasm": "xorps xmm0, xmm0"
+        },
+        {
+          "addr": "0x1802fc5bf",
+          "disasm": "mov cs:qword_18070A758, rax"
+        },
+        {
+          "addr": "0x1802fc5c6",
+          "disasm": "xorps xmm1, xmm1"
+        },
+        {
+          "addr": "0x1802fc5c9",
+          "disasm": "mov cs:qword_18070A780, rax"
+        },
+        {
+          "addr": "0x1802fc5d0",
+          "disasm": "mov cs:qword_18070A740, rax"
+        },
+        {
+          "addr": "0x1802fc5d7",
+          "disasm": "mov cs:qword_18070A748, rax"
+        },
+        {
+          "addr": "0x1802fc5de",
+          "disasm": "mov cs:qword_18070A718, rax"
+        },
+        {
+          "addr": "0x1802fc5e5",
+          "disasm": "mov cs:byte_18070A730, al"
+        },
+        {
+          "addr": "0x1802fc5eb",
+          "disasm": "mov cs:qword_18070A734, rax"
+        },
+        {
+          "addr": "0x1802fc5f2",
+          "disasm": "mov cs:dword_18070A73C, eax"
+        },
+        {
+          "addr": "0x1802fc5f8",
+          "disasm": "mov cs:dword_18070A750, eax"
+        },
+        {
+          "addr": "0x1802fc5fe",
+          "disasm": "lea rax, dword_18070A610"
+        },
+        {
+          "addr": "0x1802fc605",
+          "disasm": "movdqa cs:xmmword_18070A760, xmm0"
+        },
+        {
+          "addr": "0x1802fc60d",
+          "disasm": "movdqa cs:xmmword_18070A770, xmm1"
+        },
+        {
+          "addr": "0x1802fc615",
+          "disasm": "mov cs:dword_18070A614, 3E8h"
+        },
+        {
+          "addr": "0x1802fc61f",
+          "disasm": "mov cs:dword_18070A724, 42C80000h"
+        },
+        {
+          "addr": "0x1802fc629",
+          "disasm": "mov cs:dword_18070A610, 0FFFFFF38h"
+        },
+        {
+          "addr": "0x1802fc633",
+          "disasm": "mov cs:dword_18070A728, 3F800000h"
+        },
+        {
+          "addr": "0x1802fc63d",
+          "disasm": "mov cs:dword_18070A72C, 3F800000h"
+        },
+        {
+          "addr": "0x1802fc647",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc648",
+          "disasm": "align 10h"
+        },
+        {
+          "addr": "0x1802fc650",
+          "disasm": "sub rsp, 28h"
+        },
+        {
+          "addr": "0x1802fc654",
+          "disasm": "call sub_180360060"
+        },
+        {
+          "addr": "0x1802fc659",
+          "disasm": "add rax, 2A0h"
+        },
+        {
+          "addr": "0x1802fc65f",
+          "disasm": "add rsp, 28h"
+        },
+        {
+          "addr": "0x1802fc663",
+          "disasm": "retn"
+        },
+        {
+          "addr": "0x1802fc664",
+          "disasm": "align 10h"
+        }
+      ],
+      "count": 55,
+      "cursor": {
+        "done": true
+      },
+      "scanned": 55,
+      "truncated": false,
+      "next_start": null,
+      "error": null
+    }
+  ]
+}

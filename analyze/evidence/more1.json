@@ -1,0 +1,869 @@
+{
+  "result": [
+    {
+      "query": {
+        "mnem": "call",
+        "op0": null,
+        "op1": null,
+        "op2": null,
+        "op_any": null,
+        "func": "0x1802f7c10",
+        "segment": null,
+        "start": null,
+        "end": null,
+        "offset": 0,
+        "count": 500,
+        "max_scan_insns": 200000,
+        "allow_broad": false
+      },
+      "ranges": [
+        {
+          "start": "0x1802f7c10",
+          "end": "0x1802faaaa"
+        }
+      ],
+      "matches": [
+        {
+          "addr": "0x1802f7cae",
+          "disasm": "call sub_1803074D0"
+        },
+        {
+          "addr": "0x1802f7cc8",
+          "disasm": "call sub_180307540"
+        },
+        {
+          "addr": "0x1802f7cef",
+          "disasm": "call sub_1802FBEF0"
+        },
+        {
+          "addr": "0x1802f7d3a",
+          "disasm": "call sub_1803074D0"
+        },
+        {
+          "addr": "0x1802f7d48",
+          "disasm": "call sub_180307540"
+        },
+        {
+          "addr": "0x1802f7d8f",
+          "disasm": "call sub_1802FBEF0"
+        },
+        {
+          "addr": "0x1802f7d9f",
+          "disasm": "call sub_1800CADD0"
+        },
+        {
+          "addr": "0x1802f7dac",
+          "disasm": "call sub_1800CA930"
+        },
+        {
+          "addr": "0x1802f7dbe",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f7de9",
+          "disasm": "call qword ptr [rax+0B0h]"
+        },
+        {
+          "addr": "0x1802f7e2e",
+          "disasm": "call sub_1800CAA80"
+        },
+        {
+          "addr": "0x1802f7e45",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f7e90",
+          "disasm": "call ?clear@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEAAXXZ; std::vector<void *>::clear(void)"
+        },
+        {
+          "addr": "0x1802f8030",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f803c",
+          "disasm": "call ?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::end(void)"
+        },
+        {
+          "addr": "0x1802f836f",
+          "disasm": "call sub_180304F30"
+        },
+        {
+          "addr": "0x1802f842c",
+          "disasm": "call sub_180304F30"
+        },
+        {
+          "addr": "0x1802f849c",
+          "disasm": "call sub_180301A10"
+        },
+        {
+          "addr": "0x1802f8664",
+          "disasm": "call sub_180304F30"
+        },
+        {
+          "addr": "0x1802f8735",
+          "disasm": "call sub_180304F30"
+        },
+        {
+          "addr": "0x1802f87e0",
+          "disasm": "call sub_1803075A0"
+        },
+        {
+          "addr": "0x1802f87fa",
+          "disasm": "call j_j_free"
+        },
+        {
+          "addr": "0x1802f880d",
+          "disasm": "call j_j_free"
+        },
+        {
+          "addr": "0x1802f8830",
+          "disasm": "call ?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::end(void)"
+        },
+        {
+          "addr": "0x1802f8857",
+          "disasm": "call ?clear@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEAAXXZ; std::vector<void *>::clear(void)"
+        },
+        {
+          "addr": "0x1802f88cb",
+          "disasm": "call sub_1800CA930"
+        },
+        {
+          "addr": "0x1802f88d8",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f8a80",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f8ada",
+          "disasm": "call sub_180307D70"
+        },
+        {
+          "addr": "0x1802f8afa",
+          "disasm": "call sub_1800CADA0"
+        },
+        {
+          "addr": "0x1802f8b04",
+          "disasm": "call sub_1800CA8E0"
+        },
+        {
+          "addr": "0x1802f8b34",
+          "disasm": "call sub_1800CA1C0"
+        },
+        {
+          "addr": "0x1802f8b4d",
+          "disasm": "call sub_1800CA930"
+        },
+        {
+          "addr": "0x1802f8b5a",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f8e95",
+          "disasm": "call sub_1800CAA40"
+        },
+        {
+          "addr": "0x1802f8efb",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f90cf",
+          "disasm": "call sub_1800CA9A0"
+        },
+        {
+          "addr": "0x1802f9104",
+          "disasm": "call sub_1802BCAD0"
+        },
+        {
+          "addr": "0x1802f914f",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802f9181",
+          "disasm": "call sub_1800CAE90"
+        },
+        {
+          "addr": "0x1802f918f",
+          "disasm": "call sub_1800CA930"
+        },
+        {
+          "addr": "0x1802f9255",
+          "disasm": "call sub_180303BA0"
+        },
+        {
+          "addr": "0x1802f9407",
+          "disasm": "call sub_180303C10"
+        },
+        {
+          "addr": "0x1802f9483",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f9490",
+          "disasm": "call ?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::end(void)"
+        },
+        {
+          "addr": "0x1802f9508",
+          "disasm": "call ?end@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::end(void)"
+        },
+        {
+          "addr": "0x1802f9548",
+          "disasm": "call qword ptr [rax+20h]"
+        },
+        {
+          "addr": "0x1802f95ba",
+          "disasm": "call sub_180303C10"
+        },
+        {
+          "addr": "0x1802f95d0",
+          "disasm": "call qword ptr [rax+0D8h]"
+        },
+        {
+          "addr": "0x1802f9657",
+          "disasm": "call sub_180303C10"
+        },
+        {
+          "addr": "0x1802f972d",
+          "disasm": "call sub_1800CA190"
+        },
+        {
+          "addr": "0x1802f9737",
+          "disasm": "call ??2@YAPEAX_K@Z; operator new(unsigned __int64)"
+        },
+        {
+          "addr": "0x1802f9770",
+          "disasm": "call sub_1800CA030"
+        },
+        {
+          "addr": "0x1802f989f",
+          "disasm": "call sub_1800CAAF0"
+        },
+        {
+          "addr": "0x1802f98ad",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802f98b9",
+          "disasm": "call sub_180303CC0"
+        },
+        {
+          "addr": "0x1802f98e7",
+          "disasm": "call sub_1800CA8E0"
+        },
+        {
+          "addr": "0x1802f98f0",
+          "disasm": "call sub_1800CABE0"
+        },
+        {
+          "addr": "0x1802f99cd",
+          "disasm": "call sub_1802BCB80"
+        },
+        {
+          "addr": "0x1802f99f0",
+          "disasm": "call sub_1800CA930"
+        },
+        {
+          "addr": "0x1802f9a51",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802f9ac8",
+          "disasm": "call qword ptr [rax+20h]"
+        },
+        {
+          "addr": "0x1802f9b97",
+          "disasm": "call sub_1802BCAD0"
+        },
+        {
+          "addr": "0x1802f9bc5",
+          "disasm": "call sub_1800CA190"
+        },
+        {
+          "addr": "0x1802f9bcf",
+          "disasm": "call ??2@YAPEAX_K@Z; operator new(unsigned __int64)"
+        },
+        {
+          "addr": "0x1802f9c0c",
+          "disasm": "call sub_1800CA030"
+        },
+        {
+          "addr": "0x1802f9c97",
+          "disasm": "call sub_1800CAAF0"
+        },
+        {
+          "addr": "0x1802f9ce2",
+          "disasm": "call qword ptr [rax+0D8h]"
+        },
+        {
+          "addr": "0x1802fa0df",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa0ea",
+          "disasm": "call qword ptr [rax+10h]"
+        },
+        {
+          "addr": "0x1802fa0f2",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa101",
+          "disasm": "call sub_1800CAB90"
+        },
+        {
+          "addr": "0x1802fa110",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa118",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa123",
+          "disasm": "call qword ptr [rax+0C0h]"
+        },
+        {
+          "addr": "0x1802fa143",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa14b",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa156",
+          "disasm": "call qword ptr [rax+90h]"
+        },
+        {
+          "addr": "0x1802fa166",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa16e",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa179",
+          "disasm": "call qword ptr [rdx+0D8h]"
+        },
+        {
+          "addr": "0x1802fa188",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa190",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa19b",
+          "disasm": "call qword ptr [rax+0D0h]"
+        },
+        {
+          "addr": "0x1802fa1a4",
+          "disasm": "call sub_1800CA180"
+        },
+        {
+          "addr": "0x1802fa1e5",
+          "disasm": "call sub_180305A50"
+        },
+        {
+          "addr": "0x1802fa200",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa208",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa213",
+          "disasm": "call qword ptr [rax+40h]"
+        },
+        {
+          "addr": "0x1802fa21d",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa225",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa230",
+          "disasm": "call qword ptr [rdx+48h]"
+        },
+        {
+          "addr": "0x1802fa286",
+          "disasm": "call sub_180305A50"
+        },
+        {
+          "addr": "0x1802fa294",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa29c",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa2a7",
+          "disasm": "call qword ptr [rax+0D0h]"
+        },
+        {
+          "addr": "0x1802fa2b8",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa2c0",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa2cb",
+          "disasm": "call qword ptr [rax+0D0h]"
+        },
+        {
+          "addr": "0x1802fa2dc",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa2e4",
+          "disasm": "call sub_1800CAA70"
+        },
+        {
+          "addr": "0x1802fa2ef",
+          "disasm": "call qword ptr [rax+0D8h]"
+        },
+        {
+          "addr": "0x1802fa30d",
+          "disasm": "call sub_1800CAA60"
+        },
+        {
+          "addr": "0x1802fa31a",
+          "disasm": "call ?begin@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEBA?AV?$_Vector_const_iterator@V?$_Vector_val@U?$_Simple_types@PEAX@std@@@std@@@2@XZ; std::vector<void *>::begin(void)"
+        },
+        {
+          "addr": "0x1802fa38c",
+          "disasm": "call sub_180353AF0"
+        },
+        {
+          "addr": "0x1802fa394",
+          "disasm": "call sub_1800B7D30"
+        },
+        {
+          "addr": "0x1802fa3b6",
+          "disasm": "call sub_180353AF0"
+        },
+        {
+          "addr": "0x1802fa3be",
+          "disasm": "call sub_1800B7D30"
+        },
+        {
+          "addr": "0x1802fa3d0",
+          "disasm": "call sub_180351AF0"
+        },
+        {
+          "addr": "0x1802fa3e8",
+          "disasm": "call ?clear@?$vector@PEAXV?$allocator@PEAX@std@@@std@@QEAAXXZ; std::vector<void *>::clear(void)"
+        },
+        {
+          "addr": "0x1802fa3f2",
+          "disasm": "call sub_180079920"
+        },
+        {
+          "addr": "0x1802fa406",
+          "disasm": "call sub_18033CF10"
+        },
+        {
+          "addr": "0x1802fa410",
+          "disasm": "call sub_18033CED0"
+        },
+        {
+          "addr": "0x1802fa428",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa473",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa498",
+          "disasm": "call sub_18033CEF0"
+        },
+        {
+          "addr": "0x1802fa4aa",
+          "disasm": "call sub_18033CF50"
+        },
+        {
+          "addr": "0x1802fa4b8",
+          "disasm": "call sub_18033CEF0"
+        },
+        {
+          "addr": "0x1802fa4c5",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa4d7",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa546",
+          "disasm": "call cs:avs2_core_258"
+        },
+        {
+          "addr": "0x1802fa54c",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa5cc",
+          "disasm": "call cs:avs2_core_258"
+        },
+        {
+          "addr": "0x1802fa5d2",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa5da",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa5e2",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa5ff",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa61c",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa66f",
+          "disasm": "call sub_18033CF50"
+        },
+        {
+          "addr": "0x1802fa68c",
+          "disasm": "call sub_18033CF50"
+        },
+        {
+          "addr": "0x1802fa69b",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa6e6",
+          "disasm": "call sub_180303B50"
+        },
+        {
+          "addr": "0x1802fa700",
+          "disasm": "call sub_18033CEF0"
+        },
+        {
+          "addr": "0x1802fa714",
+          "disasm": "call sub_18033CF50"
+        },
+        {
+          "addr": "0x1802fa725",
+          "disasm": "call sub_180081980"
+        },
+        {
+          "addr": "0x1802fa738",
+          "disasm": "call __security_check_cookie"
+        },
+        {
+          "addr": "0x1802fa789",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa790",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa79a",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa7a9",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa7b8",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa7c7",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa7d6",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa7e8",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa7f8",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa807",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa816",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa825",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa839",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa84f",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa85e",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa870",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa87f",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa892",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa8a9",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa8b9",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa8c5",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa8cc",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa8d3",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa8e0",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa8ee",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa8f5",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa8fc",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa903",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa90a",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa911",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa918",
+          "disasm": "call rax"
+        },
+        {
+          "addr": "0x1802fa922",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa934",
+          "disasm": "call r8"
+        },
+        {
+          "addr": "0x1802fa940",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa947",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa94e",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa955",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa95c",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa963",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa96d",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa977",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa988",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa99a",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa9ab",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa9bc",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa9cd",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802fa9dc",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa9e3",
+          "disasm": "call __report_rangecheckfailure"
+        },
+        {
+          "addr": "0x1802fa9e9",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa9f0",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802fa9f7",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa01",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802faa0b",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802faa19",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa20",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa27",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa2e",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa38",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa3f",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa46",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa4d",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa54",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa60",
+          "disasm": "call rdi"
+        },
+        {
+          "addr": "0x1802faa67",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa6e",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa75",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa7c",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa83",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa8a",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa91",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa98",
+          "disasm": "call rdx"
+        },
+        {
+          "addr": "0x1802faa9f",
+          "disasm": "call rdx"
+        }
+      ],
+      "count": 208,
+      "cursor": {
+        "done": true
+      },
+      "scanned": 2942,
+      "truncated": false,
+      "next_start": null,
+      "error": null
+    }
+  ]
+}
