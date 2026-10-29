@@ -4,22 +4,23 @@
 project is C++20 and uses MinHook v1.3.3 at pinned commit
 `9fbd087432700d73fc571118d6a9697a36443d88`.
 
-The current runtime still has a 60 Hz simulation, independent presentation,
-and experimental song-time rendering for normal notes.
-It does **not** yet implement timestamped input judgments, fully time-based
-note/UI animation, or ASIO output. The new work targets an audio-referenced
-timeline with QPC input timestamps, independent of display cadence. See
-[the integration contracts and remaining work](analyze/NATIVE_TIMING.txt).
+The current runtime still has a 60 Hz simulation and independent presentation.
+The `clock_motion` path evaluates normal, long, trill and glissando note
+geometry from chart time; velocity zones and beat lines remain on the legacy
+path. It does **not** yet implement timestamped input judgments, fully
+time-based UI animation, or ASIO output. The new work targets an
+audio-referenced timeline with QPC input timestamps, independent of display
+cadence. See [the integration contracts and remaining work](analyze/NATIVE_TIMING.txt).
 
 Version 0.4 adds a guarded correction to libxact's cue-clock arithmetic,
-normal-note projection sampled from that clock, and a startup FPS-calibration
-bypass. It also includes an optional HID/keyboard report observer. A standalone
-song-clock component is tested but is not yet connected
-to game input or judgments. The experimental normal-note path is deployed on
-the test machine; it is disabled in the distributed configuration by default.
-The merged native match/scoring, non-normal note-type, timed-UI-adapter and
-XAudio2/ASIO prototypes are compiled into the DLL but remain dormant; no live
-hook reaches them.
+chart-time note projection sampled from that clock, and a startup
+FPS-calibration bypass. It also includes an optional HID/keyboard report
+observer. A `SongClock`/`ShadowClock` publication is tested and, with
+`native_shadow=true`, connected to the raw input observer, but it does not feed
+judgments. The experimental chart-time path is disabled in the distributed
+configuration by default. The merged native match/scoring, bucket-input,
+timed-UI and XAudio2/ASIO components are compiled and tested but remain
+dormant; no live hook reaches them.
 
 ## Build
 
@@ -76,9 +77,10 @@ for a comparison at the same presentation rate with the original geometry.
 `smooth_ui=true` enables supported AFP UI translations; set it to `false`
 to compare menus with their original motion. Both switches are read on startup.
 At 60 Hz, prediction passes through without capturing or predicting geometry.
-`clock_motion=true` enables the experimental normal-note song-time projection
-at any presentation rate and requires `precise_audio_clock=true`. During its
-live trial, `smooth_motion=false` and `smooth_ui=false` isolate this path.
+`clock_motion=true` enables the experimental chart-time projection for normal,
+long, trill and glissando notes at any presentation rate and requires
+`precise_audio_clock=true`. Velocity zones and beat lines keep the legacy path.
+During its live trial, `smooth_motion=false` and `smooth_ui=false` isolate it.
 `native_shadow=true` publishes that corrected cue time as an immutable
 song-clock snapshot for the raw input observer. It requires
 `precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
@@ -104,18 +106,19 @@ restart, or modify the original game installation.
 
 ## Note motion
 
-With `clock_motion=true`, normal notes use their chart timestamp at row+0,
-which retains integer milliseconds before conversion to legacy frame units.
-Each presentation queries the corrected cue clock once, applies the existing
-song/visual offsets, and evaluates the game's native projection with a float
-distance argument. It rebuilds a private quad from the resulting center,
-scale and opacity. Previous rendered positions do not advance this clock.
-The original projector still rounds centers to integer pixels; scaled extents
-remain fractional intentionally. Source texture dimensions retain their
-original integer division, including height/2. Unsupported/preroll/correction
-states fall back to original geometry. Other note types, spawn/removal logic,
-judgments and UI timelines still use legacy updates. Pause/retry and every
-scroll mode have not yet been validated live.
+With `clock_motion=true`, normal, long, trill and glissando notes use their
+chart timestamps, retaining integer milliseconds before conversion to legacy
+frame units. Each presentation queries the corrected cue clock once, applies
+the existing song/visual offsets, and evaluates the game's native projection
+with a float distance argument. It rebuilds private quads and ribbons from the
+resulting center, scale and opacity. Previous rendered positions do not
+advance this clock. The original projector still rounds centers to integer
+pixels; scaled extents remain fractional intentionally. Source texture
+dimensions retain their original integer division, including height/2.
+Glissando uses its 104-byte record's own chart-ms/frame pair and link-frame
+distance; velocity zones and beat lines still fall back to the original path.
+Spawn/removal logic, judgments and UI timelines still use legacy updates.
+Pause/retry and every scroll mode have not yet been validated live.
 
 The following describes the separate `smooth_motion` prediction path.
 
@@ -186,12 +189,15 @@ game/audio code. Storage is about 17 MB, allocated once before capture starts.
 This pass is diagnostic. The game thread drains copies and logs only aggregate
 packet counts, errors and maximum time until consumption; raw keys/reports are
 not written to disk. Consuming them on a legacy tick does not change their
-capture timestamps, but judgment has not yet been connected to them. Logical
-bindings, HID descriptor decoding, reconnect identity and capture-time
-song-clock publication still need a live adapter. `capture_input=false` is
-the default. ASIO and key-sound dispatch remain unchanged.
+capture timestamps, but judgment has not yet been connected to them. The
+descriptor decoder, binding adapter, bounded `InputPipeline` and
+`SongClockPublication` are implemented and tested; the live game still uses
+only the diagnostic drain. With `native_shadow=true` the corrected song clock
+is published to the capture and packet QPCs are mapped for diagnostics, not
+judgment. `capture_input=false` is the default. ASIO and key-sound dispatch
+remain unchanged.
 
-Three portable timing components are now built and tested: decoded-control
+The portable timing kernels are built and tested: decoded-control
 normalization with held-state recovery, continuous-time normal-note judgment,
 and a chart event cursor that retains every crossed event after a stall. They
 use captured song times and explicit playback generations. A combined replay
@@ -258,8 +264,8 @@ gameplay with about 1000 HID reports/s, 119 presentations/s, and nonzero
 song-time normal draws. A measured 904 ms scene-loading stall caused no reported
 queue overflow, oversize packet, read error or malformed packet. These are raw
 report observations, not proof of 1 ms physical input accuracy or scoring latency.
-The game is running with `clock_motion=true`, `capture_input=true`, and both
-prediction switches disabled. The packaged configuration leaves the two
+That trial ran with `clock_motion=true`, `capture_input=true`, and both
+prediction switches disabled. The packaged configuration leaves the
 experimental features disabled until explicitly selected.
 
 For a live comparison, use the same chart, scroll speed, and timing settings
