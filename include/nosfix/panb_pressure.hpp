@@ -111,6 +111,18 @@ struct PanbConfig final {
     bool reject_level_15 = false;
 };
 
+// The explicit opt-in for the one proven source of the live threshold: the
+// single writer 0x3525D0 stores `config+0x2C` into byte_1812D3E77. A caller that
+// read that byte passes it here; a default-constructed PanbConfig stays
+// Unverified and produces no level and no edge at all.
+[[nodiscard]] constexpr PanbConfig PanbConfigFromConfigByte(
+    std::uint8_t config_plus_0x2c) noexcept {
+    PanbConfig config{};
+    config.threshold_source = PanbThresholdSource::RuntimeSampled;
+    config.threshold = config_plus_0x2c;
+    return config;
+}
+
 enum class PanbStatus : std::uint8_t {
     Ok = 0,
     NotConfigured,

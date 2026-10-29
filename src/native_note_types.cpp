@@ -134,7 +134,7 @@ ChartNoteType ChartNoteTypeFromFlags(std::int32_t flags) noexcept {
 } // namespace nonnormal_layout
 
 bool LongEligible(bool held, double delta_us, const NormalWindows& windows) noexcept {
-    if (held) return true; // 2F4E29: state(+300) == 1 short-circuits the windows
+    if (held) return true; // 2F4E29: the long phase (+300) == 1 short-circuits the windows
     return IsScoringNormalRank(ClassifyNormalDelta(delta_us, windows));
 }
 
@@ -1432,5 +1432,19 @@ NoteTypeResult NativeTrillState::Advance(double up_to_us, double decision_us,
     ++result.ignored;
     return result;
 }
+
+namespace velocity_layout {
+
+bool VelocitySpanDistanceUnits(std::int32_t span_frames, double rate,
+                               double& out_units) noexcept {
+    if (!std::isfinite(rate) || rate <= 0.0 || rate > 1.0e6) return false;
+    const double units = static_cast<double>(kDistanceNumerator) *
+                         static_cast<double>(span_frames) / (rate * rate);
+    if (!std::isfinite(units) || std::abs(units) > kNoteTypeMaximumTimeUs) return false;
+    out_units = units;
+    return true;
+}
+
+} // namespace velocity_layout
 
 } // namespace nosfix

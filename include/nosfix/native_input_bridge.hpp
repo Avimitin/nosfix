@@ -10,6 +10,7 @@
 // so it stays free of Windows headers and of any new runtime seam. Nothing here
 // is installed; the parent owns wiring.
 
+#include "nosfix/bucket_input.hpp"
 #include "nosfix/native_note_types.hpp"
 #include "nosfix/panb_pressure.hpp"
 #include "nosfix/timing_events.hpp"
@@ -66,6 +67,28 @@ namespace nosfix {
                                               std::uint32_t group_id,
                                               NativeNoteEvent& out) noexcept {
     return MakeNativeNoteEvent(timed.song_time, timed.input, event_id, group_id, out);
+}
+
+// Maps one decoded bucket-input event (bucket_input.hpp) onto the native event
+// shape. The event already carries the native key, kind, group and song time, so
+// nothing is re-derived: event_id = key (the value the judges append), group_id
+// = the slot's group (0 until compaction phase 2 runs) and panb_level = the
+// staging value byte. That byte matches the averaged PANB nibble but is NOT the
+// threshold-gated level of panb_pressure.hpp, so a consumer that needs a gated
+// level must use PanbPressureState. Returns false only for a lane outside
+// 0..27, which DecodeStagingSlots already refuses.
+[[nodiscard]] inline bool MakeNativeNoteEvent(const BucketInputEvent& bucket,
+                                              NativeNoteEvent& out) noexcept {
+    if (bucket.lane >= kNativeTypeLaneCount) return false;
+    out = NativeNoteEvent{};
+    out.song_time = bucket.song_time;
+    out.lane = bucket.lane;
+    out.kind = bucket.kind;
+    out.event_id = static_cast<std::uint32_t>(bucket.key);
+    out.group_id = bucket.group;
+    out.panb_level = bucket.value;
+    out.velocity = 0.0f;
+    return true;
 }
 
 // Builds the pressure edge for one lane at a discontinuity, e.g. when a device
