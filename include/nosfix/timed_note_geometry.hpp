@@ -31,18 +31,21 @@ enum class GeometryDiagnostic : std::uint8_t {
     ObjectOverflow,
     // BuildPart() was used for a whole-object part; it needs BuildObjectPart().
     ObjectQuadsRequired,
-    // Glissando: the connector distance formula itself is proven from the bytes
-    // at 0x1801A6D20..0x1801A6DE4 (180*(element+0x14 - frame - offsets)/rate^2),
-    // but element+0x14 is a frame whose chart-millisecond mapping is unproven, so
-    // the model has no chart-time anchor to feed it.
+    // RETIRED in round 2: the glissando element anchor is now closed.
+    // 0x1801A4935..0x1801A4945 proves element+0x14 = (int)(element+0x00 * 60 /
+    // 1000), so a record stores its own chart milliseconds and the frame is
+    // their truncation (ChartMillisecondsToNativeFrame). Nothing returns it
+    // any more; it is kept so the MotionMetrics diagnostic indices do not move.
     GlissAnchorUnproven,
-    // Glissando, both connectors: the producer of the 104-byte chart element
-    // field +0x50 (read at 0x1801A6DE9) is unidentified. Reserved as the second
-    // blocker; TimedNoteRefusal() reports GlissAnchorUnproven first.
+    // RETIRED in round 2: element+0x50 is written by 0x1801A647C as the
+    // partner note's own projected screen Y (note+32) on every frame, so the
+    // clip is a per-frame guard the model reproduces from a supplied value.
+    // Also kept only for diagnostic index stability; nothing returns it.
     GlissClipUnproven,
     // Velocity zone: the raster at note+352 is the long-ribbon shape with a
-    // different width, but its end anchor (note+296) and the held-head state
-    // (note+300/+316) are not proven to be chart derived.
+    // different width, but the writers of +296/+300/+316 are still unknown and
+    // the observed values contradict the old readings (+296 in {0,1}, +300 not
+    // a 0/1 flag, +316 unrefuted), so no end anchor is chart derived.
     VelocityAnchorUnproven,
     // Beats: the update derives its position from the live frame counter and a
     // constant x = 640, not from a chart time, so there is nothing to rebuild.
@@ -72,8 +75,8 @@ enum class NotePartShape : std::uint8_t {
     // object at note+216 (0x1801A6D19 begins it, 0x1801A7326 ends it), so one
     // draw call owns 0-2 quads and a one-part-per-buffer binding cannot
     // represent it. Corner coordinates are supplied by the caller: the native
-    // forms them from a projector call whose distance formula is proven but
-    // whose chart-time anchor is not, so this model never derives them.
+    // forms them from one projector call per connector, so this model never
+    // derives them; the anchor distance it feeds is GlissLinkDistance().
     BoxObject = 5,
 };
 
@@ -88,6 +91,12 @@ enum class NoteAnchorRule : std::uint8_t {
     StartToEnd = 2,
     StartToLink = 3,
     None = 4,
+    // The part is drawn where the live projection puts distance zero, not at a
+    // chart time. The glissando update projects the note's own quad with a
+    // literal distance of 0 (0x1801A6993..0x1801A6A12) and only its connectors
+    // consult chart time, so a fixed part needs no chart anchor at all. It keeps
+    // the texture extent and follows the projected scale.
+    Fixed = 5,
 };
 
 struct NotePartInput final {
@@ -172,6 +181,32 @@ struct GlissConnectorSet final {
                                             std::uint32_t& out_count,
                                             GeometryDiagnostic& diagnostic) noexcept;
 
+// ---------------------------------------------------------------------------
+// Chart-record time fields. A 104-byte chart element stores the same instant
+// twice: raw chart milliseconds at +0x00 and the integer frame at +0x14 that
+// the loader derives from it (0x1801A4907 stores +0x00, 0x1801A4935 multiplies
+// by the double 60.0 at 0x18070B2F8, 0x1801A493D divides by the double 1000.0 at
+// 0x180687218, and 0x1801A4945 stores the truncated result). +0x18 and +0x1C are
+// produced the same way from +0x04 and from the source record's +0x08.
+
+// chart_ms -> the frame the loader stores at +0x14: `(int)(ms * rate / 1000)`,
+// truncating toward zero exactly like the native `cvttsd2si`. Exact, not
+// approximate: at rate 60 the exact quotient is 3*ms/50, whose smallest distance
+// to an integer is 1/50, while the double division errs by less than 2^-26, so
+// the truncation always equals exact integer arithmetic. Returns false for a
+// non-finite value, |chart_ms| above 1e12, a rate outside (0, 1000], or a result
+// outside int32.
+[[nodiscard]] bool ChartMillisecondsToNativeFrame(double chart_ms, double rate,
+                                                  std::int32_t& frame) noexcept;
+
+// The chart-time anchor of one record, in milliseconds: both fields must agree,
+// i.e. `frame` must be exactly ChartMillisecondsToNativeFrame(chart_ms, rate), so
+// a foreign, malformed or half-written record can never become an anchor.
+// Returns false on a disagreement, with `anchor_ms` set to 0.
+[[nodiscard]] bool ChartRecordAnchorMilliseconds(std::int32_t chart_ms,
+                                                 std::int32_t frame, double rate,
+                                                 double& anchor_ms) noexcept;
+
 // Static, chart-derived description of one note. The integration layer fills
 // this from the live note/plot record; nothing here is a game pointer.
 struct NoteGeometrySpec final {
@@ -207,6 +242,19 @@ struct NoteGeometrySpec final {
     float ribbon_step_divisor = 30.0f;
     std::uint32_t max_ribbon_segments = 37;
 };
+
+// Distance of one glissando connector end. The connector scan
+// (0x1801A6D20..0x1801A6DE4) computes
+//   180 * (element+0x14 - dword_18070A610 - offsets) / rate^2
+// at the head link, where element+0x14 is the record's stored frame. That frame
+// is converted back to the chart millisecond domain with the same rate constant
+// the loader multiplies by (frame * 1000 / rate), so the result is anchored in
+// exactly the same time base as the note's own chart+0x00, and the timing
+// offsets and rate come from `spec` exactly as for the note itself. The tail
+// connector passes a literal distance of 0 and needs no anchor.
+[[nodiscard]] bool GlissLinkDistance(std::int32_t element_frame, double song_ms,
+                                     const NoteGeometrySpec& spec,
+                                     float& distance) noexcept;
 
 // Chart-time geometry for one note. Capture stores private copies of every
 // source buffer and never retains a game pointer.

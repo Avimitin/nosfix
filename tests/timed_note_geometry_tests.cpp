@@ -1371,6 +1371,178 @@ void TestGlissConnectorIntoObjectPart() {
 
 } // namespace
 
+namespace {
+
+// The chart loader converts chart milliseconds with the literal doubles 60.0 at
+// 0x18070B2F8 and 1000.0 at 0x180687218 and stores the truncated frame at
+// element+0x14 (0x1801A4945). The mapping must therefore be exact integer
+// arithmetic, not a rounded approximation.
+void TestChartFrameMapping() {
+    std::int32_t frame = -1;
+    // Exhaustive over a neighbourhood, compared against exact integer
+    // arithmetic: 60*ms/1000 = 3*ms/50, and C++ division truncates toward zero
+    // exactly like the native cvttsd2si.
+    for (std::int32_t ms = -20'000; ms <= 20'000; ++ms) {
+        Check(nosfix::ChartMillisecondsToNativeFrame(ms, 60.0, frame));
+        Check(frame == static_cast<std::int32_t>(
+            static_cast<std::int64_t>(ms) * 3 / 50));
+        Check(frame == static_cast<std::int32_t>(
+            static_cast<double>(ms) * 60.0 / 1000.0));
+    }
+    // The worst cases for a rounding error: 3*ms/50 is only 1/50 away from an
+    // integer when ms is 17 or 33 (mod 50), and the double division errs by less
+    // than 2^-26, so the truncation can never flip.
+    for (std::int64_t base = -2'000'000'000; base <= 2'000'000'000;
+         base += 50'000'000) {
+        for (const std::int64_t offset : {17LL, 33LL, 16LL, 34LL}) {
+            const auto ms = static_cast<std::int32_t>(base + offset);
+            Check(nosfix::ChartMillisecondsToNativeFrame(ms, 60.0, frame));
+            Check(frame == static_cast<std::int32_t>(
+                static_cast<std::int64_t>(ms) * 3 / 50));
+        }
+    }
+    // The extreme representable values, including both int32 ends.
+    for (const std::int32_t ms : {0, 1, -1, 50, -50, 16'666, 16'667,
+                                  std::numeric_limits<std::int32_t>::max(),
+                                  std::numeric_limits<std::int32_t>::min()}) {
+        Check(nosfix::ChartMillisecondsToNativeFrame(ms, 60.0, frame));
+        Check(frame == static_cast<std::int32_t>(
+            static_cast<std::int64_t>(ms) * 3 / 50));
+    }
+    // Refusals: nothing is silently clamped, and the output is zeroed.
+    frame = 7;
+    Check(!nosfix::ChartMillisecondsToNativeFrame(
+        std::numeric_limits<double>::quiet_NaN(), 60.0, frame));
+    Check(frame == 0);
+    Check(!nosfix::ChartMillisecondsToNativeFrame(
+        std::numeric_limits<double>::infinity(), 60.0, frame));
+    Check(!nosfix::ChartMillisecondsToNativeFrame(2.0e12, 60.0, frame));
+    Check(!nosfix::ChartMillisecondsToNativeFrame(1'000.0, 0.0, frame));
+    Check(!nosfix::ChartMillisecondsToNativeFrame(1'000.0, -60.0, frame));
+    Check(!nosfix::ChartMillisecondsToNativeFrame(1'000.0, 1'000.1, frame));
+    Check(!nosfix::ChartMillisecondsToNativeFrame(
+        1'000.0, std::numeric_limits<double>::quiet_NaN(), frame));
+    // A result outside int32 is refused instead of wrapping.
+    Check(!nosfix::ChartMillisecondsToNativeFrame(2.5e9, 1'000.0, frame));
+    // 60 Hz is the proven rate; the mapping is defined for others too.
+    Check(nosfix::ChartMillisecondsToNativeFrame(1'000.0, 59.94, frame));
+    Check(frame == 59);
+}
+
+// element+0x00 and element+0x14 must agree before either can be an anchor.
+void TestChartRecordAnchor() {
+    double anchor = -1.0;
+    Check(nosfix::ChartRecordAnchorMilliseconds(10'001, 600, 60.0, anchor));
+    Check(anchor == 10'001.0);
+    Check(nosfix::ChartRecordAnchorMilliseconds(0, 0, 60.0, anchor));
+    Check(anchor == 0.0);
+    // 16'667 ms is 1000.02 frames, so the stored frame is 1000.
+    Check(nosfix::ChartRecordAnchorMilliseconds(16'667, 1'000, 60.0, anchor));
+    Check(anchor == 16'667.0);
+    // One frame either way, or an unwritten +0x14, is not an anchor.
+    Check(!nosfix::ChartRecordAnchorMilliseconds(10'001, 601, 60.0, anchor));
+    Check(anchor == 0.0);
+    Check(!nosfix::ChartRecordAnchorMilliseconds(10'001, 599, 60.0, anchor));
+    Check(!nosfix::ChartRecordAnchorMilliseconds(10'001, 0, 60.0, anchor));
+    Check(!nosfix::ChartRecordAnchorMilliseconds(16'666, 1'000, 60.0, anchor));
+    Check(!nosfix::ChartRecordAnchorMilliseconds(10'001, 600, 0.0, anchor));
+}
+
+// The head connector's anchor distance: 180*(frame - now - offsets)/rate^2.
+void TestGlissLinkDistance() {
+    nosfix::NoteGeometrySpec spec = MakeQuadSpec();   // rate 60, no offset
+    float distance = -1.0f;
+    // Frame 600 is 10'000 ms, so the same song time is exactly distance zero.
+    Check(nosfix::GlissLinkDistance(600, 10'000.0, spec, distance));
+    Check(distance == 0.0f);
+    // One frame of anchor error is 180/rate^2 = 0.05 distance units at 60 Hz.
+    Check(nosfix::GlissLinkDistance(601, 10'000.0, spec, distance));
+    Check(std::abs(distance - 0.05f) < 1.0e-6f);
+    Check(nosfix::GlissLinkDistance(599, 10'000.0, spec, distance));
+    Check(std::abs(distance + 0.05f) < 1.0e-6f);
+    // The song clock and the timing offsets are applied exactly as for a note.
+    Check(nosfix::GlissLinkDistance(600, 9'000.0, spec, distance));
+    Check(std::abs(distance - 3.0f) < 1.0e-6f);
+    spec.visual_offset_ms = 100.0f;
+    Check(nosfix::GlissLinkDistance(600, 10'000.0, spec, distance));
+    Check(std::abs(distance + 0.3f) < 1.0e-6f);
+    // Refusals: an unusable rate, a bad clock, and a runaway frame.
+    auto bad = spec;
+    bad.legacy_rate = 0.0f;
+    Check(!nosfix::GlissLinkDistance(600, 10'000.0, bad, distance));
+    Check(distance == 0.0f);
+    Check(!nosfix::GlissLinkDistance(600, std::numeric_limits<double>::quiet_NaN(),
+                                     spec, distance));
+    Check(!nosfix::GlissLinkDistance(2'000'000'000, 10'000.0, spec, distance));
+}
+
+// The glissando note quad is projected at distance zero (0x1801A6993..0x1801A6A12),
+// so it is anchored at no chart time at all.
+void TestFixedAnchor() {
+    auto raw = MakeTextured();
+    nosfix::NoteGeometrySpec spec = MakeQuadSpec();
+    nosfix::TimedNoteGeometry note;
+    const nosfix::NotePartInput parts[] = {
+        {nosfix::NotePartShape::TexturedQuad, nosfix::NoteAnchorRule::Fixed, 1, raw},
+    };
+    Check(note.Capture(spec, parts));
+
+    std::array<nosfix::NotePartView, 1> views{};
+    std::size_t count = 0;
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    FakeProjector projector;
+    Check(note.Build(1'000.0, Project, &projector, views, count, diagnostic));
+    Check(count == 1);
+    Check(projector.calls == 1);
+    Check(projector.last_distance == 0.0f);
+    Check(projector.last_lane == spec.lane);
+    Check(projector.last_left == spec.left_key);
+    Check(projector.last_right == spec.right_key);
+    // The quad is centred on the projected point and shifted like any other part.
+    Check(Load<float>({views[0].data, 160}, 0) ==
+          projector.base_x + spec.x_shift - 10.0f);
+    Check(Load<float>({views[0].data, 160}, 4) == projector.base_y - 20.0f);
+    // The clock cannot move a fixed part, but the song time is still checked.
+    const Snapshot before = Take(views[0], 160);
+    Check(note.BuildPart(0, 900'000.0, Project, &projector, views[0], diagnostic));
+    Check(Take(views[0], 160) == before);
+    Check(projector.last_distance == 0.0f);
+    Check(!note.BuildPart(0, std::numeric_limits<double>::quiet_NaN(), Project,
+                          &projector, views[0], diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::TimeRange);
+    // A projection failure is refused, not skipped.
+    projector.reject = true;
+    Check(!note.BuildPart(0, 1'000.0, Project, &projector, views[0], diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ProjectionRejected);
+    projector.reject = false;
+    Check(!note.BuildPart(0, 1'000.0, nullptr, nullptr, views[0], diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ProjectionRejected);
+
+    // A fixed anchor is a point anchor: it cannot carry a box strip, and a whole
+    // object still requires the None anchor.
+    auto box = MakeBoxRecords(4);
+    nosfix::TimedNoteGeometry bad;
+    const nosfix::NotePartInput bad_parts[] = {
+        {nosfix::NotePartShape::BoxRibbon, nosfix::NoteAnchorRule::Fixed, 4, box},
+    };
+    Check(!bad.Capture(MakeRibbonSpec(), bad_parts));
+    auto object = MakeBoxRecords(2);
+    const nosfix::NotePartInput object_parts[] = {
+        {nosfix::NotePartShape::BoxObject, nosfix::NoteAnchorRule::Fixed, 2, object},
+    };
+    Check(!bad.Capture(spec, object_parts));
+    // A fixed quad and a chart-anchored quad can coexist in one note.
+    auto tail = MakeTextured();
+    const nosfix::NotePartInput mixed_parts[] = {
+        {nosfix::NotePartShape::TexturedQuad, nosfix::NoteAnchorRule::Fixed, 1, raw},
+        {nosfix::NotePartShape::TexturedQuad, nosfix::NoteAnchorRule::Start, 1, tail},
+    };
+    Check(bad.Capture(spec, mixed_parts));
+    Check(bad.PartCount() == 2);
+}
+
+} // namespace
+
 int main() {
     TestFractionalDistance();
     TestQuadGeometry();
@@ -1399,6 +1571,10 @@ int main() {
     TestGlissConnectorHeadClip();
     TestGlissConnectorTailAndOrder();
     TestGlissConnectorIntoObjectPart();
+    TestChartFrameMapping();
+    TestChartRecordAnchor();
+    TestGlissLinkDistance();
+    TestFixedAnchor();
     std::printf("timed_note_geometry: all tests passed\n");
     return 0;
 }

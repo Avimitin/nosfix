@@ -94,7 +94,7 @@ int wmain(int argc, wchar_t** argv) {
     assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Normal));
     assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Long));
     assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Trill));
-    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
     assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::VelocityZone));
     assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Beats));
 
@@ -359,13 +359,75 @@ int wmain(int argc, wchar_t** argv) {
     assert(Get<float>({view.data, 120}, 0) == 140.0f - 30.0f);
     Put(note.data(), 60, std::int32_t{60});
 
-    // Unsupported kinds are refused before any geometry is produced.
+    // Glissando is now rebuilt: the record's own +0x00 milliseconds and its
+    // +0x14 frame must agree (0x1801A4945), the note quad is projected at
+    // distance zero and the connector object is a whole-object part.
+    // The loader's own constants, read-only: double 60.0 at 0x70B2F8 and
+    // double 1000.0 at 0x687218.
+    {
+        const std::span<const std::byte> image(
+            reinterpret_cast<const std::byte*>(game), 0x700000);
+        assert(Get<double>(image, 0x70B2F8) == 60.0);
+        assert(Get<double>(image, 0x687218) == 1000.0);
+    }
+    auto connector_raw = MakeBoxRecords(2);
+    Put(note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679AB8);
+    Put(note.data(), 196, std::int32_t{60});
+    Put(note.data(), 200, std::int32_t{20});
+    Put(chart.data(), 20, std::int32_t{600});   // frame of kStartMs = 10'001
+    Put(note.data(), 0xD8 + 24, std::uint32_t{2});
+    Put(note.data(), 0xD8 + 32, connector_raw.data());
+    nosfix::TimedNoteGeometry gliss;
+    assert(nosfix::CaptureTimedNote(note.data(), nosfix::TimedNoteKind::Glissando,
+                                   gliss) == nosfix::TimedNoteCapture::Ok);
+    assert(gliss.PartCount() == 2);
+    assert(gliss.PartShape(0) == nosfix::NotePartShape::TexturedQuad);
+    assert(!gliss.PartIsObject(0));
+    assert(gliss.PartShape(1) == nosfix::NotePartShape::BoxObject);
+    assert(gliss.PartIsObject(1));
+    assert(gliss.Spec().start_ms == 10'001.0);
+    assert(!gliss.Spec().has_end);
+    // Distance zero: the note sits on the judgement line (x 140, y 700) and the
+    // quad is 60 wide and 20 high, so the top left corner is (110, 690). The
+    // song clock cannot move it.
+    assert(gliss.BuildPart(0, static_cast<double>(kStartMs), nosfix::ProjectGameNote,
+                           nullptr, view, diagnostic));
+    assert(Get<float>({view.data, 160}, 0) == 140.0f - 30.0f);
+    assert(Get<float>({view.data, 160}, 4) == 700.0f - 10.0f);
+    const std::vector<std::byte> gliss_at_start(view.data, view.data + 160);
+    assert(gliss.BuildPart(0, static_cast<double>(kStartMs) - 750.0,
+                           nosfix::ProjectGameNote, nullptr, view, diagnostic));
+    assert(view.count == 1);
+    assert(std::memcmp(gliss_at_start.data(), view.data, 160) == 0);
+    // The connector object has no caller-supplied corners here, so the anchor
+    // path must refuse instead of inventing them.
+    assert(!gliss.BuildPart(1, static_cast<double>(kStartMs), nosfix::ProjectGameNote,
+                            nullptr, view, diagnostic));
+    assert(diagnostic == nosfix::GeometryDiagnostic::ObjectQuadsRequired);
+    // A record whose two time fields disagree is not an anchor.
+    Put(chart.data(), 20, std::int32_t{601});
+    assert(nosfix::CaptureTimedNote(note.data(), nosfix::TimedNoteKind::Glissando,
+                                   gliss) == nosfix::TimedNoteCapture::InvalidChart);
+    Put(chart.data(), 20, std::int32_t{600});
+    // With no surviving connector the object part is skipped, not fatal.
+    Put(note.data(), 0xD8 + 24, std::uint32_t{0});
+    std::vector<std::byte> stale_connector = connector_raw;
+    assert(nosfix::CaptureTimedNote(note.data(), nosfix::TimedNoteKind::Glissando,
+                                   gliss) == nosfix::TimedNoteCapture::Ok);
+    assert(gliss.PartCount() == 1);
+    assert(!gliss.PartIsObject(0));
+    assert(connector_raw == stale_connector);
+    assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Glissando) ==
+           nosfix::GeometryDiagnostic::None);
+
+    // A kind's vtable gate fires before any field is read: a glissando note is
+    // not a velocity zone.
     nosfix::TimedNoteGeometry other;
     Put(note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679AB8);
-    assert(nosfix::CaptureTimedNote(note.data(), nosfix::TimedNoteKind::Glissando, other) ==
-           nosfix::TimedNoteCapture::LayoutUnsupported);
+    assert(nosfix::CaptureTimedNote(note.data(), nosfix::TimedNoteKind::VelocityZone, other) ==
+           nosfix::TimedNoteCapture::WrongVtable);
     assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Trill));
-    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
 
     std::printf("timed_note_geometry_native: all tests passed\n");
     return 0;

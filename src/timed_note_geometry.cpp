@@ -137,6 +137,7 @@ bool ValidAnchors(NoteAnchorRule rule) noexcept {
     case NoteAnchorRule::End:
     case NoteAnchorRule::StartToEnd:
     case NoteAnchorRule::StartToLink:
+    case NoteAnchorRule::Fixed:
     case NoteAnchorRule::None:
         return true;
     }
@@ -320,6 +321,34 @@ bool BuildGlissConnectorQuads(const GlissConnectorSet& set,
     return true;
 }
 
+bool ChartMillisecondsToNativeFrame(double chart_ms, double rate,
+                                    std::int32_t& frame) noexcept {
+    frame = 0;
+    if (!std::isfinite(chart_ms) || std::abs(chart_ms) > kMaximumTimeMs) return false;
+    if (!std::isfinite(rate) || !(rate > 0.0) || rate > 1000.0) return false;
+    // Exactly the loader's expression (0x1801A4935..0x1801A4945): multiply by the
+    // rate, divide by 1000.0, then truncate toward zero like cvttsd2si. The range
+    // guard keeps the conversion defined for every accepted value.
+    const double value = chart_ms * rate / 1000.0;
+    if (!std::isfinite(value) || value <= -2147483649.0 || value >= 2147483648.0) {
+        return false;
+    }
+    frame = static_cast<std::int32_t>(value);
+    return true;
+}
+
+bool ChartRecordAnchorMilliseconds(std::int32_t chart_ms, std::int32_t frame,
+                                   double rate, double& anchor_ms) noexcept {
+    anchor_ms = 0.0;
+    std::int32_t derived = 0;
+    if (!ChartMillisecondsToNativeFrame(static_cast<double>(chart_ms), rate, derived)) {
+        return false;
+    }
+    if (derived != frame) return false;
+    anchor_ms = static_cast<double>(chart_ms);
+    return true;
+}
+
 bool TimedNoteGeometry::DistanceFor(const NoteGeometrySpec& spec, double note_ms,
                                     double song_ms, float& distance) noexcept {
     if (!std::isfinite(note_ms) || !std::isfinite(song_ms) ||
@@ -337,6 +366,19 @@ bool TimedNoteGeometry::DistanceFor(const NoteGeometrySpec& spec, double note_ms
     if (!std::isfinite(value) || std::abs(value) > kMaximumDistance) return false;
     distance = static_cast<float>(value);
     return std::isfinite(distance);
+}
+
+bool GlissLinkDistance(std::int32_t element_frame, double song_ms,
+                       const NoteGeometrySpec& spec, float& distance) noexcept {
+    distance = 0.0f;
+    const double rate = static_cast<double>(spec.legacy_rate);
+    if (!std::isfinite(rate) || !(rate > 0.0) || rate > 1000.0) return false;
+    // The record's stored frame is the truncation of its own chart milliseconds,
+    // so this image is inside [ms - 1000/rate, ms]; the timed offsets and rate
+    // are then applied by the same helper every other kind uses.
+    const double link_ms = static_cast<double>(element_frame) * 1000.0 / rate;
+    if (!std::isfinite(link_ms) || std::abs(link_ms) > kMaximumTimeMs) return false;
+    return TimedNoteGeometry::DistanceFor(spec, link_ms, song_ms, distance);
 }
 
 std::uint32_t TimedNoteGeometry::RibbonSegments(const NoteGeometrySpec& spec,
@@ -385,7 +427,8 @@ bool TimedNoteGeometry::Capture(const NoteGeometrySpec& spec,
         const bool quad = input.shape == NotePartShape::TexturedQuad;
         const bool whole = IsWholeObject(input.shape);
         const bool point = input.anchors == NoteAnchorRule::Start ||
-            input.anchors == NoteAnchorRule::End;
+            input.anchors == NoteAnchorRule::End ||
+            input.anchors == NoteAnchorRule::Fixed;
         if (whole) {
             if (input.anchors != NoteAnchorRule::None) return false;
         } else {
@@ -795,6 +838,19 @@ bool TimedNoteGeometry::BuildPart(std::size_t index, double song_ms,
         return false;
     }
 
+    if (part.anchors == NoteAnchorRule::Fixed) {
+        // Distance zero is not a chart instant: the glissando update projects
+        // the note's own quad with a literal 0 (0x1801A6993..0x1801A6A12) and
+        // only its connectors consult chart time. Nothing here is derived from
+        // the clock, so a fixed part cannot drift with it.
+        NoteProjection fixed{};
+        if (!project(context, spec_.lane, 0.0f, spec_.left_key, spec_.right_key,
+                     fixed)) {
+            diagnostic = GeometryDiagnostic::ProjectionRejected;
+            return false;
+        }
+        return FillQuad(part, fixed, view, diagnostic);
+    }
     float head_distance = 0.0f;
     if (!DistanceFor(spec_, spec_.start_ms, song_ms, head_distance)) {
         diagnostic = GeometryDiagnostic::TimeRange;

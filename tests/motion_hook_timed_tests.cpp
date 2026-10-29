@@ -62,6 +62,7 @@ std::array<std::byte, 120 * 12> g_ribbon{};
 std::array<std::byte, 120 * 12> g_line{};
 std::array<std::byte, 120 * 90> g_trill_ribbon{};
 std::array<std::byte, 120 * 90> g_trill_glow{};
+std::array<std::byte, 120 * 2> g_connector{};   // glissando connector object
 std::array<std::array<std::byte, kNoteBytes>, 512> g_notes{};
 unsigned g_update_calls = 0;
 unsigned g_draw_calls = 0;
@@ -264,6 +265,7 @@ int wmain(int argc, wchar_t** argv) {
     FillBox(g_line, 12);
     FillBox(g_trill_ribbon, 90);
     FillBox(g_trill_glow, 90);
+    FillBox(g_connector, 2);
     AttachObject(g_note.data(), 0x80, 1, g_head.data());
     AttachObject(g_note.data(), 0xA8, 1, g_tail.data());
     AttachObject(g_note.data(), 0x160, 12, g_ribbon.data());
@@ -431,30 +433,70 @@ int wmain(int argc, wchar_t** argv) {
     assert(g_trill_ribbon == trill_ribbon_before);
     assert(g_trill_glow == trill_glow_before);
 
-    // Glissando remains on the original path and is counted unsupported.
+    // Glissando is captured now: the record's own anchor, the distance-zero quad
+    // and the connector object as a whole-object part. The connector has no
+    // corners here, so its draw keeps the original payload, not a prediction.
     nosfix::SetTimedSongMillisecondsForTest(static_cast<double>(kStartMs));
+    Store(g_chart.data(), 20, std::int32_t{600});   // frame of kStartMs
+    Store(g_note.data(), 196, std::int32_t{60});
+    Store(g_note.data(), 200, std::int32_t{20});
+    AttachObject(g_note.data(), 0xD8, 2, g_connector.data());
     Store(g_note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679AB8);
+    (void)nosfix::TakeMotionMetrics();   // count only this kind's own work
     assert(hooks.glissando(g_note.data()) == 7);
     metrics = nosfix::TakeMotionMetrics();
-    assert(metrics.unsupported_notes == 1);
-    // The fallback is named per kind and carries the exact missing evidence.
-    assert(metrics.unsupported_glissando == 1);
+    assert(metrics.timed_note_captures == 1);
+    assert(metrics.unsupported_notes == 0);
+    assert(metrics.unsupported_glissando == 0);
     assert(metrics.unsupported_beats == 0);
     assert(metrics.unsupported_velocity_zones == 0);
     assert(metrics.object_part_builds == 0);
+
+    // The quad sits on the judgement line (x 140, y 700) at 60 x 20, so its top
+    // left corner is (110, 690) whatever the clock says.
+    Draw(hooks, g_head.data(), 4, 1, true);
+    assert(g_last_draw.size() == 160);
+    assert(Load<float>(g_last_draw.data(), 0) == 140.0f - 30.0f);
+    assert(Load<float>(g_last_draw.data(), 4) == 700.0f - 10.0f);
+    const auto gliss_quad = g_last_draw;
+    nosfix::SetTimedSongMillisecondsForTest(static_cast<double>(kStartMs) - 250.0);
+    Draw(hooks, g_head.data(), 4, 1, true);
+    assert(g_last_draw == gliss_quad);
+    nosfix::SetTimedSongMillisecondsForTest(static_cast<double>(kStartMs));
+
+    // The connector object must never be predicted: it falls back to the exact
+    // game buffer with its live count, and the refusal is counted by name.
+    Draw(hooks, g_connector.data(), 2, 2, false);
+    assert(g_last_draw.size() == 2 * 120);
+    metrics = nosfix::TakeMotionMetrics();
+    assert(metrics.fallback_draws == 1);
+    assert(metrics.timed_draws == 2);
+    assert(metrics.predicted_draws == 0);
     assert(metrics.geometry_diagnostics[static_cast<std::size_t>(
-               nosfix::GeometryDiagnostic::GlissAnchorUnproven)] == 1);
+               nosfix::GeometryDiagnostic::ObjectQuadsRequired)] == 1);
     assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Glissando) ==
-           nosfix::GeometryDiagnostic::GlissAnchorUnproven);
+           nosfix::GeometryDiagnostic::None);
     assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::VelocityZone) ==
            nosfix::GeometryDiagnostic::VelocityAnchorUnproven);
     assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Beats) ==
            nosfix::GeometryDiagnostic::ChartTimeAbsent);
     assert(nosfix::TimedNoteRefusal(nosfix::TimedNoteKind::Long) ==
            nosfix::GeometryDiagnostic::None);
-    assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
+    assert(nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Glissando));
     assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::Beats));
     assert(!nosfix::TimedNoteSupported(nosfix::TimedNoteKind::VelocityZone));
+    // A record whose two time fields disagree is refused, not anchored.
+    Store(g_chart.data(), 20, std::int32_t{601});
+    assert(hooks.glissando(g_note.data()) == 7);
+    metrics = nosfix::TakeMotionMetrics();
+    assert(metrics.timed_note_captures == 0);
+    assert(metrics.timed_note_failures == 1);
+    Store(g_chart.data(), 20, std::int32_t{600});
+    // note+196/+200 are the glissando quad extents, and in this synthetic note
+    // they overlap the long-note tail object header at 0xA8 (its buffer pointer
+    // lives at 0xC8). The native note has no tail object there, so put that
+    // object back before the next kind reads it.
+    AttachObject(g_note.data(), 0xA8, 1, g_tail.data());
 
     // A beats note is counted by name as well.
     Store(g_note.data(), 0, reinterpret_cast<std::byte*>(game) + 0x679960);
