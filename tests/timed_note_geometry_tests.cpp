@@ -1053,13 +1053,18 @@ void TestWholeObjectCaptureAndBuild() {
     Check(!note.BuildObjectPart(1, {&nan_quad, 1}, view, diagnostic));
     Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
     auto crossed = ConnectorQuad(300.0f, 420.0f);
-    crossed.p2x = 50.0f;   // row runs right to left
-    Check(!note.BuildObjectPart(1, {&crossed, 1}, view, diagnostic));
-    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
-    auto reversed_row2 = ConnectorQuad(300.0f, 420.0f);
-    reversed_row2.p3x = 150.0f;  // p3 < p4
-    Check(!note.BuildObjectPart(1, {&reversed_row2, 1}, view, diagnostic));
-    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    crossed.p2x = 50.0f;   // a row may be written in either direction
+    Check(note.BuildObjectPart(1, {&crossed, 1}, view, diagnostic));
+    Check(view.count == 1);
+    Check(Load<float>(std::span<const std::byte>(view.data, 120), 0) == 100.0f);
+    Check(Load<float>(std::span<const std::byte>(view.data, 120), 20) == 50.0f);
+    // A row wider than the geometry limit is refused: a bad half width must not
+    // emit a strip across the screen.
+    auto huge = ConnectorQuad(300.0f, 420.0f);
+    huge.p1x = -900'000.0f;
+    huge.p2x = 900'000.0f;
+    Check(!note.BuildObjectPart(1, {&huge, 1}, view, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ObjectOverflow);
     // A textured part is not a whole object.
     Check(!note.BuildObjectPart(0, one, view, diagnostic));
     Check(diagnostic == nosfix::GeometryDiagnostic::LayoutUnverified);
@@ -1196,6 +1201,174 @@ void TestWholeObjectNoAllocation() {
     Check(view.count == 2);
 }
 
+// ---------------------------------------------------------------------------
+// Glissando connector quads (0x1A6820). The head connector's far end is clipped
+// by element+0x50, the partner note's screen Y as baked by 0x1801A647C during
+// that note's own render. It is a per-frame value, so the model only consumes
+// it; the caller supplies it (0 = no clip, which the native also tolerates).
+
+nosfix::GlissConnectorRow Row(float x, float y, float half_width) {
+    nosfix::GlissConnectorRow row;
+    row.x = x;
+    row.y = y;
+    row.half_width = half_width;
+    return row;
+}
+
+// note at (200,300) half 12; linked element at (260,480) half 20.
+nosfix::GlissConnectorSet HeadSet(float clip_y) {
+    nosfix::GlissConnectorSet set;
+    set.has_head = true;
+    set.head.note = Row(200.0f, 300.0f, 12.0f);
+    set.head.link = Row(260.0f, 480.0f, 20.0f);
+    set.head_clip_y = clip_y;
+    return set;
+}
+
+void TestGlissConnectorHeadClip() {
+    std::array<nosfix::NoteObjectQuad, 2> quads{};
+    std::uint32_t count = 0;
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+
+    // No clip: the projected far point is used as is. The near row runs left to
+    // right, the far row right to left, exactly like the two 0xD5370 calls.
+    auto set = HeadSet(0.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::None);
+    Check(count == 1);
+    Check(quads[0].p1x == 188.0f);
+    Check(quads[0].p2x == 212.0f);
+    Check(quads[0].previous_y == 300.0f);
+    Check(quads[0].p3x == 280.0f);
+    Check(quads[0].p4x == 240.0f);
+    Check(quads[0].current_y == 480.0f);
+
+    // A negative or NaN clip is "no clip" behaviourally, but a NaN is refused.
+    set = HeadSet(-1.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(quads[0].p3x == 280.0f && quads[0].current_y == 480.0f);
+    set = HeadSet(std::numeric_limits<float>::quiet_NaN());
+    Check(!nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    Check(count == 0);
+
+    // Clip at the partner's own Y (the same-frame case): the far end is
+    // unchanged, because far.y == clip makes the interpolation exact.
+    set = HeadSet(480.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(quads[0].p3x == 280.0f);
+    Check(quads[0].p4x == 240.0f);
+    Check(quads[0].current_y == 480.0f);
+
+    // Clip above the far row pulls the far end back along the note->far
+    // segment: x = 260 - (260-200)*(480-400)/(480-300) = 233.333...
+    set = HeadSet(400.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(std::abs(quads[0].p3x - 253.3333f) < 1.0e-3f);
+    Check(std::abs(quads[0].p4x - 213.3333f) < 1.0e-3f);
+    Check(quads[0].current_y == 400.0f);
+
+    // Clip exactly at the note's Y collapses x onto the note; the far row keeps
+    // the linked half width, so the quad is a short horizontal bar.
+    set = HeadSet(300.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(quads[0].p3x == 220.0f);
+    Check(quads[0].p4x == 180.0f);
+    Check(quads[0].current_y == 300.0f);
+
+    // Clip strictly above the note (the partner already passed): the native
+    // collapses the connector onto the note point.
+    set = HeadSet(200.0f);
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(quads[0].p3x == 220.0f);
+    Check(quads[0].p4x == 180.0f);
+    Check(quads[0].previous_y == 300.0f);
+    Check(quads[0].current_y == 300.0f);
+
+    // Refusals: an infinite row value.
+    set = HeadSet(0.0f);
+    set.head.link.half_width = std::numeric_limits<float>::infinity();
+    Check(!nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::NonFiniteProjection);
+    Check(count == 0);
+}
+
+void TestGlissConnectorTailAndOrder() {
+    std::array<nosfix::NoteObjectQuad, 2> quads{};
+    std::uint32_t count = 0;
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+
+    // Tail only: the linked end (projected at distance zero) is the first row
+    // and runs right to left; the note end is the second row, left to right.
+    nosfix::GlissConnectorSet tail;
+    tail.has_tail = true;
+    tail.tail.note = Row(300.0f, 500.0f, 10.0f);
+    tail.tail.link = Row(320.0f, 700.0f, 14.0f);
+    Check(nosfix::BuildGlissConnectorQuads(tail, quads, count, diagnostic));
+    Check(count == 1);
+    Check(quads[0].p1x == 334.0f);
+    Check(quads[0].p2x == 306.0f);
+    Check(quads[0].previous_y == 700.0f);
+    Check(quads[0].p3x == 290.0f);
+    Check(quads[0].p4x == 310.0f);
+    Check(quads[0].current_y == 500.0f);
+
+    // Both connectors: head first, tail second, 2 quads, and the tail ignores
+    // the head's clip field.
+    auto both = HeadSet(0.0f);
+    both.has_tail = true;
+    both.tail = tail.tail;
+    Check(nosfix::BuildGlissConnectorQuads(both, quads, count, diagnostic));
+    Check(count == 2);
+    Check(quads[0].p1x == 188.0f);   // head near row
+    Check(quads[1].p1x == 334.0f);   // tail first row
+    Check(quads[1].current_y == 500.0f);
+
+    // The output span must hold every quad.
+    std::array<nosfix::NoteObjectQuad, 1> one{};
+    Check(!nosfix::BuildGlissConnectorQuads(both, one, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::ObjectOverflow);
+    Check(count == 0);
+
+    // Neither link survived its guard.
+    const nosfix::GlissConnectorSet none;
+    Check(!nosfix::BuildGlissConnectorQuads(none, quads, count, diagnostic));
+    Check(diagnostic == nosfix::GeometryDiagnostic::EmptyObject);
+}
+
+// End to end: connector quads feed the whole-object part and keep the captured
+// colour template, which is what the draw hook would copy into the payload.
+void TestGlissConnectorIntoObjectPart() {
+    auto quad_raw = MakeTextured();
+    auto object_raw = MakeBoxRecords(2);
+    nosfix::TimedNoteGeometry note;
+    auto parts = ObjectParts(quad_raw, object_raw, 2);
+    Check(note.Capture(MakeQuadSpec(), parts));
+
+    auto set = HeadSet(400.0f);
+    set.has_tail = true;
+    set.tail.note = Row(300.0f, 500.0f, 10.0f);
+    set.tail.link = Row(320.0f, 700.0f, 14.0f);
+    std::array<nosfix::NoteObjectQuad, 2> quads{};
+    std::uint32_t count = 0;
+    nosfix::GeometryDiagnostic diagnostic = nosfix::GeometryDiagnostic::None;
+    Check(nosfix::BuildGlissConnectorQuads(set, quads, count, diagnostic));
+    Check(count == 2);
+
+    nosfix::NotePartView view{};
+    Check(note.BuildObjectPart(1, {quads.data(), count}, view, diagnostic));
+    Check(view.count == 2);
+    const std::span<const std::byte> first(view.data, 120);
+    const std::span<const std::byte> second(view.data + 120, 120);
+    Check(Load<float>(first, 0) == 188.0f);
+    Check(std::abs(Load<float>(first, 40) - 213.3333f) < 1.0e-3f);
+    Check(Load<float>(first, 44) == 400.0f);
+    Check(Load<std::uint32_t>(first, 16) == 0x40000000U);   // record 0 template
+    Check(Load<std::uint32_t>(second, 16) == 0x40000100U);  // record 1 template
+    Check(Load<float>(second, 0) == 334.0f);
+    Check(Load<float>(second, 104) == 500.0f);
+}
+
 } // namespace
 
 int main() {
@@ -1223,6 +1396,9 @@ int main() {
     TestWholeObjectDescriptorRejections();
     TestWholeObjectMixedNote();
     TestWholeObjectNoAllocation();
+    TestGlissConnectorHeadClip();
+    TestGlissConnectorTailAndOrder();
+    TestGlissConnectorIntoObjectPart();
     std::printf("timed_note_geometry: all tests passed\n");
     return 0;
 }
