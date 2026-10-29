@@ -46,7 +46,7 @@ foreach ($tool in @($rc, $mt)) {
 $rcCmake = $rc -replace '\\', '/'
 $mtCmake = $mt -replace '\\', '/'
 
-$buildScript = Join-Path $env:TEMP 'nosfix-build-env.cmd'
+$buildScript = Join-Path $env:TEMP ("nosfix-build-env-{0}.cmd" -f $PID)
 $scriptContents = @"
 @echo off
 call "$vcVars" >nul
@@ -68,4 +68,5 @@ if ($RunTests) {
     if ($LASTEXITCODE -ne 0) { throw "nosfix tests failed with exit code $LASTEXITCODE" }
 }
 
+Remove-Item -LiteralPath $buildScript -Force -ErrorAction SilentlyContinue
 Write-Output "Built $repoRoot\build\nosfix.dll"
