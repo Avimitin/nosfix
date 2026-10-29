@@ -152,7 +152,7 @@ inline constexpr std::uint32_t kDefaultGroup = 1; // phase 2 forces 0 -> 1
 // ===========================================================================
 // Status
 // ===========================================================================
-enum class BucketStatus : std::uint8_t {
+enum class BucketInputStatus : std::uint8_t {
     Ok = 0,
     NotConfigured,
     GenerationZero,      // a frame without a playback generation cannot be ordered
@@ -168,7 +168,7 @@ enum class BucketStatus : std::uint8_t {
     InsufficientCapacity,// event span cannot hold every active slot
 };
 
-[[nodiscard]] const char* BucketStatusName(BucketStatus status) noexcept;
+[[nodiscard]] const char* BucketInputStatusName(BucketInputStatus status) noexcept;
 
 // ===========================================================================
 // Decoded frame
@@ -222,7 +222,7 @@ struct BucketInputEvent final {
 // Pure slot decode: reads all 28 slots of one staging buffer, validates them and
 // reports the slot-level counts. `slots` must hold at least kBucketSlotCount
 // entries. On any non-Ok status neither `slots` nor `counts` is modified.
-[[nodiscard]] BucketStatus DecodeStagingSlots(std::span<const std::byte> staging,
+[[nodiscard]] BucketInputStatus DecodeStagingSlots(std::span<const std::byte> staging,
                                               std::span<BucketSlot> slots,
                                               BucketFrameCounts& counts) noexcept;
 
@@ -245,7 +245,7 @@ class BucketInputState final {
 public:
     BucketInputState() = default;
 
-    [[nodiscard]] BucketStatus Configure(const BucketInputConfig& config) noexcept;
+    [[nodiscard]] BucketInputStatus Configure(const BucketInputConfig& config) noexcept;
 
     // Decodes one published staging frame. `frame_time` is the song-clock
     // snapshot for that frame; its generation orders the frames. Events are
@@ -253,7 +253,7 @@ public:
     // at least kBucketMaxFrameEvents entries. On any non-Ok status no state
     // changes and no event is written; the single exception is OrphanEvent,
     // which fills `counts` with the diagnostics that caused the refusal.
-    [[nodiscard]] BucketStatus Apply(std::span<const std::byte> staging,
+    [[nodiscard]] BucketInputStatus Apply(std::span<const std::byte> staging,
                                      const SongTime& frame_time,
                                      std::span<BucketInputEvent> events,
                                      BucketFrameCounts& counts) noexcept;
@@ -310,17 +310,17 @@ class BucketTableState final {
 public:
     BucketTableState() = default;
 
-    [[nodiscard]] BucketStatus Configure(const BucketTableConfig& config) noexcept;
+    [[nodiscard]] BucketInputStatus Configure(const BucketTableConfig& config) noexcept;
     void Reset() noexcept;
 
     // 0x307090: bucket k <- bucket k-1 for k = 29..1, then bucket 0 is zeroed.
-    [[nodiscard]] BucketStatus Rotate() noexcept;
+    [[nodiscard]] BucketInputStatus Rotate() noexcept;
 
     // 0x307170: phase 1 rebuilds bucket 0 from the staging buffer (see the
     // module comment for the decay rule), phase 2 assigns groups when enabled.
     // Rotation is the caller's step, exactly as in the native update, where
     // 0x307090 runs immediately before 0x307170.
-    [[nodiscard]] BucketStatus Compact(std::span<const std::byte> staging) noexcept;
+    [[nodiscard]] BucketInputStatus Compact(std::span<const std::byte> staging) noexcept;
 
     [[nodiscard]] std::size_t Count(std::size_t bucket) const noexcept;
     [[nodiscard]] BucketEntry Entry(std::size_t bucket, std::size_t index) const noexcept;

@@ -101,9 +101,9 @@ void TestGeometry() {
     CHECK(velocity_layout::kVelocityRenderRva == 0x1AA4D0);
     CHECK(velocity_layout::kVelocityDistanceRva == 0x1AA64F);
 
-    CHECK(std::string_view(BucketStatusName(BucketStatus::DuplicateKey)) == "duplicate-key");
-    CHECK(std::string_view(BucketStatusName(BucketStatus::Ok)) == "ok");
-    CHECK(std::string_view(BucketStatusName(static_cast<BucketStatus>(200))) == "invalid");
+    CHECK(std::string_view(BucketInputStatusName(BucketInputStatus::DuplicateKey)) == "duplicate-key");
+    CHECK(std::string_view(BucketInputStatusName(BucketInputStatus::Ok)) == "ok");
+    CHECK(std::string_view(BucketInputStatusName(static_cast<BucketInputStatus>(200))) == "invalid");
 }
 
 void TestVelocityDistance() {
@@ -144,7 +144,7 @@ void TestSlotDecode() {
 
     std::array<BucketSlot, kBucketSlotCount> slots{};
     BucketFrameCounts counts{};
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::Ok);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::Ok);
     CHECK(counts.slots_seen == 28);
     CHECK(counts.active == 3);
     CHECK(counts.presses == 2);
@@ -180,7 +180,7 @@ void TestSlotDecode() {
     WriteU32(other, bucket_input_layout::kSlotUnused1, 0xFEEDFACE);
     std::array<BucketSlot, kBucketSlotCount> again{};
     BucketFrameCounts other_counts{};
-    CHECK(DecodeStagingSlots(other, again, other_counts) == BucketStatus::Ok);
+    CHECK(DecodeStagingSlots(other, again, other_counts) == BucketInputStatus::Ok);
     CHECK(again[0].key == slots[0].key);
     CHECK(again[0].value == slots[0].value);
     CHECK(other_counts.active == counts.active);
@@ -192,32 +192,32 @@ void TestSlotRefusals() {
 
     Staging staging{};
     CHECK(DecodeStagingSlots(std::span<const std::byte>(staging.data(), 783), slots, counts) ==
-          BucketStatus::MalformedBuffer);
+          BucketInputStatus::MalformedBuffer);
     CHECK(DecodeStagingSlots(
               staging, std::span<BucketSlot>(slots.data(), kBucketSlotCount - 1), counts) ==
-          BucketStatus::InsufficientCapacity);
+          BucketInputStatus::InsufficientCapacity);
 
     SetSlot(staging, 0, 5, 4);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::InvalidState);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::InvalidState);
     SetSlot(staging, 0, 5, -1);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::InvalidState);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::InvalidState);
     SetSlot(staging, 0, 0, 1);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::InvalidKey);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::InvalidKey);
     SetSlot(staging, 0, 29, 2);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::InvalidKey);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::InvalidKey);
     SetSlot(staging, 0, 5, 2, 0, 0, 26);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::InvalidRepeat);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::InvalidRepeat);
     SetSlot(staging, 0, 5, 2, 0, 0, 25);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::Ok);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::Ok);
 
     SetSlot(staging, 0, 7, 1);
     SetSlot(staging, 3, 7, 2);
-    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketStatus::DuplicateKey);
+    CHECK(DecodeStagingSlots(staging, slots, counts) == BucketInputStatus::DuplicateKey);
 
     // A free slot is never validated: its key, value, group and repeat are junk.
     Staging junk{};
     SetSlot(junk, 4, -3, 0, 200, 99, 99);
-    CHECK(DecodeStagingSlots(junk, slots, counts) == BucketStatus::Ok);
+    CHECK(DecodeStagingSlots(junk, slots, counts) == BucketInputStatus::Ok);
     CHECK(counts.active == 0);
     CHECK(counts.free_slots == 28);
     CHECK(counts.free_with_value == 1);
@@ -230,10 +230,10 @@ void TestOrderedEvents() {
     BucketInputState state;
     BucketFrameCounts not_configured{};
     CHECK(state.Apply(Staging{}, FrameTime(1, 0.0), {}, not_configured) ==
-          BucketStatus::NotConfigured);
+          BucketInputStatus::NotConfigured);
     CHECK(not_configured.active == 0);
 
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
     BucketFrameCounts counts{};
 
@@ -241,7 +241,7 @@ void TestOrderedEvents() {
     Staging staging{};
     SetSlot(staging, 0, 11, 1, 6);
     SetSlot(staging, 1, 12, 1, 9);
-    CHECK(state.Apply(staging, FrameTime(1, 1000.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(1, 1000.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.active == 2);
     CHECK(counts.presses == 2);
     CHECK(events[0].key == 11);
@@ -268,7 +268,7 @@ void TestOrderedEvents() {
     Staging held{};
     SetSlot(held, 0, 11, 2, 6, 0, 1);
     SetSlot(held, 1, 12, 2, 9, 0, 1);
-    CHECK(state.Apply(held, FrameTime(1, 1016.7), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(held, FrameTime(1, 1016.7), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.repeats == 2);
     CHECK(counts.orphan_repeats == 0);
     CHECK(events[0].kind == NativeEventKind::Repeat);
@@ -279,27 +279,27 @@ void TestOrderedEvents() {
     Staging released{};
     SetSlot(released, 0, 11, 3, 6, 0, 2);
     SetSlot(released, 1, 12, 3, 9, 0, 2);
-    CHECK(state.Apply(released, FrameTime(1, 1033.4), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(released, FrameTime(1, 1033.4), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.releases == 2);
     CHECK(events[0].kind == NativeEventKind::Release);
     CHECK(!events[0].orphan);
     CHECK(!state.HasObservedPress(10));
 
     // Frame 4: the slots are dropped.
-    CHECK(state.Apply(Staging{}, FrameTime(1, 1050.1), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(Staging{}, FrameTime(1, 1050.1), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.active == 0);
     CHECK(counts.drops == 2);
     CHECK(counts.dropped_while_held == 0);
     CHECK(state.LastState(10) == 0);
 
     // Frame 5: a new press of the same key is not "while held".
-    CHECK(state.Apply(staging, FrameTime(1, 1066.8), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(1, 1066.8), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.presses == 2);
     CHECK(counts.press_while_held == 0);
 
     // A producer that re-sends state 1 while the key is down is counted, not
     // hidden: the event is still a press, exactly as the native consumes it.
-    CHECK(state.Apply(staging, FrameTime(1, 1083.5), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(1, 1083.5), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.press_while_held == 2);
     CHECK(counts.presses == 2);
 
@@ -308,14 +308,14 @@ void TestOrderedEvents() {
 
 void TestOrphans() {
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
     BucketFrameCounts counts{};
 
     // A decoder that starts mid-hold sees state 2 with no press.
     Staging held{};
     SetSlot(held, 0, 20, 2, 3);
-    CHECK(state.Apply(held, FrameTime(4, 500.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(held, FrameTime(4, 500.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.orphan_repeats == 1);
     CHECK(events[0].orphan);
     CHECK(events[0].kind == NativeEventKind::Repeat);
@@ -323,15 +323,15 @@ void TestOrphans() {
     // A release without a tracked press in this generation.
     Staging released{};
     SetSlot(released, 0, 20, 3, 3);
-    CHECK(state.Apply(released, FrameTime(4, 516.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(released, FrameTime(4, 516.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.orphan_releases == 1);
     CHECK(events[0].orphan);
 
     // A held key whose slot vanishes is a producer anomaly, not a drop.
     Staging pressed{};
     SetSlot(pressed, 0, 21, 1, 1);
-    CHECK(state.Apply(pressed, FrameTime(4, 532.0), events, counts) == BucketStatus::Ok);
-    CHECK(state.Apply(Staging{}, FrameTime(4, 548.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(pressed, FrameTime(4, 532.0), events, counts) == BucketInputStatus::Ok);
+    CHECK(state.Apply(Staging{}, FrameTime(4, 548.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.dropped_while_held == 1);
     CHECK(counts.drops == 0);
 
@@ -340,12 +340,12 @@ void TestOrphans() {
     BucketInputState strict;
     BucketInputConfig config;
     config.refuse_orphans = true;
-    CHECK(strict.Configure(config) == BucketStatus::Ok);
+    CHECK(strict.Configure(config) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> untouched{};
     untouched[0].key = 999;
     BucketFrameCounts refused{};
     CHECK(strict.Apply(held, FrameTime(1, 0.0), untouched, refused) ==
-          BucketStatus::OrphanEvent);
+          BucketInputStatus::OrphanEvent);
     CHECK(untouched[0].key == 999);
     CHECK(refused.orphan_repeats == 1);
     CHECK(strict.LastState(19) == 0);
@@ -355,8 +355,8 @@ void TestOrphans() {
     // The same state is accepted once the press has been observed.
     Staging held21{};
     SetSlot(held21, 0, 21, 2, 1, 0, 1);
-    CHECK(strict.Apply(pressed, FrameTime(1, 16.0), untouched, refused) == BucketStatus::Ok);
-    CHECK(strict.Apply(held21, FrameTime(1, 32.0), untouched, refused) == BucketStatus::Ok);
+    CHECK(strict.Apply(pressed, FrameTime(1, 16.0), untouched, refused) == BucketInputStatus::Ok);
+    CHECK(strict.Apply(held21, FrameTime(1, 32.0), untouched, refused) == BucketInputStatus::Ok);
     CHECK(refused.orphan_repeats == 0);
 }
 
@@ -365,7 +365,7 @@ void TestOrphans() {
 // ===========================================================================
 void TestGenerations() {
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
     BucketFrameCounts counts{};
 
@@ -375,50 +375,50 @@ void TestGenerations() {
     SetSlot(held, 0, 9, 2, 4, 0, 3);
 
     CHECK(state.Apply(pressed, FrameTime(0, 0.0), events, counts) ==
-          BucketStatus::GenerationZero);
+          BucketInputStatus::GenerationZero);
     CHECK(state.RejectedFrames() == 1);
 
     const double nan = std::numeric_limits<double>::quiet_NaN();
     CHECK(state.Apply(pressed, FrameTime(1, nan), events, counts) ==
-          BucketStatus::NonFiniteTime);
+          BucketInputStatus::NonFiniteTime);
     CHECK(state.Apply(pressed, FrameTime(1, std::numeric_limits<double>::infinity()), events,
-                      counts) == BucketStatus::NonFiniteTime);
+                      counts) == BucketInputStatus::NonFiniteTime);
     CHECK(state.Apply(pressed, FrameTime(1, 1.0e13), events, counts) ==
-          BucketStatus::NonFiniteTime);
+          BucketInputStatus::NonFiniteTime);
     CHECK(state.RejectedFrames() == 4);
 
-    CHECK(state.Apply(pressed, FrameTime(1, 100.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(pressed, FrameTime(1, 100.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.rebased);
     CHECK(counts.generation_changes == 0);
-    CHECK(state.Apply(pressed, FrameTime(1, 150.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(pressed, FrameTime(1, 150.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.press_while_held == 1);
 
     // Within one generation the song time may not go backwards.
     CHECK(state.Apply(pressed, FrameTime(1, 120.0), events, counts) ==
-          BucketStatus::BackwardTime);
+          BucketInputStatus::BackwardTime);
     // Equal timestamps are accepted: a host may publish the same frame twice.
-    CHECK(state.Apply(pressed, FrameTime(1, 150.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(pressed, FrameTime(1, 150.0), events, counts) == BucketInputStatus::Ok);
 
     // An older generation is stale and must never be applied.
     Staging newer{};
     SetSlot(newer, 0, 9, 2, 4, 0, 1);
-    CHECK(state.Apply(newer, FrameTime(2, 10.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(newer, FrameTime(2, 10.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.rebased);
     CHECK(counts.generation_changes == 1);
     CHECK(counts.orphan_repeats == 1); // tracking was re-based
     CHECK(state.Generation() == 2);
     CHECK(state.Apply(pressed, FrameTime(1, 9000.0), events, counts) ==
-          BucketStatus::StaleGeneration);
+          BucketInputStatus::StaleGeneration);
     // A new generation may legitimately restart the song clock.
-    CHECK(state.Apply(newer, FrameTime(3, 0.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(newer, FrameTime(3, 0.0), events, counts) == BucketInputStatus::Ok);
 
     // keep_tracking_across_generations keeps the press flag alive.
     BucketInputState sticky;
     BucketInputConfig config;
     config.keep_tracking_across_generations = true;
-    CHECK(sticky.Configure(config) == BucketStatus::Ok);
-    CHECK(sticky.Apply(pressed, FrameTime(1, 0.0), events, counts) == BucketStatus::Ok);
-    CHECK(sticky.Apply(held, FrameTime(2, 0.0), events, counts) == BucketStatus::Ok);
+    CHECK(sticky.Configure(config) == BucketInputStatus::Ok);
+    CHECK(sticky.Apply(pressed, FrameTime(1, 0.0), events, counts) == BucketInputStatus::Ok);
+    CHECK(sticky.Apply(held, FrameTime(2, 0.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.orphan_repeats == 0);
     CHECK(counts.generation_changes == 1);
     CHECK(sticky.HasObservedPress(8));
@@ -429,26 +429,26 @@ void TestGenerations() {
     CHECK(sticky.Generation() == 0);
     CHECK(sticky.FrameCount() == 2);
     CHECK(!sticky.HasObservedPress(8));
-    CHECK(sticky.Apply(held, FrameTime(2, 0.0), events, counts) == BucketStatus::Ok);
+    CHECK(sticky.Apply(held, FrameTime(2, 0.0), events, counts) == BucketInputStatus::Ok);
     CHECK(counts.orphan_repeats == 1);
 }
 
 void TestCapacityAndRefusalIsolation() {
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, 1> one{};
     BucketFrameCounts counts{};
     Staging chord{};
     SetSlot(chord, 0, 3, 1, 1);
     SetSlot(chord, 1, 4, 1, 1);
     CHECK(state.Apply(chord, FrameTime(1, 0.0), one, counts) ==
-          BucketStatus::InsufficientCapacity);
+          BucketInputStatus::InsufficientCapacity);
     CHECK(one[0].key == 0);
     CHECK(state.FrameCount() == 0);
     CHECK(state.LastState(2) == 0);
 
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
-    CHECK(state.Apply(chord, FrameTime(1, 0.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(chord, FrameTime(1, 0.0), events, counts) == BucketInputStatus::Ok);
     CHECK(state.FrameCount() == 1);
 
     // A corrupt frame after a good one changes neither tracking nor counters
@@ -457,7 +457,7 @@ void TestCapacityAndRefusalIsolation() {
     SetSlot(corrupt, 2, 5, 9);
     const std::uint8_t before = state.LastState(2);
     CHECK(state.Apply(corrupt, FrameTime(1, 16.0), events, counts) ==
-          BucketStatus::InvalidState);
+          BucketInputStatus::InvalidState);
     CHECK(state.LastState(2) == before);
     CHECK(state.FrameCount() == 1);
     CHECK(state.RejectedFrames() == 2);
@@ -466,14 +466,14 @@ void TestCapacityAndRefusalIsolation() {
 
 void TestRepeatedFrames() {
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
     BucketFrameCounts counts{};
     Staging held{};
     SetSlot(held, 0, 14, 2, 5, 0, 7);
     for (int frame = 0; frame < 4; ++frame) {
         CHECK(state.Apply(held, FrameTime(1, 16.0 * frame), events, counts) ==
-              BucketStatus::Ok);
+              BucketInputStatus::Ok);
         CHECK(counts.repeats == 1);
         CHECK(events[0].repeat == 7);
         CHECK(events[0].orphan);
@@ -553,12 +553,12 @@ void TestPanbThreshold() {
     SetSlot(staging, 0, 2, 1, 7);
     std::array<BucketSlot, kBucketSlotCount> slots{};
     BucketFrameCounts frame{};
-    CHECK(DecodeStagingSlots(staging, slots, frame) == BucketStatus::Ok);
+    CHECK(DecodeStagingSlots(staging, slots, frame) == BucketInputStatus::Ok);
     CHECK(slots[0].value == 7);
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
-    CHECK(state.Apply(staging, FrameTime(1, 0.0), events, frame) == BucketStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(1, 0.0), events, frame) == BucketInputStatus::Ok);
     CHECK(events[0].value == 7);
     // The bridge view of the same byte (TestBridge covers the full mapping).
 }
@@ -568,15 +568,15 @@ void TestPanbThreshold() {
 // ===========================================================================
 void TestRotation() {
     BucketTableState table;
-    CHECK(table.Rotate() == BucketStatus::NotConfigured);
-    CHECK(table.Compact(Staging{}) == BucketStatus::NotConfigured);
-    CHECK(table.Configure(BucketTableConfig{}) == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::NotConfigured);
+    CHECK(table.Compact(Staging{}) == BucketInputStatus::NotConfigured);
+    CHECK(table.Configure(BucketTableConfig{}) == BucketInputStatus::Ok);
     CHECK(!table.GroupsAssigned());
     CHECK(table.Count(0) == 0);
 
     Staging pressed{};
     SetSlot(pressed, 0, 5, 1, 3);
-    CHECK(table.Compact(pressed) == BucketStatus::Ok);
+    CHECK(table.Compact(pressed) == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 1);
     CHECK(table.Entry(0, 0).key == 5);
     CHECK(table.Entry(0, 0).state == 1);
@@ -586,11 +586,11 @@ void TestRotation() {
     CHECK(table.Entry(0, 1).key == 0); // out of range
     CHECK(table.Entry(31, 0).key == 0);
 
-    CHECK(table.Rotate() == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 0);
     CHECK(table.Count(1) == 1);
     CHECK(table.Entry(1, 0).key == 5);
-    CHECK(table.Rotate() == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
     CHECK(table.Count(2) == 1);
     CHECK(table.Count(1) == 0);
     CHECK(table.Count(30) == 0);
@@ -599,7 +599,7 @@ void TestRotation() {
 
     // A short buffer is refused and leaves the table untouched.
     CHECK(table.Compact(std::span<const std::byte>(pressed.data(), 100)) ==
-          BucketStatus::MalformedBuffer);
+          BucketInputStatus::MalformedBuffer);
     CHECK(table.Count(2) == 1);
 
     table.Reset();
@@ -610,61 +610,61 @@ void TestRotation() {
 
 void TestCompactionStateMachine() {
     BucketTableState table;
-    CHECK(table.Configure(BucketTableConfig{}) == BucketStatus::Ok);
+    CHECK(table.Configure(BucketTableConfig{}) == BucketInputStatus::Ok);
 
     Staging press{};
     SetSlot(press, 0, 12, 1, 9);
-    CHECK(table.Compact(press) == BucketStatus::Ok);
+    CHECK(table.Compact(press) == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 1);
 
     Staging held{};
     SetSlot(held, 0, 12, 2, 9, 0, 1);
-    CHECK(table.Rotate() == BucketStatus::Ok);
-    CHECK(table.Compact(held) == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
+    CHECK(table.Compact(held) == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 1);
     CHECK(table.Entry(0, 0).state == 2); // held survives: bucket 1 held state 1
 
     Staging release{};
     SetSlot(release, 0, 12, 3, 9, 0, 2);
-    CHECK(table.Rotate() == BucketStatus::Ok);
-    CHECK(table.Compact(release) == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
+    CHECK(table.Compact(release) == BucketInputStatus::Ok);
     CHECK(table.Entry(0, 0).state == 3); // release survives one frame
 
     // Bucket 1 now holds the state-3 release: the next staging release decays to
     // 0 and is dropped instead of being appended.
-    CHECK(table.Rotate() == BucketStatus::Ok);
-    CHECK(table.Compact(release) == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
+    CHECK(table.Compact(release) == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 0);
     CHECK(table.DecayedDrops() == 1);
 
     // Held after a release in bucket 1 is a re-press: 2 -> 1.
-    CHECK(table.Rotate() == BucketStatus::Ok); // bucket 1 = empty (decayed)
-    CHECK(table.Compact(held) == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok); // bucket 1 = empty (decayed)
+    CHECK(table.Compact(held) == BucketInputStatus::Ok);
     CHECK(table.Count(0) == 1);
     CHECK(table.Entry(0, 0).state == 2);
-    CHECK(table.Rotate() == BucketStatus::Ok); // bucket 1 = held
+    CHECK(table.Rotate() == BucketInputStatus::Ok); // bucket 1 = held
     Staging pressed_again{};
     SetSlot(pressed_again, 0, 12, 2, 9, 0, 3);
-    CHECK(table.Compact(pressed_again) == BucketStatus::Ok);
+    CHECK(table.Compact(pressed_again) == BucketInputStatus::Ok);
     CHECK(table.Entry(0, 0).state == 2);
 
     // Force the decay 2 -> 1 with a release in bucket 1.
     BucketTableState second;
-    CHECK(second.Configure(BucketTableConfig{}) == BucketStatus::Ok);
-    CHECK(second.Compact(release) == BucketStatus::Ok);
-    CHECK(second.Rotate() == BucketStatus::Ok);
-    CHECK(second.Compact(held) == BucketStatus::Ok);
+    CHECK(second.Configure(BucketTableConfig{}) == BucketInputStatus::Ok);
+    CHECK(second.Compact(release) == BucketInputStatus::Ok);
+    CHECK(second.Rotate() == BucketInputStatus::Ok);
+    CHECK(second.Compact(held) == BucketInputStatus::Ok);
     CHECK(second.Entry(0, 0).state == 1);
     CHECK(second.DecayedRePresses() == 1);
 
     // A chord keeps slot order and the count.
     BucketTableState chords;
-    CHECK(chords.Configure(BucketTableConfig{}) == BucketStatus::Ok);
+    CHECK(chords.Configure(BucketTableConfig{}) == BucketInputStatus::Ok);
     Staging chord{};
     SetSlot(chord, 2, 7, 1, 1);
     SetSlot(chord, 5, 8, 1, 2);
     SetSlot(chord, 7, 9, 1, 3);
-    CHECK(chords.Compact(chord) == BucketStatus::Ok);
+    CHECK(chords.Compact(chord) == BucketInputStatus::Ok);
     CHECK(chords.Count(0) == 3);
     CHECK(chords.Entry(0, 0).key == 7);
     CHECK(chords.Entry(0, 1).key == 8);
@@ -675,78 +675,78 @@ void TestGroupAssignment() {
     BucketTableState table;
     BucketTableConfig config;
     config.assign_groups = true;
-    CHECK(table.Configure(config) == BucketStatus::Ok);
+    CHECK(table.Configure(config) == BucketInputStatus::Ok);
     CHECK(table.GroupsAssigned());
 
     // Nothing older: the group is forced to 1.
     Staging press{};
     SetSlot(press, 0, 5, 1, 1);
-    CHECK(table.Compact(press) == BucketStatus::Ok);
+    CHECK(table.Compact(press) == BucketInputStatus::Ok);
     CHECK(table.Entry(0, 0).group == 1);
     CHECK(table.Entry(0, 0).repeat == 0);
     CHECK(table.GroupPending() == 0);
 
     // Same key two buckets back: inherit the group and increment the counter.
-    CHECK(table.Rotate() == BucketStatus::Ok);
-    CHECK(table.Rotate() == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
     CHECK(table.Count(2) == 1);
-    CHECK(table.Compact(press) == BucketStatus::Ok);
+    CHECK(table.Compact(press) == BucketInputStatus::Ok);
     CHECK(table.Entry(0, 0).group == 1);
     CHECK(table.Entry(0, 0).repeat == 1);
     CHECK(table.RepeatCarried() == 1);
 
     // The counter re-arms to 1 at 25.
     BucketTableState rearm;
-    CHECK(rearm.Configure(config) == BucketStatus::Ok);
+    CHECK(rearm.Configure(config) == BucketInputStatus::Ok);
     Staging high{};
     SetSlot(high, 0, 6, 1, 1, 0, 24);
-    CHECK(rearm.Compact(high) == BucketStatus::Ok);
+    CHECK(rearm.Compact(high) == BucketInputStatus::Ok);
     CHECK(rearm.Entry(0, 0).repeat == 24);
-    CHECK(rearm.Rotate() == BucketStatus::Ok);
-    CHECK(rearm.Rotate() == BucketStatus::Ok);
-    CHECK(rearm.Compact(high) == BucketStatus::Ok);
+    CHECK(rearm.Rotate() == BucketInputStatus::Ok);
+    CHECK(rearm.Rotate() == BucketInputStatus::Ok);
+    CHECK(rearm.Compact(high) == BucketInputStatus::Ok);
     CHECK(rearm.Entry(0, 0).repeat == 1);
 
     // Neighbour inheritance: key+1 wins over key-1, and only a group other than
     // 1 is inherited. A staging group is preserved verbatim by phase 1, which is
     // how a non-default group can exist in the first place.
     BucketTableState neighbours;
-    CHECK(neighbours.Configure(config) == BucketStatus::Ok);
+    CHECK(neighbours.Configure(config) == BucketInputStatus::Ok);
     Staging group3{};
     SetSlot(group3, 0, 10, 1, 1, 3);
-    CHECK(neighbours.Compact(group3) == BucketStatus::Ok);
+    CHECK(neighbours.Compact(group3) == BucketInputStatus::Ok);
     CHECK(neighbours.Entry(0, 0).group == 3);
-    CHECK(neighbours.Rotate() == BucketStatus::Ok);
-    CHECK(neighbours.Rotate() == BucketStatus::Ok);
+    CHECK(neighbours.Rotate() == BucketInputStatus::Ok);
+    CHECK(neighbours.Rotate() == BucketInputStatus::Ok);
     Staging group2{};
     SetSlot(group2, 0, 8, 1, 1, 2);
-    CHECK(neighbours.Compact(group2) == BucketStatus::Ok);
+    CHECK(neighbours.Compact(group2) == BucketInputStatus::Ok);
     CHECK(neighbours.Entry(0, 0).group == 2);
 
     // key 9: same key absent, key+1 = 10 carries group 3, key-1 = 8 carries 2.
     Staging middle{};
     SetSlot(middle, 0, 9, 1, 1);
-    CHECK(neighbours.Compact(middle) == BucketStatus::Ok);
+    CHECK(neighbours.Compact(middle) == BucketInputStatus::Ok);
     CHECK(neighbours.Entry(0, 0).group == 3);
 
     // key 11: only key-1 = 10 matches.
     Staging below{};
     SetSlot(below, 0, 11, 1, 1);
-    CHECK(neighbours.Compact(below) == BucketStatus::Ok);
+    CHECK(neighbours.Compact(below) == BucketInputStatus::Ok);
     CHECK(neighbours.Entry(0, 0).group == 3);
 
     // Group 1 neighbours are not inherited, so an isolated key keeps the default.
     BucketTableState plain;
-    CHECK(plain.Configure(config) == BucketStatus::Ok);
+    CHECK(plain.Configure(config) == BucketInputStatus::Ok);
     Staging group1{};
     SetSlot(group1, 0, 20, 1, 1);
-    CHECK(plain.Compact(group1) == BucketStatus::Ok);
+    CHECK(plain.Compact(group1) == BucketInputStatus::Ok);
     CHECK(plain.Entry(0, 0).group == 1);
-    CHECK(plain.Rotate() == BucketStatus::Ok);
-    CHECK(plain.Rotate() == BucketStatus::Ok);
+    CHECK(plain.Rotate() == BucketInputStatus::Ok);
+    CHECK(plain.Rotate() == BucketInputStatus::Ok);
     Staging lonely{};
     SetSlot(lonely, 0, 21, 1, 1);
-    CHECK(plain.Compact(lonely) == BucketStatus::Ok);
+    CHECK(plain.Compact(lonely) == BucketInputStatus::Ok);
     CHECK(plain.Entry(0, 0).group == 1);
     CHECK(plain.RepeatCarried() == 0);
 }
@@ -758,12 +758,12 @@ void TestBucketViewAndGates() {
     BucketTableState table;
     BucketTableConfig config;
     config.assign_groups = true;
-    CHECK(table.Configure(config) == BucketStatus::Ok);
+    CHECK(table.Configure(config) == BucketInputStatus::Ok);
 
     // The note spans chart+88..chart+92 = 11..13; the held key 12 is inside it.
     Staging press{};
     SetSlot(press, 0, 12, 1, 1);
-    CHECK(table.Compact(press) == BucketStatus::Ok);
+    CHECK(table.Compact(press) == BucketInputStatus::Ok);
 
     std::array<ActiveInputEntry, kBucketSlotCount> view{};
     const std::size_t count = table.ToActiveInputEntries(0, view);
@@ -789,7 +789,7 @@ void TestBucketViewAndGates() {
     CHECK(outside.proceed);
 
     // The glissando connector scan reads bucket 1 and matches note+272.
-    CHECK(table.Rotate() == BucketStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
     std::array<ActiveInputEntry, kBucketSlotCount> previous{};
     const std::size_t previous_count = table.ToActiveInputEntries(1, previous);
     CHECK(previous_count == 1);
@@ -809,12 +809,12 @@ void TestBucketViewAndGates() {
 // ===========================================================================
 void TestBridge() {
     BucketInputState state;
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
     std::array<BucketInputEvent, kBucketMaxFrameEvents> events{};
     BucketFrameCounts counts{};
     Staging staging{};
     SetSlot(staging, 3, 26, 1, 12);
-    CHECK(state.Apply(staging, FrameTime(7, 4242.0), events, counts) == BucketStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(7, 4242.0), events, counts) == BucketInputStatus::Ok);
 
     NativeNoteEvent native;
     CHECK(MakeNativeNoteEvent(events[0], native));
@@ -842,11 +842,11 @@ void TestNoAllocation() {
     SetSlot(staging, 2, 3, 3, 15, 0, 6);
 
     test::BeginAllocationProbe();
-    CHECK(state.Configure(BucketInputConfig{}) == BucketStatus::Ok);
-    CHECK(table.Configure(BucketTableConfig{}) == BucketStatus::Ok);
-    CHECK(state.Apply(staging, FrameTime(1, 0.0), events, counts) == BucketStatus::Ok);
-    CHECK(table.Compact(staging) == BucketStatus::Ok);
-    CHECK(table.Rotate() == BucketStatus::Ok);
+    CHECK(state.Configure(BucketInputConfig{}) == BucketInputStatus::Ok);
+    CHECK(table.Configure(BucketTableConfig{}) == BucketInputStatus::Ok);
+    CHECK(state.Apply(staging, FrameTime(1, 0.0), events, counts) == BucketInputStatus::Ok);
+    CHECK(table.Compact(staging) == BucketInputStatus::Ok);
+    CHECK(table.Rotate() == BucketInputStatus::Ok);
     std::array<ActiveInputEntry, kBucketSlotCount> view{};
     const std::size_t view_count = table.ToActiveInputEntries(1, view);
     const long long allocations = test::EndAllocationProbe();

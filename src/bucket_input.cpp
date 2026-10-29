@@ -37,21 +37,21 @@ constexpr bool ValidState(std::int32_t state) noexcept {
 
 } // namespace
 
-const char* BucketStatusName(BucketStatus status) noexcept {
+const char* BucketInputStatusName(BucketInputStatus status) noexcept {
     switch (status) {
-    case BucketStatus::Ok: return "ok";
-    case BucketStatus::NotConfigured: return "not-configured";
-    case BucketStatus::GenerationZero: return "generation-zero";
-    case BucketStatus::StaleGeneration: return "stale-generation";
-    case BucketStatus::NonFiniteTime: return "non-finite-time";
-    case BucketStatus::BackwardTime: return "backward-time";
-    case BucketStatus::MalformedBuffer: return "malformed-buffer";
-    case BucketStatus::InvalidKey: return "invalid-key";
-    case BucketStatus::InvalidState: return "invalid-state";
-    case BucketStatus::InvalidRepeat: return "invalid-repeat";
-    case BucketStatus::DuplicateKey: return "duplicate-key";
-    case BucketStatus::OrphanEvent: return "orphan-event";
-    case BucketStatus::InsufficientCapacity: return "insufficient-capacity";
+    case BucketInputStatus::Ok: return "ok";
+    case BucketInputStatus::NotConfigured: return "not-configured";
+    case BucketInputStatus::GenerationZero: return "generation-zero";
+    case BucketInputStatus::StaleGeneration: return "stale-generation";
+    case BucketInputStatus::NonFiniteTime: return "non-finite-time";
+    case BucketInputStatus::BackwardTime: return "backward-time";
+    case BucketInputStatus::MalformedBuffer: return "malformed-buffer";
+    case BucketInputStatus::InvalidKey: return "invalid-key";
+    case BucketInputStatus::InvalidState: return "invalid-state";
+    case BucketInputStatus::InvalidRepeat: return "invalid-repeat";
+    case BucketInputStatus::DuplicateKey: return "duplicate-key";
+    case BucketInputStatus::OrphanEvent: return "orphan-event";
+    case BucketInputStatus::InsufficientCapacity: return "insufficient-capacity";
     }
     return "invalid";
 }
@@ -59,11 +59,11 @@ const char* BucketStatusName(BucketStatus status) noexcept {
 // ===========================================================================
 // Slot decode (pure)
 // ===========================================================================
-BucketStatus DecodeStagingSlots(std::span<const std::byte> staging,
+BucketInputStatus DecodeStagingSlots(std::span<const std::byte> staging,
                                 std::span<BucketSlot> slots,
                                 BucketFrameCounts& counts) noexcept {
-    if (staging.size() < kBucketStagingBytes) return BucketStatus::MalformedBuffer;
-    if (slots.size() < kBucketSlotCount) return BucketStatus::InsufficientCapacity;
+    if (staging.size() < kBucketStagingBytes) return BucketInputStatus::MalformedBuffer;
+    if (slots.size() < kBucketSlotCount) return BucketInputStatus::InsufficientCapacity;
 
     std::array<BucketSlot, kBucketSlotCount> decoded{};
     BucketFrameCounts frame;
@@ -77,7 +77,7 @@ BucketStatus DecodeStagingSlots(std::span<const std::byte> staging,
         const std::int32_t state = ReadI32(staging, base + kSlotState);
         slot.value = ReadU8(staging, base + kSlotValue);
         slot.group = ReadU32(staging, base + kSlotGroup);
-        if (!ValidState(state)) return BucketStatus::InvalidState;
+        if (!ValidState(state)) return BucketInputStatus::InvalidState;
         slot.state = static_cast<std::uint8_t>(state);
         if (slot.state == kStateFree) {
             // The producer leaves the last key/value in a free slot (the probe
@@ -87,12 +87,12 @@ BucketStatus DecodeStagingSlots(std::span<const std::byte> staging,
             if (slot.value != 0) ++frame.free_with_value;
             continue;
         }
-        if (!IsNativeInputKey(slot.key)) return BucketStatus::InvalidKey;
+        if (!IsNativeInputKey(slot.key)) return BucketInputStatus::InvalidKey;
         const std::uint32_t repeat = ReadU32(staging, base + kSlotRepeat);
-        if (repeat > kRepeatLimit) return BucketStatus::InvalidRepeat;
+        if (repeat > kRepeatLimit) return BucketInputStatus::InvalidRepeat;
         slot.repeat = repeat;
         const std::size_t lane = LaneOf(slot.key);
-        if (seen[lane]) return BucketStatus::DuplicateKey;
+        if (seen[lane]) return BucketInputStatus::DuplicateKey;
         seen[lane] = true;
         ++frame.active;
         if (slot.value != 0) ++frame.values_nonzero;
@@ -109,13 +109,13 @@ BucketStatus DecodeStagingSlots(std::span<const std::byte> staging,
         slots[index] = decoded[index];
     }
     counts = frame;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 // ===========================================================================
 // Frame decoder
 // ===========================================================================
-BucketStatus BucketInputState::Configure(const BucketInputConfig& config) noexcept {
+BucketInputStatus BucketInputState::Configure(const BucketInputConfig& config) noexcept {
     config_ = config;
     last_state_.fill(static_cast<std::uint8_t>(kStateFree));
     observed_press_.fill(false);
@@ -125,7 +125,7 @@ BucketStatus BucketInputState::Configure(const BucketInputConfig& config) noexce
     rejected_ = 0;
     configured_ = true;
     started_ = false;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 void BucketInputState::Rebase() noexcept {
@@ -140,42 +140,42 @@ void BucketInputState::Reset() noexcept {
     started_ = false;
 }
 
-BucketStatus BucketInputState::Apply(std::span<const std::byte> staging,
+BucketInputStatus BucketInputState::Apply(std::span<const std::byte> staging,
                                      const SongTime& frame_time,
                                      std::span<BucketInputEvent> events,
                                      BucketFrameCounts& counts) noexcept {
     counts = BucketFrameCounts{};
-    if (!configured_) return BucketStatus::NotConfigured;
+    if (!configured_) return BucketInputStatus::NotConfigured;
     if (frame_time.generation == 0) {
         ++rejected_;
-        return BucketStatus::GenerationZero;
+        return BucketInputStatus::GenerationZero;
     }
     if (!FiniteSongTime(frame_time.microseconds)) {
         ++rejected_;
-        return BucketStatus::NonFiniteTime;
+        return BucketInputStatus::NonFiniteTime;
     }
     if (started_ && frame_time.generation < generation_) {
         ++rejected_;
-        return BucketStatus::StaleGeneration;
+        return BucketInputStatus::StaleGeneration;
     }
     const bool new_generation = !started_ || frame_time.generation != generation_;
     if (!new_generation && frame_time.microseconds < last_song_us_) {
         ++rejected_;
-        return BucketStatus::BackwardTime;
+        return BucketInputStatus::BackwardTime;
     }
 
     // Decode and classify into local storage first: a refusal must leave both the
     // published event span and the per-key tracking untouched.
     std::array<BucketSlot, kBucketSlotCount> slots{};
     BucketFrameCounts frame;
-    const BucketStatus decoded = DecodeStagingSlots(staging, slots, frame);
-    if (decoded != BucketStatus::Ok) {
+    const BucketInputStatus decoded = DecodeStagingSlots(staging, slots, frame);
+    if (decoded != BucketInputStatus::Ok) {
         ++rejected_;
         return decoded;
     }
     if (events.size() < frame.active) {
         ++rejected_;
-        return BucketStatus::InsufficientCapacity;
+        return BucketInputStatus::InsufficientCapacity;
     }
 
     if (new_generation && !config_.keep_tracking_across_generations) Rebase();
@@ -230,7 +230,7 @@ BucketStatus BucketInputState::Apply(std::span<const std::byte> staging,
         (frame.orphan_releases != 0 || frame.orphan_repeats != 0)) {
         counts = frame; // diagnostics survive the refusal; no event is published
         ++rejected_;
-        return BucketStatus::OrphanEvent;
+        return BucketInputStatus::OrphanEvent;
     }
 
     // Keys whose slot disappeared: a state-3 frame is followed by a dropped slot,
@@ -257,7 +257,7 @@ BucketStatus BucketInputState::Apply(std::span<const std::byte> staging,
     started_ = true;
     ++frames_;
     counts = frame;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 std::uint8_t BucketInputState::LastState(std::uint8_t lane) const noexcept {
@@ -271,11 +271,11 @@ bool BucketInputState::HasObservedPress(std::uint8_t lane) const noexcept {
 // ===========================================================================
 // Bucket table
 // ===========================================================================
-BucketStatus BucketTableState::Configure(const BucketTableConfig& config) noexcept {
+BucketInputStatus BucketTableState::Configure(const BucketTableConfig& config) noexcept {
     config_ = config;
     Reset();
     configured_ = true;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 void BucketTableState::Reset() noexcept {
@@ -287,15 +287,15 @@ void BucketTableState::Reset() noexcept {
     decayed_drops_ = 0;
 }
 
-BucketStatus BucketTableState::Rotate() noexcept {
-    if (!configured_) return BucketStatus::NotConfigured;
+BucketInputStatus BucketTableState::Rotate() noexcept {
+    if (!configured_) return BucketInputStatus::NotConfigured;
     for (std::size_t bucket = kBucketTableCount - 1; bucket >= 1; --bucket) {
         buckets_[bucket] = buckets_[bucket - 1];
         counts_[bucket] = counts_[bucket - 1];
     }
     buckets_[0].fill(BucketEntry{});
     counts_[0] = 0;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 const BucketEntry* BucketTableState::FindByKey(std::int32_t key) const noexcept {
@@ -329,12 +329,12 @@ const BucketEntry* BucketTableState::FindNeighbourGroup(std::int32_t key) const 
     return nullptr;
 }
 
-BucketStatus BucketTableState::Compact(std::span<const std::byte> staging) noexcept {
-    if (!configured_) return BucketStatus::NotConfigured;
+BucketInputStatus BucketTableState::Compact(std::span<const std::byte> staging) noexcept {
+    if (!configured_) return BucketInputStatus::NotConfigured;
     std::array<BucketSlot, kBucketSlotCount> slots{};
     BucketFrameCounts frame{};
-    const BucketStatus decoded = DecodeStagingSlots(staging, slots, frame);
-    if (decoded != BucketStatus::Ok) return decoded;
+    const BucketInputStatus decoded = DecodeStagingSlots(staging, slots, frame);
+    if (decoded != BucketInputStatus::Ok) return decoded;
 
     std::array<BucketEntry, kBucketSlotCount> next{};
     std::size_t count = 0;
@@ -400,7 +400,7 @@ BucketStatus BucketTableState::Compact(std::span<const std::byte> staging) noexc
     repeat_carried_ += carried;
     decayed_re_presses_ = re_presses;
     decayed_drops_ = drops;
-    return BucketStatus::Ok;
+    return BucketInputStatus::Ok;
 }
 
 std::size_t BucketTableState::Count(std::size_t bucket) const noexcept {
