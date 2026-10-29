@@ -116,6 +116,8 @@ const char* NoteTypeOutcomeKindName(NoteTypeOutcomeKind kind) noexcept {
     case NoteTypeOutcomeKind::RepeatIgnored: return "repeat-ignored";
     case NoteTypeOutcomeKind::ConnectorReleased: return "connector-released";
     case NoteTypeOutcomeKind::Unsupported: return "unsupported";
+    case NoteTypeOutcomeKind::ReleaseRefused: return "release-refused";
+    case NoteTypeOutcomeKind::TrillTailHit: return "trill-tail-hit";
     }
     return "invalid";
 }
@@ -139,6 +141,42 @@ bool LongEligible(bool held, double delta_us, const NormalWindows& windows) noex
 bool TrillEligible(bool tail, double delta_us, const NormalWindows& windows) noexcept {
     if (tail) return true; // 1A8499: state(+316) == 1
     return IsScoringNormalRank(ClassifyNormalDelta(delta_us, windows));
+}
+
+ReleaseGateDecision EvaluateReleaseGate(std::int32_t left_key, std::int32_t right_key,
+                                        std::int32_t tolerance_keys,
+                                        std::span<const ActiveInputEntry> held_entries) noexcept {
+    ReleaseGateDecision decision;
+    decision.evaluated = true;
+    decision.proceed = true;
+    if (tolerance_keys < 0) tolerance_keys = 0;
+    const std::int32_t widened_left = left_key - tolerance_keys;
+    const std::int32_t widened_right = right_key + tolerance_keys;
+    for (const ActiveInputEntry& entry : held_entries) {
+        // 2F4060: only a held entry (state 1 or 2) can block the release.
+        if (!IsHeldInputState(entry.state)) continue;
+        if (entry.key < widened_left || entry.key > widened_right) continue;
+        if (decision.appended_keys == 0) decision.held_key = entry.key;
+        ++decision.appended_keys; // appended to the 0x1813E46F8 repeat list
+        decision.proceed = false;
+        // Strictly inside the real span: note+84 = 1. 0x303E80 forces rank 5
+        // only for note+84 > 1, so this value cannot upgrade the grade.
+        if (entry.key >= left_key && entry.key <= right_key) decision.note84_set = true;
+    }
+    return decision;
+}
+
+std::int32_t FindConnectorKey(std::span<const ActiveInputEntry> entries, std::int32_t left_key,
+                              std::int32_t right_key, std::uint32_t note_group_id) noexcept {
+    for (const ActiveInputEntry& entry : entries) {
+        // 1A643C..1A6456: the key must be inside the note's span, inclusive.
+        if (entry.key < left_key || entry.key > right_key) continue;
+        // 1A6458: note+272 == 0 disables the group test; otherwise it must equal
+        // the entry's +20. This scan does not test the entry state.
+        if (note_group_id != kWildcardScanGroupId && entry.group != note_group_id) continue;
+        return entry.key;
+    }
+    return -1;
 }
 
 // ===========================================================================
@@ -291,7 +329,8 @@ void NativeLongState::Finish(NormalRank rank, std::uint16_t scale, NoteTypeOutco
     }
 }
 
-NoteTypeResult NativeLongState::Press(const NativeNoteEvent& event, double decision_us) noexcept {
+NoteTypeResult NativeLongState::Press(const NativeNoteEvent& event, double decision_us,
+                                      std::span<const ActiveInputEntry> held_entries) noexcept {
     NoteTypeResult result;
     if (!Ready(result)) return result;
     const NoteTypeStatus event_status = CheckEvent(event);
@@ -323,7 +362,7 @@ NoteTypeResult NativeLongState::Press(const NativeNoteEvent& event, double decis
     advanced_us_ = std::max(advanced_us_, captured);
 
     if (event.kind == NativeEventKind::Release) {
-        NoteTypeResult release = Release(event, decision_us);
+        NoteTypeResult release = Release(event, decision_us, held_entries);
         release.status = NoteTypeStatus::Ok;
         return release;
     }
@@ -451,7 +490,8 @@ NoteTypeResult NativeLongState::HeldStep(bool is_release, bool commit_missed,
     return result;
 }
 
-NoteTypeResult NativeLongState::Release(const NativeNoteEvent& event, double decision_us) noexcept {
+NoteTypeResult NativeLongState::Release(const NativeNoteEvent& event, double decision_us,
+                                        std::span<const ActiveInputEntry> held_entries) noexcept {
     NoteTypeResult result;
     if (!Ready(result)) return result;
     const NoteTypeStatus event_status = CheckEvent(event);
@@ -488,13 +528,29 @@ NoteTypeResult NativeLongState::Release(const NativeNoteEvent& event, double dec
         ++result.ignored;
         return result;
     }
-    if (!config_.release_gate_proven) {
-        // 0x2F4060 gates the native release; its result is not decoded, so the
-        // fail-closed answer is to refuse the release entirely.
+    if (!config_.release_gate_available) {
+        // 0x2F4060 gates the native release; without the held-input table the
+        // answer cannot be reproduced, so the release is refused entirely.
         NoteTypeOutcome& outcome = Append(result);
         outcome = MakeOutcome(NoteTypeOutcomeKind::Unsupported, spec_.lane, captured);
-        outcome.reason = "long release gate 0x2F4060 not decoded";
+        outcome.reason = "long release gate 0x2F4060 table not supplied";
         ++result.unsupported;
+        return result;
+    }
+    const ReleaseGateDecision gate =
+        EvaluateReleaseGate(spec_.left_key, spec_.right_key,
+                            config_.release_gate_tolerance_keys, held_entries);
+    if (!gate.proceed) {
+        // 2F4060 returned 1: a held key is inside the widened span. The native
+        // release is refused, the key joins the repeat list and (strictly inside)
+        // note+84 becomes 1. Nothing else changes.
+        NoteTypeOutcome& outcome = Append(result);
+        outcome = MakeOutcome(NoteTypeOutcomeKind::ReleaseRefused, spec_.lane, captured);
+        outcome.gate_key = gate.held_key;
+        outcome.gate_note84 = gate.note84_set;
+        outcome.gate_appended = static_cast<std::uint32_t>(gate.appended_keys);
+        outcome.reason = "held key inside the note key span";
+        ++result.refused_releases;
         return result;
     }
     return HeldStep(true, false, captured, DeltaUs(event));
@@ -835,7 +891,7 @@ NoteTypeResult NativeGlissState::Expire(double up_to_us, double decision_us) noe
 }
 
 NoteTypeResult NativeGlissState::Advance(double up_to_us, double decision_us,
-                                         bool connector_scan_hit) noexcept {
+                                         std::span<const ActiveInputEntry> entries) noexcept {
     NoteTypeResult result;
     if (!Ready(result)) return result;
     if (!FiniteTime(up_to_us) || !FiniteTime(decision_us)) {
@@ -881,22 +937,31 @@ NoteTypeResult NativeGlissState::Advance(double up_to_us, double decision_us,
         return result;
     }
     if (delta <= 0.0) {
-        if (config_.gliss_connector_scan_proven) {
-            if (connector_scan_hit) {
-                return Judge(up_to_us, delta, NormalRank::Just, 0,
-                             NoteTypeOutcomeKind::Scored);
+        if (config_.connector_scan_available) {
+            // 1A6458..1A6475: the first held entry inside [chart+88, chart+92]
+            // whose +20 matches note+272 (0 disables that test) completes the
+            // note. The listing sets note+80 = 4 and clears note+76/note+84;
+            // because note+76 ends up 0, LABEL_75 judges with the rank of the
+            // captured delta rather than a recorded Just. chart+0x50 = note+32
+            // is render-only.
+            const std::int32_t key =
+                FindConnectorKey(entries, spec_.left_key, spec_.right_key, spec_.group_id);
+            if (key >= 0) {
+                NoteTypeResult judged = Judge(up_to_us, delta, Classify(delta, config_.windows),
+                                             0, NoteTypeOutcomeKind::Scored);
+                if (judged.count != 0) judged.outcomes[0].connector_key = key;
+                return judged;
             }
             ++result.ignored;
             return result;
         }
         if (!scan_reported_) {
-            // 1A63E6: the native scans the runtime table at 0x1813DF048 for a
-            // connector whose key is inside [chart+88, chart+92] and whose id
-            // matches note+272, then judges Just. The table is not decoded.
+            // 1A63E6: the scan over the held-input table at 0x1813DEA20. Without
+            // the table the branch is reported once and never guessed.
             scan_reported_ = true;
             NoteTypeOutcome& outcome = Append(result);
             outcome = MakeOutcome(NoteTypeOutcomeKind::Unsupported, spec_.lane, up_to_us);
-            outcome.reason = "glissando connector scan 0x1813DF048 not decoded";
+            outcome.reason = "glissando connector scan table not supplied";
             ++result.unsupported;
             return result;
         }
@@ -921,6 +986,9 @@ NoteTypeStatus NativeTrillState::Configure(const NativeTrillSpec& spec,
         return NoteTypeStatus::NonFiniteTime;
     }
     if (spec.end_us < spec.start_us) return NoteTypeStatus::InvalidSpec;
+    if (spec.sub_element_count > nonnormal_layout::kTrillMaxSubElements) {
+        return NoteTypeStatus::InvalidSpec;
+    }
 
     spec_ = spec;
     config_ = config;
@@ -934,7 +1002,8 @@ NoteTypeStatus NativeTrillState::Configure(const NativeTrillSpec& spec,
     final_rank_ = NormalRank::TooEarly;
     recorded_delta_us_ = 0.0;
     sound_id_ = 0;
-    counter_ = kTrillCounterInitial;
+    countdown_ = kTrillCounterInitial;
+    sub_cursor_ = 0;
     pending_ = false;
     done_ = false;
     advanced_us_ = 0.0;
@@ -955,7 +1024,8 @@ NoteTypeStatus NativeTrillState::Begin(std::uint64_t generation, double position
     final_rank_ = NormalRank::TooEarly;
     recorded_delta_us_ = 0.0;
     sound_id_ = 0;
-    counter_ = kTrillCounterInitial;
+    countdown_ = kTrillCounterInitial;
+    sub_cursor_ = 0;
     pending_ = false;
     done_ = false;
     advanced_us_ = position_us;
@@ -1001,6 +1071,9 @@ void NativeTrillState::CommitStart(NormalRank rank, bool have_event, double capt
     recorded_delta_us_ = delta_us;
     pending_ = false;
     phase_ = TrillPhase::Tail;
+    // 1A7AF0: the head commit writes note+344 = 99999 (the countdown) and the
+    // draw object is armed (note+296, not modelled).
+    countdown_ = kTrillCountdownAtCommit;
     if (!spec_.auto_play && have_event) {
         ++sound_serial_;
         if (sound_serial_ > config_.sound_serial_limit) {
@@ -1079,12 +1152,59 @@ NoteTypeResult NativeTrillState::TailStep(bool is_release, bool commit_missed,
         }
     }
     if (finish) {
-        // 1A7B9D: rank and scale come from the alternation counter. A positive
-        // counter keeps the head rank with scale 100; otherwise Good(2)/40.
-        const NormalRank rank = counter_ <= 0 ? NormalRank::Good : head_rank_;
-        const std::uint16_t scale = counter_ > 0 ? kScaleNormal : kScaleTrillPenalty;
+        // 1A7B9D: rank and scale come from the note+344 countdown. A positive
+        // countdown keeps the head rank with scale 100; otherwise Good(2)/40.
+        const NormalRank rank = countdown_ <= 0 ? NormalRank::Good : head_rank_;
+        const std::uint16_t scale = countdown_ > 0 ? kScaleNormal : kScaleTrillPenalty;
         Finish(rank, scale, NoteTypeOutcomeKind::Scored, captured_us, delta_us, result);
     }
+    return result;
+}
+
+NoteTypeResult NativeTrillState::TailHit(const NativeNoteEvent& event,
+                                         double captured_us) noexcept {
+    NoteTypeResult result;
+    result.status = NoteTypeStatus::Ok;
+    // 1A7910: p = chart+40 + 24*note+348. Without the chart sub-element array
+    // the sound trigger cannot be reproduced, so the branch is refused.
+    if (spec_.sub_element_count == 0) {
+        NoteTypeOutcome& outcome = Append(result);
+        outcome = MakeOutcome(NoteTypeOutcomeKind::Unsupported, spec_.lane, captured_us);
+        outcome.reason = "trill sub-element array (chart+36/+40) is empty";
+        ++result.unsupported;
+        return result;
+    }
+    const std::size_t index = sub_cursor_ < spec_.sub_element_count ? sub_cursor_ : 0;
+    const TrillSubElement& element = spec_.sub_elements[index];
+    // drive = (event != 0) && ((chart+12 & 8) == 0). A press always has an event.
+    const bool drive = (spec_.chart_flags & 0x8) == 0;
+    std::int32_t length = element.end_frame - element.start_frame;
+    // 1A7910 only clamps for the non-driven case; a driven element with a
+    // non-positive length keeps it (the native passes the signed value on).
+    if (!drive && length <= 0) length = 1;
+    if (length < 0) length = 0; // keeps the unsigned outcome representable
+    // Not driven: a fresh rolling id from dword_1813E56E0 (same wrap as a start).
+    std::uint32_t sound_id = event.event_id;
+    if (!drive) {
+        ++sound_serial_;
+        if (sound_serial_ > config_.sound_serial_limit) {
+            sound_serial_ = config_.sound_serial_start;
+        }
+        sound_id = sound_serial_;
+    }
+
+    NoteTypeOutcome& outcome = Append(result);
+    outcome = MakeOutcome(NoteTypeOutcomeKind::TrillTailHit, spec_.lane, captured_us);
+    outcome.sub_element = static_cast<std::uint32_t>(index);
+    outcome.cue_reference = element.cue_reference;
+    outcome.length_frames = static_cast<std::uint32_t>(length);
+    outcome.sound_id = sound_id;
+    outcome.sound_started = true;
+    // ++note+348, wrapped at chart+36; every tail press re-arms note+344 = 25.
+    ++sub_cursor_;
+    if (sub_cursor_ >= spec_.sub_element_count) sub_cursor_ = 0;
+    countdown_ = kTrillTailCountdownFrames;
+    outcome.countdown = countdown_;
     return result;
 }
 
@@ -1147,14 +1267,17 @@ NoteTypeResult NativeTrillState::Press(const NativeNoteEvent& event, double deci
             outcome.event_id = event.event_id;
             return result;
         }
-        // 1A7BE5: a tail press is handed to 0x1A7910, which owns the alternating
-        // hit bookkeeping. Without it the press is reported and only the tail's
-        // own completion rule is applied.
+        // 1A7BE5: a tail press is handed to 0x1A7910, which re-triggers the
+        // sub-element sound, advances the cursor and re-arms the countdown. It
+        // never judges; only the tail's own completion rule can finish the note.
         if (!config_.trill_tail_handler_proven) {
             NoteTypeOutcome& outcome = Append(result);
             outcome = MakeOutcome(NoteTypeOutcomeKind::Unsupported, spec_.lane, captured);
-            outcome.reason = "trill tail handler 0x1A7910 not decoded";
+            outcome.reason = "trill tail handler 0x1A7910 effects not enabled";
             ++result.unsupported;
+        } else {
+            NoteTypeResult hit = TailHit(event, captured);
+            MergeOutcomes(result, hit);
         }
         NoteTypeResult step = TailStep(false, false, captured, delta);
         MergeOutcomes(result, step);
