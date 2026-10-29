@@ -191,6 +191,42 @@ struct ScoreEffect final {
     [[nodiscard]] bool ok() const noexcept { return status == ScoreStatus::Ok; }
 };
 
+// ===========================================================================
+// note+84 override: proven arithmetic, unproven trigger (A4 / B7)
+// ===========================================================================
+//
+// 0x180303EDC: `if (a1 > 1 && a3 > 1) { v16 = 100; a3 = 5; }`, where a1 is
+// note+84 - the candidate slot that answered - and a3 the window grade. The
+// ARITHMETIC is proven from bytes and NativeScoringState::Apply reproduces it.
+// The TRIGGER is not: note+84 is written only by vtable slot 29 from the input
+// event's +0x20 dword, and no live run has ever produced note+84 > 1
+// (analyze/impl-20261030/PROBE_ANALYSIS.md s10: 500 of 500 judge calls had
+// id == 1). Until a sample shows id 2 or 3 in a real judgement, a live or shadow
+// consumer must not act on the branch.
+//
+// `kSlotOverrideVerified` is a compile-time constant and nothing in this stream
+// sets it to true; DecideSlotOverride() lets a consumer ask the question and get
+// Unverified back instead of silently applying an unproven rule.
+inline constexpr bool kSlotOverrideVerified = false;
+
+enum class SlotOverrideDecision : std::uint8_t {
+    NotApplicable = 0, // note+84 <= 1 or grade <= 1: the branch cannot fire
+    Applies = 1,       // both conditions hold and the caller enabled the rule
+    Unverified = 2,    // both conditions hold, but the trigger is unproven
+};
+
+[[nodiscard]] const char* SlotOverrideDecisionName(SlotOverrideDecision decision) noexcept;
+
+// True only when the branch's two conditions hold AND the caller vouches for the
+// trigger (a live sample proved note+84 > 1). `verified` defaults to the
+// compile-time constant, which is false.
+[[nodiscard]] constexpr SlotOverrideDecision DecideSlotOverride(
+    std::uint32_t event_state, std::uint8_t grade,
+    bool verified = kSlotOverrideVerified) noexcept {
+    if (event_state <= 1u || grade <= 1u) return SlotOverrideDecision::NotApplicable;
+    return verified ? SlotOverrideDecision::Applies : SlotOverrideDecision::Unverified;
+}
+
 // Single-owner scoring state. `Apply` is O(1), allocation-free and noexcept; it
 // never throws and never fails to a partially-applied state: a rejected input
 // leaves every counter untouched.
