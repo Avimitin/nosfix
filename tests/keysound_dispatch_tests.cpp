@@ -1,5 +1,6 @@
 #include "test_support.hpp"
 
+#include "nosfix/audio_mixer.hpp"
 #include "nosfix/keysound_dispatch.hpp"
 
 #include <array>
@@ -342,6 +343,112 @@ int main() {
         CHECK(edge_sink.items[0].offset_in_block == 0);
         CHECK(edge_sink.items[0].late_frames ==
               std::numeric_limits<std::uint32_t>::max());
+    }
+
+
+    // --- mixer integration -------------------------------------------------
+    // The queue guarantees one delivery with a block offset; these tests drive
+    // the real AudioMixer sink so the offset is proven on rendered samples, not
+    // just in the dispatch record.
+    {
+        using nosfix::audio::AudioMixer;
+        using nosfix::audio::AudioEncoding;
+        using nosfix::audio::MixerBufferDesc;
+        using nosfix::audio::MixerFormat;
+        using nosfix::audio::MixerVoiceDesc;
+
+        struct MixerSink {
+            AudioMixer* mixer = nullptr;
+            std::int32_t voice = 0;
+            std::uint32_t starts = 0;
+            std::uint32_t rejected = 0;
+            std::uint32_t last_offset = 0;
+        };
+        auto start_in_mixer = [](void* context,
+                                 const KeysoundDispatch& dispatch) noexcept -> bool {
+            auto* sink = static_cast<MixerSink*>(context);
+            sink->last_offset = dispatch.offset_in_block;
+            if (sink->voice <= 0 || !sink->mixer->VoiceAlive(sink->voice)) {
+                ++sink->rejected;
+                return false;
+            }
+            if (!sink->mixer->StartVoice(sink->voice, dispatch.offset_in_block)) {
+                ++sink->rejected;
+                return false;
+            }
+            ++sink->starts;
+            return true;
+        };
+
+        static AudioMixer mixer;
+        CHECK(mixer.Prepare(44100, 2, 256));
+        MixerVoiceDesc desc;
+        desc.format.sample_rate = 44100;
+        desc.format.channels = 1;
+        desc.format.encoding = AudioEncoding::Float32;
+        const std::int32_t voice = mixer.CreateVoice(desc);
+        CHECK(voice > 0);
+        static const float one_sample[1] = {0.5F};
+        MixerBufferDesc buffer;
+        buffer.data = reinterpret_cast<const std::uint8_t*>(one_sample);
+        buffer.frame_count = 1;
+        buffer.loop_count = nosfix::audio::kMixerLoopInfinite;
+        CHECK(mixer.SubmitBuffer(voice, buffer));
+
+        MixerSink mixer_sink;
+        mixer_sink.mixer = &mixer;
+        mixer_sink.voice = voice;
+
+        static Mapper mix_mapper;
+        mix_mapper.valid = true;
+        KeysoundQueue mix_queue(64);
+        mix_queue.SetMapper(&MapQpc, &mix_mapper);
+        // Sample 1037: origin 5000000 ticks -> 0 samples, so 1037 samples is
+        // 1037 * 10'000'000 / 44100 ticks after the origin.
+        const std::int64_t due_qpc = kQpcOrigin + (1037LL * kQpcFrequency) / kRate;
+        CHECK(mix_queue.Push(Request(1, 9, due_qpc)).accepted());
+        const auto mix_outcome = mix_queue.DispatchDue(1000, 128, 9, start_in_mixer, &mixer_sink);
+        CHECK(mix_outcome.dispatched == 1);
+        CHECK(mix_outcome.sink_rejected == 0);
+        CHECK(mixer_sink.starts == 1);
+        CHECK(mixer_sink.last_offset == 37);
+
+        float left[128] = {};
+        float right[128] = {};
+        float* channels[2] = {left, right};
+        CHECK(mixer.Render(1000, 128, channels, 2));
+        for (int frame = 0; frame < 37; ++frame) {
+            CHECK(left[frame] == 0.0F);
+        }
+        CHECK(std::fabs(left[37] - 0.5F) < 1e-6F);
+        CHECK(std::fabs(right[127] - 0.5F) < 1e-6F);
+
+        // A second dispatch of the same block delivers nothing: the event was
+        // retired when the sink saw it.
+        const auto repeat = mix_queue.DispatchDue(1000, 128, 9, start_in_mixer, &mixer_sink);
+        CHECK(repeat.dispatched == 0);
+        CHECK(mixer_sink.starts == 1);
+
+        // Generation mismatch is dropped before the sink.
+        CHECK(mix_queue.Push(Request(2, 10, due_qpc)).accepted());
+        const auto stale = mix_queue.DispatchDue(1000, 128, 11, start_in_mixer, &mixer_sink);
+        CHECK(stale.dispatched == 0);
+        CHECK(stale.dropped_stale == 1);
+        CHECK(mixer_sink.starts == 1);
+
+        // A dead mixer handle is refused by the sink and counted once; the event
+        // is still retired.
+        CHECK(mix_queue.Push(Request(3, 9, due_qpc)).accepted());
+        const std::int32_t dead = voice + 100000; // not a live handle
+        MixerSink broken_mixer_sink;
+        broken_mixer_sink.mixer = &mixer;
+        broken_mixer_sink.voice = dead;
+        const auto refused = mix_queue.DispatchDue(1000, 128, 9, start_in_mixer,
+                                                   &broken_mixer_sink);
+        CHECK(refused.dispatched == 1);
+        CHECK(refused.sink_rejected == 1);
+        CHECK(broken_mixer_sink.rejected == 1);
+        CHECK(mix_queue.Pending() == 0);
     }
 
     return test::Finish("keysound_dispatch");

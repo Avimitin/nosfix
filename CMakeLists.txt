@@ -33,7 +33,9 @@ target_include_directories(minhook PUBLIC "${minhook_SOURCE_DIR}/include")
 target_compile_definitions(minhook PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 
 add_library(nosfix SHARED
+    src/asio_audio_host.cpp
     src/asio_output.cpp
+    src/audio_mixer.cpp
     src/audio_clock_patch.cpp
     src/audio_timeline.cpp
     src/bootstrap.cpp
@@ -74,6 +76,7 @@ add_library(nosfix SHARED
     src/timed_ui_timeline.cpp
     src/ui_motion.cpp
     src/ui_hooks.cpp
+    src/xaudio2_bridge.cpp
 )
 target_compile_features(nosfix PRIVATE cxx_std_20)
 target_compile_definitions(nosfix PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
@@ -209,7 +212,8 @@ if(BUILD_TESTING)
     add_executable(nosfix_audio_timeline_tests
         tests/audio_timeline_tests.cpp src/audio_timeline.cpp)
     add_executable(nosfix_keysound_dispatch_tests
-        tests/keysound_dispatch_tests.cpp src/keysound_dispatch.cpp)
+        tests/keysound_dispatch_tests.cpp src/keysound_dispatch.cpp
+        src/audio_mixer.cpp)
     add_executable(nosfix_audio_native_abi_tests tests/asio_native_abi_tests.cpp)
     add_executable(nosfix_asio_output_tests
         tests/asio_output_tests.cpp src/asio_output.cpp src/audio_timeline.cpp)
@@ -236,6 +240,27 @@ if(BUILD_TESTING)
     add_test(NAME asio_native_abi COMMAND nosfix_audio_native_abi_tests)
     add_test(NAME asio_output_core COMMAND nosfix_asio_output_tests)
     add_test(NAME asio_registry_smoke COMMAND nosfix_asio_registry_smoke)
+    add_executable(nosfix_xaudio2_bridge_tests
+        tests/xaudio2_bridge_tests.cpp
+        src/xaudio2_bridge.cpp src/audio_mixer.cpp)
+    add_executable(nosfix_asio_backend_tests
+        tests/asio_backend_tests.cpp
+        src/asio_audio_host.cpp src/asio_output.cpp src/audio_timeline.cpp
+        src/keysound_dispatch.cpp src/xaudio2_bridge.cpp src/audio_mixer.cpp)
+    foreach(audio_backend_target
+            nosfix_xaudio2_bridge_tests
+            nosfix_asio_backend_tests)
+        target_compile_features(${audio_backend_target} PRIVATE cxx_std_20)
+        target_include_directories(${audio_backend_target} PRIVATE include tests src)
+        target_compile_definitions(${audio_backend_target} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        if(MSVC)
+            target_compile_options(${audio_backend_target} PRIVATE /W4 /permissive- /EHsc /utf-8)
+            target_link_options(${audio_backend_target} PRIVATE /MANIFEST:NO)
+        endif()
+    endforeach()
+    target_link_libraries(nosfix_asio_backend_tests PRIVATE ole32 advapi32)
+    add_test(NAME xaudio2_bridge COMMAND nosfix_xaudio2_bridge_tests)
+    add_test(NAME asio_backend COMMAND nosfix_asio_backend_tests)
     set(NOSFIX_ASIO_SDK_INCLUDE
         "D:/Share/chart-requester/reference/spice2x/src/spice2x/external/asio"
         CACHE PATH "Official ASIO SDK include directory (not vendored)")
