@@ -103,6 +103,13 @@ is fail-closed: if the driver, rate, buffer, channels or hook bytes do not
 match, it logs the reason and leaves the original engine in place. It has not
 been validated on real hardware.
 
+Use `scripts\nosfix-config-gui.ps1` to edit the adjacent ini in a small WinForms
+window. It lists the registered ASIO drivers from `HKLM\SOFTWARE\ASIO` and
+saves the selected driver by CLSID, so the name does not need to be copied from
+regedit. `-ListDrivers` prints the registry entries without opening the GUI;
+`-SelfTest` builds the form without showing it. The script is optional and does
+not modify the DLL.
+
 Hook sets are supplied as explicit module-relative RVAs and exact expected
 instruction bytes. The installer validates the complete set before creating
 detours and applies queued hooks together. A failure rolls back the hook set
