@@ -48,14 +48,8 @@ Config LoadConfig(const std::filesystem::path& path) {
         const auto value = Trim(line.substr(equals + 1));
         if (key == "enabled") {
             config.enabled = value == "1" || value == "true" || value == "yes";
-        } else if (key == "smooth_motion") {
-            config.smooth_motion = value == "1" || value == "true" || value == "yes";
-        } else if (key == "smooth_ui") {
-            config.smooth_ui = value == "1" || value == "true" || value == "yes";
         } else if (key == "precise_audio_clock") {
             config.precise_audio_clock = value == "1" || value == "true" || value == "yes";
-        } else if (key == "clock_motion") {
-            config.clock_motion = value == "1" || value == "true" || value == "yes";
         } else if (key == "skip_monitor_check") {
             config.skip_monitor_check = value == "1" || value == "true" || value == "yes";
         } else if (key == "capture_input") {
@@ -64,10 +58,6 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.native_shadow = value == "1" || value == "true" || value == "yes";
         } else if (key == "diagnostic_probe") {
             config.diagnostic_probe = value == "1" || value == "true" || value == "yes";
-        } else if (key == "timeline_probe") {
-            config.timeline_probe = value == "1" || value == "true" || value == "yes";
-        } else if (key == "high_refresh_timeline") {
-            config.high_refresh_timeline = value == "1" || value == "true" || value == "yes";
         } else if (key == "native_shadow_feed") {
             config.native_shadow_feed = value == "1" || value == "true" || value == "yes";
         } else if (key == "asio_output") {

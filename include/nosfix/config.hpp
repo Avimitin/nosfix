@@ -7,16 +7,11 @@ namespace nosfix {
 
 struct Config {
     bool enabled = true;
-    bool smooth_motion = true;
-    bool smooth_ui = true;
     bool precise_audio_clock = true;
     bool skip_monitor_check = true;
     bool capture_input = false; // Experimental raw event observation; no judgments yet.
-    bool clock_motion = false; // Experimental: normal notes follow the cue clock.
     bool native_shadow = false; // Publish the shadow song clock; no judgments yet.
     bool diagnostic_probe = false; // Read-only PROBE log lines for live samples.
-    bool timeline_probe = false; // Read-only per-tick timeline/offset probe.
-    bool high_refresh_timeline = false; // Experimental microsecond native timeline cutover.
     bool native_shadow_feed = false; // Live normal-note shadow comparison; no scoring effect.
     bool asio_output = false; // Experimental native ASIO route; off by default.
     std::string asio_driver_clsid;

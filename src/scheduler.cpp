@@ -7,8 +7,6 @@ namespace nosfix {
 namespace {
 
 bool IsSupportedRate(unsigned hz) noexcept {
-    // Explicit targets come from the supported list in Config; automatic
-    // selection must also accept real integer modes such as 75 or 143 Hz.
     return hz >= 60 && hz <= 1000;
 }
 
@@ -16,18 +14,13 @@ bool IsSupportedRate(unsigned hz) noexcept {
 
 bool FrameScheduler::Start(std::int64_t qpc_frequency,
                            unsigned presentation_hz,
-                           std::int64_t qpc_now,
-                           unsigned simulation_hz,
-                           bool render_with_simulation) noexcept {
-    if (qpc_frequency <= 0 || !IsSupportedRate(presentation_hz) ||
-        !IsSupportedRate(simulation_hz)) return false;
+                           std::int64_t qpc_now) noexcept {
+    if (qpc_frequency <= 0 || !IsSupportedRate(presentation_hz)) return false;
     qpc_frequency_ = qpc_frequency;
     epoch_qpc_ = qpc_now;
     simulation_index_ = 1;
     presentation_index_ = 0;
     presentation_hz_ = presentation_hz;
-    simulation_hz_ = simulation_hz;
-    render_with_simulation_ = render_with_simulation;
     running_ = true;
     return true;
 }
@@ -51,9 +44,6 @@ std::int64_t FrameScheduler::FirstSlotAfter(std::int64_t qpc_now) const noexcept
     const std::int64_t passed = whole_seconds * presentation_hz_ +
         (remainder * presentation_hz_) / qpc_frequency_;
     std::int64_t first = passed + 1;
-    // The rational deadline is floored to an integer QPC count. At a slot
-    // deadline, the inverse division can therefore round down to slot-1.
-    // Correct against the exact same deadline function to guarantee progress.
     while (Boundary(presentation_hz_, first) <= qpc_now) ++first;
     while (first > 0 && Boundary(presentation_hz_, first - 1) > qpc_now) --first;
     return first;
@@ -61,13 +51,13 @@ std::int64_t FrameScheduler::FirstSlotAfter(std::int64_t qpc_now) const noexcept
 
 std::int64_t FrameScheduler::NextSimulationBoundary() const noexcept {
     if (!running_) return 0;
-    return Boundary(simulation_hz_, simulation_index_);
+    return Boundary(presentation_hz_, simulation_index_);
 }
 
 double FrameScheduler::SimulationPhase(std::int64_t qpc_now) const noexcept {
     if (!running_) return 0.0;
-    const auto begin = Boundary(simulation_hz_, simulation_index_ - 1);
-    const auto end = Boundary(simulation_hz_, simulation_index_);
+    const auto begin = Boundary(presentation_hz_, simulation_index_ - 1);
+    const auto end = Boundary(presentation_hz_, simulation_index_);
     if (end <= begin || qpc_now <= begin) return 0.0;
     if (qpc_now >= end) return 1.0;
     return static_cast<double>(qpc_now - begin) / static_cast<double>(end - begin);
@@ -77,30 +67,25 @@ ScheduleStep FrameScheduler::Next(std::int64_t qpc_now) noexcept {
     if (!running_) return {ScheduleAction::TickComplete, qpc_now, 0};
 
     const std::int64_t simulation_boundary =
-        Boundary(simulation_hz_, simulation_index_);
+        Boundary(presentation_hz_, simulation_index_);
     const std::int64_t presentation_boundary =
         Boundary(presentation_hz_, presentation_index_);
 
     if (qpc_now >= simulation_boundary) {
-        // At equal rates the display slot and the native tail share a
-        // boundary. Serve one render first, then retire the update on the next
-        // loop so the native tail runs after the frame it belongs to. A render
-        // that overruns into later boundaries does not render again for the
-        // same update.
-        if (SameRate() && presentation_index_ <= simulation_index_ &&
+        // Serve one display slot before retiring the native update. A render
+        // that overruns later boundaries does not render again for this update.
+        if (presentation_index_ <= simulation_index_ &&
             presentation_boundary <= qpc_now) {
             presentation_index_ = FirstSlotAfter(qpc_now);
             return {ScheduleAction::Render, qpc_now, 0};
         }
         const std::int64_t late_by = qpc_now - simulation_boundary;
-        ++simulation_index_; // Retire exactly one native iteration per call.
+        ++simulation_index_;
         return {ScheduleAction::TickComplete, simulation_boundary, late_by};
     }
 
     if (presentation_boundary < simulation_boundary &&
         presentation_boundary <= qpc_now) {
-        // One due slot can be served now. Any additional elapsed slots are
-        // skipped, so a delay cannot cause a burst of stale presentations.
         presentation_index_ = FirstSlotAfter(qpc_now);
         return {ScheduleAction::Render, qpc_now, 0};
     }

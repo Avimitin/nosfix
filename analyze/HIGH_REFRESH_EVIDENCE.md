@@ -350,8 +350,8 @@ The host side currently assumes frames as well:
   live timeline must not call them.
 - `include/nosfix/timed_note_geometry.hpp:248` documents the `rate^2` angle
   formula that the migration replaces.
-- `FrameScheduler::kLegacySimulationHz = 60` still schedules the native tail at
-  60.
+- The fixed-60 `FrameScheduler` mode and its `kLegacySimulationHz` constant
+  were removed. The scheduler uses the presentation rate for both boundaries.
 
 These must be changed in the same branch. If the native counter becomes
 microseconds while these readers still treat it as frames, the host diagnostic
@@ -382,36 +382,31 @@ The image resolves the questions that were previously marked “runtime”:
    The counter is reset to its preroll value at every song/timeline start; a
    chart is far below that bound. Any service-mode use must be checked
    separately, but it does not affect song playback.
-7. **Frame adjustment / countdown:** `0x70A740` has no positive writer and is
-   always `<= 0`; `0x70A750` is never set above 0, so its countdown branch is
-   dead in this build.
+7. **Frame adjustment / countdown:** `0x70A740` had no positive writer and
+   three frame-unit `dec` sites. Those sites are now NOPed by the conversion
+   patch set, so the field remains zero and cannot feed frame units into the
+   microsecond drift path. `0x70A750` is never set above 0, so its countdown
+   branch is dead in this build.
 
 The only thing the image cannot prove is whether an **injected module** writes
 these globals directly. `nosfix` does not: the host code only reads
 `0x70A610`. That is an integration invariant to enforce, not a reason to keep a
 runtime probe as the primary source.
 
-## 11. Next step
+## 11. Implementation state
 
-The read-only probe is still useful as a validation check, but it is no longer
-required to decide the design. It is implemented as `timeline_probe`
-(commit `f19ca3b`) and emits one `TIMELINE` line per tick for comparison with
-the static model:
+The read-only probe has been removed. The production path is mandatory:
 
-- QPC and QPC delta;
-- counter before/after/delta;
-- end frame, both offset high dwords, frame adjustment and clock state;
-- BPM, beat, tempo index/count;
-- float/double rate and mode.
+- the conversion manifest is prepared, validated and committed;
+- `sub_1802FC9D0` is replaced by the absolute-microsecond tick;
+- the judge-delay seed and UI hooks convert their values to microseconds;
+- the scheduler uses the presentation rate for simulation and presentation;
+- there is no feature switch, no fixed-60 scheduler fallback, and no fallback
+  to the original tick.
 
-It changes no playback state. The diagnostic package is at
-`out/timeline-probe-20261030/` with `timeline_probe=true`; the run instructions
-are in `README-TIMELINE-PROBE.txt` there.
-
-Use the log to confirm the offset cadence, the 0/1/2 update pattern, and the
-rate/mode values. The chart loader, tick and formula families are then patched
-in one branch; the probe can remain available for validation and should be
-removed from the final production configuration.
+The remaining work is live validation at each rate and removal of the dormant
+host frame-reader source. Use the packaged build and `nosfix.log` for the
+high-refresh acceptance run.
 
 ## Appendix: all 105 direct references
 

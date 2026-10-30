@@ -77,9 +77,10 @@ Key paths:
 - `sub_1801A43E0` — chart loader; converts chart milliseconds with the literal
   `60.0 / 1000.0` at `0x1801A4935..0x1801A4945`.
 
-The current `FrameScheduler` has `kLegacySimulationHz = 60`; it calls the
-original game tail update at 60 and the render routine at the display rate.
-That is why the rest of the game still advances at 60.
+Before the cutover, `FrameScheduler` called the original game tail update at a
+fixed 60 Hz and the render routine at the display rate. That is why the rest of
+the game advanced at 60. The fixed mode has been removed: the scheduler now
+uses the display rate for both boundaries.
 
 ## Direct cutover plan
 
@@ -177,18 +178,19 @@ Implemented in the current branch:
 
 - `NativeTimeline` microsecond tick core with an analytic tempo-map test.
 - Real-image conversion manifest: 43 float `rate*rate` sites, 16 double-rate
-  reads, 6 counter resets, 8 judgment windows, and the `-160` stage threshold.
+  reads, 6 counter resets, 8 judgment windows, and the `-160`, `-80`, `-1`
+  and `3000` frame thresholds.
 - Guarded prepare/commit/rollback engine, including a real-image test.
-- `timeline_probe` read-only validation hook.
-- `high_refresh_timeline` runtime:
-  - absolute microsecond tick driven by the published cue clock or QPC fallback;
+- Mandatory microsecond runtime:
+  - absolute microsecond tick driven by the published cue clock with QPC
+    elapsed time as the host clock;
   - `sub_180305B30` / `sub_180277000` judge-offset conversion from frames to us;
   - scheduler simulation rate follows presentation rate and renders before the
     native tail at equal rates.
+  - no feature switch and no fallback to the original tick.
 
 Still required before calling it complete:
 
-- audit `dword_18070A740` / frame-unit audio adjustment;
 - validate live at 60/120/144/165/240/360 Hz, including pause/seek/retry;
 - remove the dormant host frame readers (`timed_rendering`, `motion_hooks`,
   diagnostics) or gate them off permanently;

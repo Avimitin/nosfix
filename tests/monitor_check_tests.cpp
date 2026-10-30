@@ -84,11 +84,11 @@ int wmain(int argc, wchar_t** argv) {
         Read<std::uint8_t>(scene.data(), 260) != 1 ||
         Read<double>(scene.data(), 120) != 123.5)
         Fail("native scene completion was not initialized correctly");
-    if (Read<double>(base, 0x70B2F8) != 60.0 ||
-        Read<float>(base, 0x70B300) != 60.0f ||
-        Read<std::int32_t>(base, 0x70B304) != 60 ||
+    if (Read<double>(base, 0x70B2F8) != 59.75 ||
+        Read<float>(base, 0x70B300) != 59.75f ||
+        Read<std::int32_t>(base, 0x70B304) != 59 ||
         Read<std::uint8_t>(base, 0x12D342F) != 1)
-        Fail("legacy units or completion flag incorrect");
+        Fail("hook wrote legacy rate constants or missed the completion flag");
     const auto callback = Read<Callback>(scene.data(), 208);
     if (callback(scene.data()) != 7 || !completed)
         Fail("native completion callback did not reach the scene operation");
@@ -101,5 +101,5 @@ int wmain(int argc, wchar_t** argv) {
     if (std::memcmp(original.data(), base + 0x218CF0, original.size()))
         Fail("hook removal did not restore initializer");
     FreeLibrary(game);
-    std::puts("Native FPS-check branch, completion ABI, legacy constants and hook rollback passed.");
+    std::puts("Native FPS-check branch, completion ABI, untouched rate globals and hook rollback passed.");
 }

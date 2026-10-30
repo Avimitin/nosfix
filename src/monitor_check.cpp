@@ -24,13 +24,10 @@ template<class T> void Write(unsigned char* base, DWORD rva, T value) noexcept {
 std::intptr_t __fastcall InitializeDetour(void* scene) {
     if (auto* base = g_base.load(std::memory_order_acquire)) {
         // Original initializer chooses the completion callback when this flag
-        // is set. No state-machine layout or virtual callback is fabricated.
-        // Calibration normally changes all three legacy conversion constants.
-        Write(base, 0x70B2F8, 60.0);
-        Write(base, 0x70B300, 60.0f);
-        Write(base, 0x70B304, std::int32_t{60});
+        // is set. No rate constants are written: the native timeline uses the
+        // absolute microsecond conversion manifest instead.
         Write(base, 0x12D342F, std::uint8_t{1});
-        Log(LogLevel::Info, "startup FPS calibration skipped via native completion path; legacy chart units=60/s");
+        Log(LogLevel::Info, "startup FPS calibration skipped via native completion path");
     }
     return g_initialize ? g_initialize(scene) : 0;
 }

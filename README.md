@@ -4,26 +4,21 @@
 project is C++20 and uses MinHook v1.3.3 at pinned commit
 `9fbd087432700d73fc571118d6a9697a36443d88`.
 
-The current runtime still has a 60 Hz simulation and independent presentation.
-The `clock_motion` path evaluates normal, long, trill and glissando note
-geometry from chart time; velocity zones and beat lines remain on the legacy
-path. It does **not** yet implement timestamped input judgments, fully
-time-based UI animation, or a hardware-validated ASIO output route. The new work targets an
-audio-referenced timeline with QPC input timestamps, independent of display
-cadence. See [the integration contracts and remaining work](analyze/NATIVE_TIMING.txt)
-and [the DLL change map](analyze/DLL_CHANGE_MAP.md).
+The current runtime uses a single absolute microsecond music timeline. The
+native chart loader, note timestamps, judgment windows, timeline tick and
+beat/angle formulas operate in microseconds; the scheduler retires one native
+update per display frame. There is no 60 Hz simulation fallback and no host
+frame-prediction path. Timestamped input judgments and a hardware-validated
+ASIO route remain future work. See
+[the high-refresh notes](analyze/HIGH_REFRESH_FIRST.md) and
+[the DLL change map](analyze/DLL_CHANGE_MAP.md).
 
-Version 0.4 adds a guarded correction to libxact's cue-clock arithmetic,
-chart-time note projection sampled from that clock, and a startup
-FPS-calibration bypass. It also includes an optional HID/keyboard report
-observer. A `SongClock`/`ShadowClock` publication is tested and, with
-`native_shadow=true`, connected to the raw input observer, but it does not feed
-judgments. The experimental chart-time path is disabled in the distributed
-configuration by default. The merged native match/scoring, bucket-input,
-timed-UI and XAudio2/ASIO components are compiled and tested. The normal-note
-shadow feed can be enabled explicitly with `native_shadow_feed=true`, but it
-only logs comparisons; the original judge remains authoritative. No other live
-hook reaches these components.
+Version 0.4 adds a guarded correction to libxact's cue-clock arithmetic, a
+native conversion manifest recovered from IDA, and a startup FPS-calibration
+bypass. The optional `SongClock`/`ShadowClock` publication can be connected to
+the raw input observer with `native_shadow=true`, but it does not feed
+judgments. The merged native match/scoring, bucket-input, timed-UI and
+XAudio2/ASIO components are compiled and tested but dormant.
 
 ## Build
 
@@ -54,18 +49,15 @@ hook setup run from that SDK entry point. The adjacent `nosfix.ini` enables
 hooks by default and uses `target_hz=auto` to select the primary display's
 current refresh rate. Initialization verifies the loaded x64 PE and the
 on-disk `nostalgia.dll` file size and SHA-256 before any hook code can proceed.
-UI smoothing independently verifies the installed `afp-core.dll` size and SHA-256.
-`precise_audio_clock=true` also verifies `libxact.dll` and replaces only the
-cue-clock arithmetic: subtract 64-bit QPC timestamps first, calculate in
-double precision, and convert to float at the existing ABI boundary. Cue
-selection and the existing audio-clock fallback remain unchanged. This
-correction alone does not remove the game's frame-based judgments.
+The microsecond cutover validates the complete `nostalgia.dll` conversion
+manifest before writing any byte. `precise_audio_clock=true` is mandatory: it
+verifies `libxact.dll` and replaces the cue-clock arithmetic so the published
+song clock is QPC-correct. Cue selection and the audio backend are unchanged.
 `skip_monitor_check=true` selects the game's existing FPS-check completion
-path at startup and fixes the three legacy chart conversion constants at 60.
-This removes the calibration wait, not hardware/network checks. Those units
-are temporary compatibility for frame-based consumers: integer judgments
-still have roughly 16.67 ms granularity. The native judgment migration will
-use retained millisecond chart times and timestamped input instead.
+path at startup without writing any rate constants. This removes the
+calibration wait, not hardware/network checks. There is no frame-unit fallback:
+the native timeline, chart loader, note timestamps, judgment windows and
+beat/angle formulas all operate in microseconds.
 The entry-point ABI follows the [Spice SDK header](https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/sdk/include/spicesdk.h)
 and its [SDK initialization path](https://raw.githubusercontent.com/spice2x/spice2x.github.io/main/src/spice2x/sdk/sdk.cpp).
 
@@ -74,37 +66,20 @@ and its [SDK initialization path](https://raw.githubusercontent.com/spice2x/spic
 Copy the built `nosfix.dll` and its adjacent `nosfix.ini` beside `spice64.exe`,
 then add `-k nosfix.dll` to the existing
 `spice64.exe` launch command. Set `target_hz=auto` to use the primary display's
-current rate, or set `target_hz` to 60, 90, 120, 144, 165, 240, or 360.
-Keep `smooth_motion=true` for the bounded prediction pass. Set it to `false`
-for a comparison at the same presentation rate with the original geometry.
-`smooth_ui=true` enables supported AFP UI translations; set it to `false`
-to compare menus with their original motion. Both switches are read on startup.
-At 60 Hz, prediction passes through without capturing or predicting geometry.
-`clock_motion=true` enables the experimental chart-time projection for normal,
-long, trill and glissando notes at any presentation rate and requires
-`precise_audio_clock=true`. Velocity zones and beat lines keep the legacy path.
-During its live trial, `smooth_motion=false` and `smooth_ui=false` isolate it.
+current rate, or set `target_hz` to 60, 90, 120, 144, 165, 240, or 360. The
+display rate is also the native simulation rate; there is no 60 Hz mode.
+Host note/UI prediction and the former `clock_motion` path are removed.
 `native_shadow=true` publishes that corrected cue time as an immutable
 song-clock snapshot for the raw input observer. It requires
 `precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
 logs mapped, unmapped and backward-mapping counters every five seconds. It
-does not feed judgments, scoring, rendering, or sound. `native_shadow_feed=true`
-runs the normal-note shadow judge over the live note objects and staging bucket,
-logging `SHADOW outcome`/`SHADOW effect` records without changing the original
-judge. It requires `precise_audio_clock=true`; `diagnostic_probe=true` emits
-read-only `PROBE` lines for the normal judge and gliss/velocity note updates.
-`timeline_probe=true` hooks the music timeline tick and emits a read-only
-`TIMELINE` line per tick with the frame delta, QPC delta, both timing offsets,
-end frame, frame adjustment, clock state, BPM/beat, tempo index and rate/mode.
-The migration design is recovered statically from IDA; this probe only confirms
-that the static model matches the running build. Both are diagnostic aids, not
-gameplay paths.
-`high_refresh_timeline=true` enables the experimental native microsecond
-cutover: chart times, note times, judgment windows, the timeline tick and the
-beat/angle formulas switch to absolute microseconds, and the scheduler retires
-one native update per display frame. It requires `precise_audio_clock=true`;
-host note/UI prediction is disabled automatically. Set `target_hz` to the
-desired display rate and keep `timeline_probe=false` while evaluating it.
+does not feed judgments, scoring, rendering, or sound. `native_shadow_feed` is
+rejected in this build: the microsecond timeline is authoritative.
+`diagnostic_probe=true` emits read-only `PROBE` lines for the normal judge.
+The microsecond timeline is always enabled: chart times, note times, judgment
+windows, the timeline tick and beat/angle formulas use absolute microseconds,
+and the scheduler retires one native update per display frame. There is no
+`high_refresh_timeline` switch and no frame-unit fallback.
 See [the high-refresh notes](analyze/HIGH_REFRESH_FIRST.md).
 
 `asio_output=true` is an experimental native route: it opens an exact ASIO
@@ -138,68 +113,13 @@ register behavior for all other callers. No process-wide API hooks are installed
 Logs are appended to `nosfix.log` beside the DLL. The module does not launch,
 restart, or modify the original game installation.
 
-## Note motion
+## Native motion
 
-With `clock_motion=true`, normal, long, trill and glissando notes use their
-chart timestamps, retaining integer milliseconds before conversion to legacy
-frame units. Each presentation queries the corrected cue clock once, applies
-the existing song/visual offsets, and evaluates the game's native projection
-with a float distance argument. It rebuilds private quads and ribbons from the
-resulting center, scale and opacity. Previous rendered positions do not
-advance this clock. The original projector still rounds centers to integer
-pixels; scaled extents remain fractional intentionally. Source texture
-dimensions retain their original integer division, including height/2.
-Glissando uses its 104-byte record's own chart-ms/frame pair and link-frame
-distance; velocity zones and beat lines still fall back to the original path.
-Spawn/removal logic, judgments and UI timelines still use legacy updates.
-Pause/retry and every scroll mode have not yet been validated live.
-
-The following describes the separate `smooth_motion` prediction path.
-
-The original loop runs at fixed 60 Hz simulation boundaries. Above 60 Hz,
-the motion pass captures geometry after the original update of normal notes,
-long notes, beat lines, glissando notes, trill notes, and velocity-zone notes.
-It predicts fractional vertex positions from the latest two consecutive
-snapshots using the absolute QPC simulation phase. Every presentation starts
-from the latest game snapshot; predicted positions are never fed back into
-the game or accumulated. It adds no interpolation frame of latency.
-
-Only a private copy of XY vertex coordinates is changed at the AFP draw
-callback. Note fields, source buffers, colors, texture coordinates, and
-judgment positions remain on the original paths. Both textured heads and
-filled ribbons are covered. The downstream draw calls consume the private
-copy synchronously, as specified by Microsoft's
-[DrawPrimitiveUP contract](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-drawprimitiveup).
-
-Prediction is limited to one simulation step. New notes, missing updates,
-music-frame holds/seeks/double updates, hold-state changes, buffer reuse,
-changed textures/UVs, changed ribbon segment counts, and invalid or unusually
-large movement fall back to the latest original geometry. The game buffer
-must still match the captured bytes at draw time. Allocations happen during
-capture; drawing reuses owned buffers.
-
-This is bounded linear prediction, not an exact continuous-time rewrite of
-the game's nonlinear projection. Curved motion, integer position rounding,
-topology changes, and state transitions may still show small corrections or
-60 Hz steps. AFP menu timelines, hit effects, colors, input polling, and
-judgment processing remain at their original cadence.
-
-## UI motion
-
-The UI pass tracks individual AFP display nodes during draw traversal. It
-predicts their local translation from the latest two consecutive simulation
-ticks, using the same QPC phase as note motion. The original matrix composition
-receives an aligned private copy of the node's transform fields, so parent and
-child transforms retain their normal composition order. AFP node memory,
-timeline advancement, callbacks, and input hit testing are unchanged.
-
-This first UI pass covers translation in regular affine transform mode.
-Rotation, scale, fades, pivot modes, clipping bounds, and animation frame changes
-retain their original cadence. It is not a full AFP tween-engine replacement;
-moving clipping edges can still step. Reused nodes, changed resources/parents,
-missing ticks, multiple distinct samples in one tick, invalid matrices, and
-large jumps reset prediction. Histories are bounded and owned by the render
-thread. See [the verified AFP contracts](analyze/AFP_UI_TRANSFORM.md).
+The game's own note and UI geometry uses the microsecond timeline. The host
+does not capture, predict, or rewrite AFP vertices or matrices. The former
+`smooth_motion`, `smooth_ui` and `clock_motion` paths are removed from the
+runtime configuration; their source remains only as dormant experimental code
+and is not installed.
 
 ## Input observation
 
@@ -289,34 +209,20 @@ An isolated Windows test runs actual thread hooks, checks that peeking does not
 double-count input, forwards the original message, observes sent disconnects,
 and verifies unhook behavior.
 
-The live 0.4 trial on 2026-10-29 produced about 119 presentations/second and
-60 legacy ticks/second, with nonzero song-time normal-note draw counters and
-prediction disabled. The subsequent build logged the FPS-calibration bypass
-at 20:37:00 and proceeded to the startup logos. Counters prove execution of the
-new path; they do not establish correct manual judgment or long-session drift.
+Earlier 0.4 trials used the fixed-60 simulation and host prediction; those
+results are historical and do not validate the microsecond cutover.
 
-The final input-observation trial started at 21:10:49. It reached attract-mode
-gameplay with about 1000 HID reports/s, 119 presentations/s, and nonzero
-song-time normal draws. A measured 904 ms scene-loading stall caused no reported
-queue overflow, oversize packet, read error or malformed packet. These are raw
-report observations, not proof of 1 ms physical input accuracy or scoring latency.
-That trial ran with `clock_motion=true`, `capture_input=true`, and both
-prediction switches disabled. The packaged configuration leaves the
-experimental features disabled until explicitly selected.
+For the current build, run the same chart and timing settings at each target
+rate. Check normal notes, every long-note type, pause/retry, seek and song
+transitions. `nosfix.log` reports display-rate ticks, presentations, render
+cost and the timeline state every five seconds. Native ticks should approach
+the selected display rate, not 60, and there is no prediction counter because
+host geometry rewriting is not installed.
 
-For a live comparison, use the same chart, scroll speed, and timing settings
-with `smooth_motion=false` and then `true`. Check normal notes and each long
-note type near the judgment line, plus pause/retry and song transitions.
-`nosfix.log` reports legacy ticks, presentations, predicted/song-time draw counts,
-guarded fallbacks, and render/Present cost every five seconds. Expected legacy
-ticks stay near 60 while presentations approach the selected display rate.
-Prediction counters should become nonzero during moving notes above 60 Hz;
-they count drawing calls, not unique notes or display frames.
-
-Scoring windows, the existing audio drift correction, keysound dispatch, and
-audio output remain on the original paths. The experimental `asio_output` route
-is off by default and not hardware-validated; without it, audio remains on the
-original engine. Immediate presentation is requested so vblank blocking does not
-own simulation pacing; tearing may be visible. The D3D driver may also block or
+Scoring windows, audio drift correction, keysound dispatch, and audio output
+remain on the native paths. The experimental `asio_output` route is off by
+default and not hardware-validated; without it, audio remains on the original
+engine. Immediate presentation is requested so vblank blocking does not own
+simulation pacing; tearing may be visible. The D3D driver may also block or
 reject a selected mode, so the logged render rate is an attempted rate and
 must be measured on the target display.

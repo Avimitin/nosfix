@@ -27,7 +27,7 @@ std::uint64_t SimulateSeconds(unsigned hz, unsigned seconds, bool jitter,
     Check(scheduler.Start(kQpcFrequency, hz, 0));
     std::int64_t now = 0;
     std::uint64_t renders = 0;
-    const auto expected_ticks = seconds * nosfix::FrameScheduler::kLegacySimulationHz;
+    const auto expected_ticks = static_cast<std::uint64_t>(seconds) * hz;
     unsigned ticks = 0;
     std::int64_t wait_number = 0;
     while (ticks < expected_ticks) {
@@ -44,7 +44,7 @@ std::uint64_t SimulateSeconds(unsigned hz, unsigned seconds, bool jitter,
         case nosfix::ScheduleAction::TickComplete:
             ++ticks;
             now = std::max(now, step.deadline_qpc);
-            if (update_cost) now += kQpcFrequency / 1000; // 1 ms of legacy update work.
+            if (update_cost) now += kQpcFrequency / 1000;
             break;
         }
     }
@@ -53,13 +53,13 @@ std::uint64_t SimulateSeconds(unsigned hz, unsigned seconds, bool jitter,
 
 void TestRate(unsigned hz) {
     const auto one_second = SimulateSeconds(hz, 1, false, true);
-    Check(one_second == hz);
+    Check(one_second == static_cast<std::uint64_t>(hz) + 1);
 
     const auto ten_minutes = SimulateSeconds(hz, 600, false, true);
-    Check(ten_minutes == static_cast<std::uint64_t>(hz) * 600);
+    Check(ten_minutes == static_cast<std::uint64_t>(hz) * 600 + 1);
 
     const auto jittered = SimulateSeconds(hz, 4, true, true);
-    Check(jittered <= static_cast<std::uint64_t>(hz) * 4);
+    Check(jittered <= static_cast<std::uint64_t>(hz) * 4 + 1);
     Check(jittered >= static_cast<std::uint64_t>(hz) * 4 * 9 / 10);
 }
 
@@ -68,21 +68,23 @@ void TestStallAdvancesOneTickAtATime() {
     Check(scheduler.Start(kQpcFrequency, 360, 0));
 
     const auto stalled_now = kQpcFrequency / 2;
-    const auto first = scheduler.Next(stalled_now);
-    Check(first.action == nosfix::ScheduleAction::TickComplete);
-    Check(first.late_by_qpc >= kQpcFrequency / 4);
-    auto previous_boundary = scheduler.NextSimulationBoundary();
+    auto boundary = scheduler.NextSimulationBoundary();
 
-    // A 500 ms pause is retired as one boundary per original game iteration.
+    // A 500 ms pause is retired as one native boundary per iteration. The
+    // equal-rate scheduler may render before each tick; that is not a fallback.
     for (int i = 0; i < 5; ++i) {
-        const auto step = scheduler.Next(stalled_now);
+        nosfix::ScheduleStep step{};
+        do {
+            step = scheduler.Next(stalled_now);
+        } while (step.action == nosfix::ScheduleAction::Render);
         Check(step.action == nosfix::ScheduleAction::TickComplete);
-        Check(step.late_by_qpc == stalled_now - previous_boundary);
+        Check(step.deadline_qpc == boundary);
+        Check(step.late_by_qpc == stalled_now - boundary);
         const auto next_boundary = scheduler.NextSimulationBoundary();
-        const auto increment = next_boundary - previous_boundary;
-        Check(increment >= kQpcFrequency / 60);
-        Check(increment <= (kQpcFrequency + 59) / 60);
-        previous_boundary = next_boundary;
+        const auto increment = next_boundary - boundary;
+        Check(increment >= kQpcFrequency / 360);
+        Check(increment <= (kQpcFrequency + 359) / 360);
+        boundary = next_boundary;
     }
 }
 
@@ -116,15 +118,16 @@ void TestDispatchExactlyOnce(unsigned hz) {
     const nosfix::IterationCallbacks callbacks{
         &state, CallbackNow, CallbackWait, CallbackRender, CallbackDispatch};
 
-    constexpr unsigned tick_count = 60;
+    const unsigned tick_count = hz;
     for (unsigned i = 0; i < tick_count; ++i) {
         const auto last_render_result =
             nosfix::RunScheduledIteration(scheduler, callbacks);
         Check(last_render_result > 0);
-        state.now += kQpcFrequency / 1000; // 1 ms of update work.
+        state.now += kQpcFrequency / 100000; // 10 us of update work.
     }
     Check(state.dispatches == tick_count);
-    Check(state.renders == hz);
+    Check(state.renders >= tick_count);
+    Check(state.renders <= tick_count + 1);
 }
 
 struct FakeListState {
@@ -190,7 +193,7 @@ void TestRenderTailDispatch() {
 void TestEqualRateRenderThenDispatch() {
     constexpr unsigned hz = 120;
     nosfix::FrameScheduler scheduler;
-    Check(scheduler.Start(kQpcFrequency, hz, 0, hz, true));
+    Check(scheduler.Start(kQpcFrequency, hz, 0));
     Check(scheduler.SimulationHz() == hz);
     std::int64_t now = 0;
     unsigned renders = 0;
@@ -221,16 +224,20 @@ void TestFractionalSimulationPhase() {
     // Non-divisible QPC frequency exercises rational boundary rounding.
     constexpr std::int64_t frequency = 10'000'003;
     constexpr std::int64_t epoch = 9'876'543'210;
-    Check(scheduler.Start(frequency, 165, epoch));
-    for (std::int64_t tick = 0; tick < 60 * 600; ++tick) {
-        const auto start = epoch + tick * frequency / 60;
-        const auto end = epoch + (tick + 1) * frequency / 60;
+    constexpr unsigned hz = 165;
+    Check(scheduler.Start(frequency, hz, epoch));
+    for (std::int64_t tick = 0; tick < hz * 600; ++tick) {
+        const auto start = epoch + tick * frequency / hz;
+        const auto end = epoch + (tick + 1) * frequency / hz;
         Check(scheduler.SimulationPhase(start) == 0.0);
         const auto middle = start + (end - start) / 2;
         const double fraction = scheduler.SimulationPhase(middle);
         Check(fraction > 0.4999 && fraction <= 0.5);
         Check(scheduler.SimulationPhase(end + frequency) == 1.0);
-        Check(scheduler.Next(end).action == nosfix::ScheduleAction::TickComplete);
+        for (;;) {
+            const auto step = scheduler.Next(end);
+            if (step.action == nosfix::ScheduleAction::TickComplete) break;
+        }
     }
 }
 

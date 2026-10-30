@@ -67,8 +67,8 @@ enum class RibbonWidthRule : std::uint8_t {
 void ConfigureTimedRendering(bool enabled) noexcept;
 [[nodiscard]] bool TimedRenderingEnabled() noexcept;
 // Shadow clock publication: the render thread observes the same corrected cue
-// time used by clock_motion, but this path never feeds geometry or judgement.
-// Enabling it requires a prior PrepareTimedRendering and capture_input.
+// time used by the former clock_motion path; that path is removed and this
+// value never feeds geometry or judgement.
 void ConfigureSongClock(bool enabled) noexcept;
 [[nodiscard]] bool SongClockEnabled() noexcept;
 [[nodiscard]] const SongClockPublication* SongClockPublicationForInput() noexcept;

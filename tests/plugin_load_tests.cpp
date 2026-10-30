@@ -12,9 +12,8 @@ namespace {
 }
 using Init = int(__cdecl*)(std::uint32_t, void(__cdecl*)(), void*);
 using Entry = int(__cdecl*)(Init);
-constexpr std::array<DWORD, 12> kPatchRvas{
-    0x1C31C0, 0x1C3883, 0x1C390C, 0x2F6DF0, 0x2F4E80, 0xDE7C0, 0xD61C0,
-    0x1A5990, 0x1A6820, 0x1A84F0, 0x1AA4D0, 0x218CF0};
+constexpr std::array<DWORD, 7> kPatchRvas{
+    0x1C31C0, 0x1C3883, 0x1C390C, 0x2FC9D0, 0x305B30, 0x277000, 0x218CF0};
 }
 
 int wmain(int argc, wchar_t** argv) {
@@ -72,8 +71,8 @@ int wmain(int argc, wchar_t** argv) {
     if (result != 0) Fail("plugin rejected the analyzed inert images");
     if (!std::memcmp(xact_original.data(), reinterpret_cast<unsigned char*>(xact) + 0x410A, 44))
         Fail("plugin failed to correct libxact clock arithmetic");
-    if (!std::memcmp(afp_original.data(), reinterpret_cast<unsigned char*>(afp) + 0xB6DFB, 5))
-        Fail("plugin failed to install the AFP callsite hook");
+    if (std::memcmp(afp_original.data(), reinterpret_cast<unsigned char*>(afp) + 0xB6DFB, 5))
+        Fail("plugin modified AFP code without the removed host prediction path");
     for (size_t i = 0; i < kPatchRvas.size(); ++i)
         if (!std::memcmp(original[i].data(), base + kPatchRvas[i], 5))
             Fail("plugin failed to install an expected code hook");

@@ -37,7 +37,7 @@ std::int64_t QpcFrequency() noexcept {
     return g_frequency;
 }
 
-std::int64_t FallbackUs(std::int64_t now) noexcept {
+std::int64_t QpcElapsedUs(std::int64_t now) noexcept {
     const auto frequency = QpcFrequency();
     if (frequency <= 0) return g_epoch_us;
     const auto elapsed = now - g_epoch_qpc;
@@ -90,12 +90,12 @@ std::int64_t NativeTimelineTick(void* timeline) noexcept {
     // A reset writes the preroll constant and a seek jumps backwards by more
     // than one second. Do not reset merely because the current value is still
     // the preroll constant: the first tick after a reset writes that same
-    // constant, and the next tick must advance the QPC fallback from it.
+    // constant, and the next tick must advance the QPC base clock from it.
     if (!g_started || before < g_last_counter - 1'000'000) {
         ResetEpoch(now);
     }
 
-    auto us = FallbackUs(now);
+    auto us = QpcElapsedUs(now);
     if (us < kTimelinePrerollUs) us = kTimelinePrerollUs;
 
     const auto* publication = SongClockPublicationForInput();
@@ -120,7 +120,7 @@ std::int64_t NativeTimelineTick(void* timeline) noexcept {
                     auto difference = audio_us - us;
                     if (difference < 0) difference = -difference;
                     // Accept the cue clock only when it is close to the QPC
-                    // fallback and does not move the timeline backwards.
+                    // base clock and does not move the timeline backwards.
                     if (audio_us >= before && difference <= 5'000'000) us = audio_us;
                 }
             }

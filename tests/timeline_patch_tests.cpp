@@ -38,6 +38,8 @@ int wmain(int argc, wchar_t** argv) {
     std::memcpy(threshold80_before.data(), base + 0x1963D5, threshold80_before.size());
     std::array<unsigned char, 5> threshold1_before{};
     std::memcpy(threshold1_before.data(), base + 0x1A5928, threshold1_before.size());
+    std::array<unsigned char, 6> frame_adjust_before{};
+    std::memcpy(frame_adjust_before.data(), base + 0x2FF2BD, frame_adjust_before.size());
     const std::int32_t window_before = Read<std::int32_t>(base, 0x13668E0);
     std::array<unsigned char, 8> float_load_before{};
     std::array<unsigned char, 8> double_load_before{};
@@ -67,6 +69,7 @@ int wmain(int argc, wchar_t** argv) {
         Read<std::int32_t>(base, 0x13668E0) != 150'000 ||
         base[0x1963D5] != 0xE9 || base[0x1963D5 + 5] != 0x90 ||
         base[0x1A5928] != 0xE9 ||
+        base[0x2FF2BD] != 0x90 || base[0x2FF2BD + 5] != 0x90 ||
         Read<std::int32_t>(base, 0x13668E4) != -183'333 ||
         !std::memcmp(base + 0x197204, float_load_before.data(), float_load_before.size()) ||
         !std::memcmp(base + 0x1A4935, double_load_before.data(), double_load_before.size())) {
@@ -81,6 +84,7 @@ int wmain(int argc, wchar_t** argv) {
         Read<std::int32_t>(base, 0x13668E0) != window_before ||
         std::memcmp(base + 0x1963D5, threshold80_before.data(), threshold80_before.size()) ||
         std::memcmp(base + 0x1A5928, threshold1_before.data(), threshold1_before.size()) ||
+        std::memcmp(base + 0x2FF2BD, frame_adjust_before.data(), frame_adjust_before.size()) ||
         std::memcmp(base + 0x197204, float_load_before.data(), float_load_before.size()) ||
         std::memcmp(base + 0x1A4935, double_load_before.data(), double_load_before.size())) {
         Fail("rollback did not restore the image");

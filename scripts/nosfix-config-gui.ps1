@@ -120,12 +120,13 @@ $form.Controls.Add($timing)
 $enabledBox = New-CheckBox $timing 'enabled' 12 22
 $preciseBox = New-CheckBox $timing 'precise_audio_clock' 180 22
 $skipBox = New-CheckBox $timing 'skip_monitor_check' 390 22
-$smoothMotionBox = New-CheckBox $timing 'smooth_motion' 12 50
-$smoothUiBox = New-CheckBox $timing 'smooth_ui' 180 50
-$clockMotionBox = New-CheckBox $timing 'clock_motion' 390 50
+$timelineLabel = New-Object System.Windows.Forms.Label
+$timelineLabel.Text = 'microsecond timeline: always on; no host prediction'
+$timelineLabel.Location = New-Object System.Drawing.Point(12, 52)
+$timelineLabel.AutoSize = $true
+$timing.Controls.Add($timelineLabel)
 $captureBox = New-CheckBox $timing 'capture_input' 12 78
 $nativeShadowBox = New-CheckBox $timing 'native_shadow' 180 78
-$shadowFeedBox = New-CheckBox $timing 'native_shadow_feed' 390 78
 $probeBox = New-CheckBox $timing 'diagnostic_probe' 12 106
 
 $hzLabel = New-Object System.Windows.Forms.Label
@@ -290,12 +291,8 @@ function Load-UiFromIni {
     $enabledBox.Checked = Convert-Bool (Get-IniValue 'enabled')
     $preciseBox.Checked = Convert-Bool (Get-IniValue 'precise_audio_clock')
     $skipBox.Checked = Convert-Bool (Get-IniValue 'skip_monitor_check')
-    $smoothMotionBox.Checked = Convert-Bool (Get-IniValue 'smooth_motion')
-    $smoothUiBox.Checked = Convert-Bool (Get-IniValue 'smooth_ui')
-    $clockMotionBox.Checked = Convert-Bool (Get-IniValue 'clock_motion')
     $captureBox.Checked = Convert-Bool (Get-IniValue 'capture_input')
     $nativeShadowBox.Checked = Convert-Bool (Get-IniValue 'native_shadow')
-    $shadowFeedBox.Checked = Convert-Bool (Get-IniValue 'native_shadow_feed')
     $probeBox.Checked = Convert-Bool (Get-IniValue 'diagnostic_probe')
     $asioBox.Checked = Convert-Bool (Get-IniValue 'asio_output')
 
@@ -375,12 +372,8 @@ $saveButton.Add_Click({
         Set-IniValue 'enabled' $(if ($enabledBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'precise_audio_clock' $(if ($preciseBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'skip_monitor_check' $(if ($skipBox.Checked) { 'true' } else { 'false' })
-        Set-IniValue 'smooth_motion' $(if ($smoothMotionBox.Checked) { 'true' } else { 'false' })
-        Set-IniValue 'smooth_ui' $(if ($smoothUiBox.Checked) { 'true' } else { 'false' })
-        Set-IniValue 'clock_motion' $(if ($clockMotionBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'capture_input' $(if ($captureBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'native_shadow' $(if ($nativeShadowBox.Checked) { 'true' } else { 'false' })
-        Set-IniValue 'native_shadow_feed' $(if ($shadowFeedBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'diagnostic_probe' $(if ($probeBox.Checked) { 'true' } else { 'false' })
         Set-IniValue 'target_hz' ([string]$hzCombo.SelectedItem)
         Set-IniValue 'asio_output' $(if ($asioBox.Checked) { 'true' } else { 'false' })

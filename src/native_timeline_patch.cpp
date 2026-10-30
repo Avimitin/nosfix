@@ -23,6 +23,8 @@ constexpr std::uint32_t kThresholdMinus1Rva = 0x1A5928;
 constexpr std::uint32_t kThresholdMinus1TargetRva = 0x1A593D;
 constexpr std::uint32_t kThresholdMinus1ReturnRva = 0x1A592D;
 constexpr std::uint32_t kThreshold3000Rva = 0x21AD42;
+constexpr std::array<std::uint32_t, 3> kFrameAdjustRvas{
+    0x1975D9u, 0x1AD972u, 0x2FF2BDu};
 constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 8> kJudgmentWindows{{
     {0x13668E0u, 150'000},  // 9 frames
     {0x13668E8u, 116'667},  // 7 frames
@@ -360,6 +362,26 @@ bool PrepareTimelineConversionPatches(HMODULE module, std::string& reason) {
         std::memcpy(patched.data() + immediate, &kPrerollUs, sizeof(kPrerollUs));
         if (!AddPatch(target, expected, std::span(patched).first(spec.length),
                       true, reason)) {
+            ClearPrepared();
+            return false;
+        }
+    }
+
+    // Remove the frame-unit audio adjustment feedback. The field has no
+    // positive writer; its decrement sites are disabled so the microsecond
+    // drift path cannot subtract native frame units.
+    for (const auto rva : kFrameAdjustRvas) {
+        if (rva > image_size || 6 > image_size - rva) {
+            ClearPrepared();
+            reason = "frame-adjust patch RVA is outside the image";
+            return false;
+        }
+        auto* target = const_cast<unsigned char*>(base + rva);
+        std::array<unsigned char, 6> expected{};
+        std::memcpy(expected.data(), target, expected.size());
+        constexpr std::array<unsigned char, 6> patched{
+            0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+        if (!AddPatch(target, expected, patched, true, reason)) {
             ClearPrepared();
             return false;
         }
