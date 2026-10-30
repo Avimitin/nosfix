@@ -33,6 +33,7 @@ int wmain(int argc, wchar_t** argv) {
     const std::uint32_t reset_immediate_before = Read<std::uint32_t>(base, 0x2FC55A + 6);
     const std::uint32_t init_immediate_before = Read<std::uint32_t>(base, 0x2FC8EC + 2);
     const std::uint32_t threshold_before = Read<std::uint32_t>(base, 0x2FDBB0 + 2);
+    const std::uint32_t threshold3000_before = Read<std::uint32_t>(base, 0x21AD42 + 2);
     std::array<unsigned char, 6> threshold80_before{};
     std::memcpy(threshold80_before.data(), base + 0x1963D5, threshold80_before.size());
     std::array<unsigned char, 5> threshold1_before{};
@@ -62,6 +63,7 @@ int wmain(int argc, wchar_t** argv) {
     if (Read<std::uint32_t>(base, 0x2FC55A + 6) != 0xFFCD232Bu ||
         Read<std::uint32_t>(base, 0x2FC8EC + 2) != 0xFFCD232Bu ||
         Read<std::uint32_t>(base, 0x2FDBB0 + 2) != 0xFFD74F55u ||
+        Read<std::uint32_t>(base, 0x21AD42 + 2) != 0x02FAF080u ||
         Read<std::int32_t>(base, 0x13668E0) != 150'000 ||
         base[0x1963D5] != 0xE9 || base[0x1963D5 + 5] != 0x90 ||
         base[0x1A5928] != 0xE9 ||
@@ -75,6 +77,7 @@ int wmain(int argc, wchar_t** argv) {
     if (Read<std::uint32_t>(base, 0x2FC55A + 6) != reset_immediate_before ||
         Read<std::uint32_t>(base, 0x2FC8EC + 2) != init_immediate_before ||
         Read<std::uint32_t>(base, 0x2FDBB0 + 2) != threshold_before ||
+        Read<std::uint32_t>(base, 0x21AD42 + 2) != threshold3000_before ||
         Read<std::int32_t>(base, 0x13668E0) != window_before ||
         std::memcmp(base + 0x1963D5, threshold80_before.data(), threshold80_before.size()) ||
         std::memcmp(base + 0x1A5928, threshold1_before.data(), threshold1_before.size()) ||

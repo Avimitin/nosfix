@@ -22,6 +22,7 @@ constexpr std::uint32_t kThreshold80ReturnRva = 0x1963DB;
 constexpr std::uint32_t kThresholdMinus1Rva = 0x1A5928;
 constexpr std::uint32_t kThresholdMinus1TargetRva = 0x1A593D;
 constexpr std::uint32_t kThresholdMinus1ReturnRva = 0x1A592D;
+constexpr std::uint32_t kThreshold3000Rva = 0x21AD42;
 constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 8> kJudgmentWindows{{
     {0x13668E0u, 150'000},  // 9 frames
     {0x13668E8u, 116'667},  // 7 frames
@@ -433,6 +434,24 @@ bool PrepareTimelineConversionPatches(HMODULE module, std::string& reason) {
             reinterpret_cast<std::uintptr_t>(g_constants + 0x140) - after);
         std::memcpy(patched.data() + 1, &delta, sizeof(delta));
         if (!AddPatch(site, expected, patched, true, reason)) {
+            ClearPrepared();
+            return false;
+        }
+    }
+
+    // sub_18021ACF0 uses a 3000-frame (50 s) scene/tutorial limit.
+    {
+        if (kThreshold3000Rva > image_size || 6 > image_size - kThreshold3000Rva) {
+            ClearPrepared();
+            reason = "3000-frame threshold RVA is outside the image";
+            return false;
+        }
+        constexpr std::array<unsigned char, 6> expected{
+            0x81, 0xFA, 0xB8, 0x0B, 0x00, 0x00};
+        constexpr std::array<unsigned char, 6> patched{
+            0x81, 0xFA, 0x80, 0xF0, 0xFA, 0x02};
+        if (!AddPatch(const_cast<unsigned char*>(base + kThreshold3000Rva),
+                      expected, patched, true, reason)) {
             ClearPrepared();
             return false;
         }
