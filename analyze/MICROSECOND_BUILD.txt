@@ -1,0 +1,30 @@
+MICROSECOND TIMELINE - MANDATORY BUILD
+
+There is no 60-unit timeline fallback and no timing feature switch.
+
+Install:
+  copy nosfix.dll and nosfix.ini beside spice64.exe
+  run scripts\nosfix-config.bat to edit the adjacent ini
+
+Configuration:
+  precise_audio_clock=true   (required)
+  target_hz=auto             (or 60/90/120/144/165/240/360)
+  native_shadow_feed is not available and has no ini key.
+
+Active:
+  native chart/note/tempo times in microseconds
+  judgment windows in microseconds
+  absolute microsecond timeline tick with tempo-event drain
+  rate*rate formula sites -> 60,000,000 us/minute
+  user judge-delay offset -> microseconds
+  -160 / -80 / -1 / 3000 frame thresholds -> microseconds
+  frame-adjust decrement sites disabled; field stays zero
+  scheduler simulation rate = presentation rate
+  no original-tick fallback
+
+Still to validate:
+  pause/seek/retry and song transitions at every target rate
+  live note/judgment/keysound timing at 120/144/165/240/360 Hz
+
+If the game does not reach a song, restore the previous nosfix.dll/ini and
+send nosfix.log.
