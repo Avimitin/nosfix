@@ -10,6 +10,16 @@ namespace nosfix {
 void ConfigureDiagnosticProbe(bool enabled) noexcept;
 [[nodiscard]] bool DiagnosticProbeEnabled() noexcept;
 
+// Read-only per-tick timeline probe. `timeline` is the object passed to
+// sub_1802FC9D0; `before` is its +0 counter before the original tick ran.
+// Logs the actual tick cadence (including the 0/1/2 calls per display frame),
+// both offset high dwords, end frame, frame adjustment, clock state and rate
+// globals. No game state is written.
+void ConfigureTimelineProbe(bool enabled) noexcept;
+[[nodiscard]] bool TimelineProbeEnabled() noexcept;
+void ProbeTimelineTick(const void* timeline, const void* module_base,
+                       std::int32_t before) noexcept;
+
 // Normal-note judge at 0x2F6800. `event` is the native event pointer passed in
 // RDX; `mode` is the R8B argument. Logs the before/after note fields needed to
 // decide whether note+84 is a chord slot and what event+0x20 carries.

@@ -39,9 +39,11 @@ using TransitionFunction = char(__fastcall*)(void* list, int state);
 using NormalJudgeFunction = std::int64_t(__fastcall*)(int*, std::int64_t,
                                                        unsigned char,
                                                        std::int64_t);
+using TimelineTickFunction = std::int64_t(__fastcall*)(void*);
 
 constexpr DWORD kRenderRva = 0x1C31C0;
 constexpr DWORD kNormalJudgeRva = 0x2F6800;
+constexpr DWORD kTimelineTickRva = 0x2FC9D0;
 constexpr DWORD kHasEntryRva = 0x355CD0;
 constexpr DWORD kProcessDispatchRva = 0x355170;
 constexpr DWORD kTransitionRva = 0x356010;
@@ -63,6 +65,9 @@ constexpr std::array<unsigned char, 24> kTransitionBytes{
 constexpr std::array<unsigned char, 24> kNormalJudgeBytes{
     0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,
     0x74,0x24,0x18,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57};
+constexpr std::array<unsigned char, 24> kTimelineTickBytes{
+    0x44,0x8B,0x19,0x4C,0x63,0x81,0x3C,0x01,0x00,0x00,0x41,0x8D,
+    0x53,0x01,0x89,0x11,0x44,0x3B,0x81,0x38,0x01,0x00,0x00,0x7D};
 constexpr std::array<unsigned char, 5> kHasEntryCall{
     0xE8,0x48,0x24,0x19,0x00};
 constexpr std::array<unsigned char, 5> kDispatchCall{
@@ -77,6 +82,7 @@ HasEntryFunction g_has_entry = nullptr;
 ProcessDispatchFunction g_process_dispatch = nullptr;
 TransitionFunction g_transition = nullptr;
 NormalJudgeFunction g_normal_judge = nullptr;
+TimelineTickFunction g_timeline_tick = nullptr;
 thread_local bool g_in_render = false;
 
 struct ThreadState {
@@ -460,6 +466,14 @@ std::int64_t __fastcall NormalJudgeProbe(int* note, std::int64_t event,
     return result;
 }
 
+std::int64_t __fastcall TimelineTickProbe(void* timeline) {
+    std::int32_t before = 0;
+    if (timeline) std::memcpy(&before, timeline, sizeof(before));
+    const std::int64_t result = g_timeline_tick ? g_timeline_tick(timeline) : 0;
+    ProbeTimelineTick(timeline, g_module_base, before);
+    return result;
+}
+
 void SetRuntimeActive(bool active) noexcept {
     g_runtime_active.store(active, std::memory_order_release);
 }
@@ -529,6 +543,12 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         specs.push_back({"normal judge probe", kNormalJudgeRva, kNormalJudgeBytes,
             reinterpret_cast<void*>(&NormalJudgeProbe),
             reinterpret_cast<void**>(&g_normal_judge)});
+    }
+    if (config.timeline_probe) {
+        specs.push_back({"timeline tick probe", kTimelineTickRva,
+            kTimelineTickBytes,
+            reinterpret_cast<void*>(&TimelineTickProbe),
+            reinterpret_cast<void**>(&g_timeline_tick)});
     }
     if (config.skip_monitor_check) AppendMonitorCheckHook(specs);
 
@@ -605,6 +625,7 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         DisableAsioRoute();
     }
     ConfigureDiagnosticProbe(config.diagnostic_probe);
+    ConfigureTimelineProbe(config.timeline_probe);
     if (config.native_shadow_feed)
         ConfigureShadowLive(reinterpret_cast<const std::byte*>(module), image_size,
                             module);
@@ -644,6 +665,8 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     }
     if (config.diagnostic_probe)
         Log(LogLevel::Info, "diagnostic PROBE enabled: normal judge and gliss/velocity note updates");
+    if (config.timeline_probe)
+        Log(LogLevel::Info, "TIMELINE probe enabled: per-tick frame/offset/rate values; read-only");
     if (config.native_shadow_feed)
         Log(LogLevel::Info, "SHADOW live feed requested; original judge remains authoritative");
     Log(LogLevel::Info, config.smooth_motion
@@ -659,6 +682,7 @@ void RemoveGameHooks() noexcept {
     g_input_pending.store(false, std::memory_order_release);
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
     ConfigureDiagnosticProbe(false);
+    ConfigureTimelineProbe(false);
     DisableAsioRoute();
     SetShadowNoteObserver(nullptr);
     DisableShadowLive();

@@ -93,8 +93,12 @@ runs the normal-note shadow judge over the live note objects and staging bucket,
 logging `SHADOW outcome`/`SHADOW effect` records without changing the original
 judge. It requires `precise_audio_clock=true`; `diagnostic_probe=true` emits
 read-only `PROBE` lines for the normal judge and gliss/velocity note updates.
-Both are diagnostic build aids, not gameplay paths. See
-[the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
+`timeline_probe=true` hooks the music timeline tick and emits a read-only
+`TIMELINE` line per tick with the frame delta, QPC delta, both timing offsets,
+end frame, frame adjustment, clock state, BPM/beat, tempo index and rate/mode.
+It resolves the high-refresh migration's live offset and call-cadence questions
+without changing playback. Both are diagnostic build aids, not gameplay paths.
+See [the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
 
 `asio_output=true` is an experimental native route: it opens an exact ASIO
 driver and replaces libxact's XAudio2 engine creation with the bridge engine.

@@ -15,13 +15,18 @@ namespace nosfix {
 namespace {
 
 std::atomic<bool> g_enabled{false};
+std::atomic<bool> g_timeline_enabled{false};
 std::uint64_t g_judge_before = 0;
 std::uint64_t g_judge_after = 0;
 std::uint64_t g_motion_gliss = 0;
 std::uint64_t g_motion_velocity = 0;
+std::uint64_t g_timeline_count = 0;
+std::int64_t g_timeline_last_qpc = 0;
+std::int64_t g_timeline_qpc_frequency = 0;
 constexpr std::uint64_t kJudgeLimit = 500;
 constexpr std::uint64_t kMotionLimit = 400;
 constexpr std::uint64_t kStateDiffLimit = 400;
+constexpr std::uint64_t kTimelineLimit = 1200;
 std::array<std::byte, 784> g_previous_state{};
 bool g_has_previous_state = false;
 std::uint64_t g_state_diff_count = 0;
@@ -59,6 +64,62 @@ void ConfigureDiagnosticProbe(bool enabled) noexcept {
 
 bool DiagnosticProbeEnabled() noexcept {
     return g_enabled.load(std::memory_order_acquire);
+}
+
+void ConfigureTimelineProbe(bool enabled) noexcept {
+    g_timeline_enabled.store(enabled, std::memory_order_release);
+    g_timeline_count = 0;
+    g_timeline_last_qpc = 0;
+    if (!g_timeline_qpc_frequency) {
+        LARGE_INTEGER frequency{};
+        if (QueryPerformanceFrequency(&frequency))
+            g_timeline_qpc_frequency = frequency.QuadPart;
+    }
+}
+
+bool TimelineProbeEnabled() noexcept {
+    return g_timeline_enabled.load(std::memory_order_acquire);
+}
+
+void ProbeTimelineTick(const void* timeline, const void* module_base,
+                       std::int32_t before) noexcept {
+    if (!TimelineProbeEnabled() || !timeline || !module_base) return;
+    if (!Readable(timeline, 0x150)) return;
+    if (++g_timeline_count > kTimelineLimit) return;
+
+    LARGE_INTEGER now{};
+    QueryPerformanceCounter(&now);
+    double dt_us = 0.0;
+    if (g_timeline_last_qpc && g_timeline_qpc_frequency > 0) {
+        dt_us = static_cast<double>(now.QuadPart - g_timeline_last_qpc) *
+                1'000'000.0 / static_cast<double>(g_timeline_qpc_frequency);
+    }
+    g_timeline_last_qpc = now.QuadPart;
+
+    const std::int32_t after = Read<std::int32_t>(timeline, 0);
+    const std::int32_t end = Read<std::int32_t>(module_base, 0x70A614);
+    const std::int32_t off908 = Read<std::int32_t>(module_base, 0x136690C);
+    const std::int32_t off914 = Read<std::int32_t>(module_base, 0x1366918);
+    const std::int32_t adjust = Read<std::int32_t>(module_base, 0x70A740);
+    const std::int32_t clock_state = Read<std::int32_t>(module_base, 0x70A750);
+    const float bpm = Read<float>(timeline, 0x114);
+    const float beat = Read<float>(timeline, 0x124);
+    const std::int32_t tempo_index = Read<std::int32_t>(timeline, 0x13C);
+    const std::int32_t tempo_count = Read<std::int32_t>(timeline, 0x138);
+    const float rate_f = Read<float>(module_base, 0x70B300);
+    const double rate_d = Read<double>(module_base, 0x70B2F8);
+    const std::int32_t mode = Read<std::int32_t>(module_base, 0x70B308);
+
+    char line[512]{};
+    std::snprintf(line, sizeof(line),
+        "TIMELINE tick=%llu qpc=%lld dt_us=%.3f before=%d after=%d delta=%d "
+        "end=%d off908=%d off914=%d adj=%d clk=%d bpm=%.3f beat=%.3f "
+        "tempo=%d/%d rate_f=%.3f rate_d=%.3f mode=%d",
+        static_cast<unsigned long long>(g_timeline_count),
+        static_cast<long long>(now.QuadPart), dt_us, before, after,
+        after - before, end, off908, off914, adjust, clock_state,
+        bpm, beat, tempo_index, tempo_count, rate_f, rate_d, mode);
+    Log(LogLevel::Info, line);
 }
 
 void ProbeNormalJudgeBefore(const void* note, const void* event,

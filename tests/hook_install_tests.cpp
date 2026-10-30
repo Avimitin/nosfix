@@ -13,7 +13,7 @@ namespace {
     std::exit(1);
 }
 std::intptr_t __fastcall UnusedDetour(void*) { return 0; }
-constexpr std::array<DWORD, 3> kTargets{0x1C31C0, 0x355CD0, 0x355170};
+constexpr std::array<DWORD, 4> kTargets{0x1C31C0, 0x355CD0, 0x355170, 0x2FC9D0};
 }
 
 // Never runs any game instruction or resolves its imported dependencies. This
@@ -31,9 +31,9 @@ int wmain(int argc, wchar_t** argv) {
     }
     if (identity.module != module) Fail("guard resolved a different module");
     auto* base = reinterpret_cast<unsigned char*>(module);
-    std::array<std::array<unsigned char, 24>, 3> bytes{};
-    std::array<void*, 3> originals{};
-    std::array<nosfix::HookSpec, 3> specs{};
+    std::array<std::array<unsigned char, 24>, kTargets.size()> bytes{};
+    std::array<void*, kTargets.size()> originals{};
+    std::array<nosfix::HookSpec, kTargets.size()> specs{};
     for (size_t i = 0; i < kTargets.size(); ++i) {
         std::memcpy(bytes[i].data(), base + kTargets[i], bytes[i].size());
         specs[i] = {"offline target", kTargets[i], bytes[i],

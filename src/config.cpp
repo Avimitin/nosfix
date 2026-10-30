@@ -64,6 +64,8 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.native_shadow = value == "1" || value == "true" || value == "yes";
         } else if (key == "diagnostic_probe") {
             config.diagnostic_probe = value == "1" || value == "true" || value == "yes";
+        } else if (key == "timeline_probe") {
+            config.timeline_probe = value == "1" || value == "true" || value == "yes";
         } else if (key == "native_shadow_feed") {
             config.native_shadow_feed = value == "1" || value == "true" || value == "yes";
         } else if (key == "asio_output") {
