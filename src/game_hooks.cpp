@@ -430,8 +430,8 @@ std::intptr_t __fastcall RenderDetour(void* app) {
         if (!QueryPerformanceFrequency(&frequency) ||
             !g_thread.scheduler.Start(frequency.QuadPart, presentation_hz,
                                       QpcNow())) {
-            Log(LogLevel::Error, "cannot start the display-rate QPC scheduler");
-            return g_render(app);
+            Log(LogLevel::Error, "cannot start the display-rate QPC scheduler; no fallback path exists");
+            return 0;
         }
         g_thread.qpc_frequency = frequency.QuadPart;
         g_thread.scheduled = true;
