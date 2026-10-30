@@ -105,6 +105,53 @@ The probes are rate-limited to 400 judge calls and 400 updates per kind. They do
 not change scoring, rendering, capture or audio. The packaged diagnostic build
 is `out/diag-20261030/` with its own `nosfix.ini` and `README-PROBE.txt`.
 
+## Stage 2: live normal-note shadow feed
+
+`native_shadow_feed=true` starts a read-only comparison path for normal notes:
+
+- the normal-note update detour records each note's chart pointer and decoded
+  fields into a bounded 512-note table;
+- `ShadowLiveTick` reads the 28x28 staging buffer published at
+  `module+0x13DEA10`, opens a `NativeShadowFeed` frame at the mapped song time,
+  rotates/compacts the bucket and evaluates entry 0;
+- judged outcomes and score effects are written to `nosfix.log` as
+  `SHADOW outcome` and `SHADOW effect` lines.
+
+The original judge, score, keysounds and rendering are never called from this
+path. `native_shadow_feed` requires `precise_audio_clock=true`; it does not
+require `capture_input` because the bucket comes from the game's own note
+manager. The feed waits for the judgment-window block to become non-zero after
+the game's initializer, then configures itself on the first gameplay tick.
+
+Enable it in isolation:
+
+```ini
+enabled=true
+precise_audio_clock=true
+skip_monitor_check=true
+capture_input=false
+clock_motion=false
+native_shadow=false
+native_shadow_feed=true
+target_hz=auto
+smooth_motion=false
+smooth_ui=false
+log_level=info
+```
+
+Expected lines:
+
+```
+SHADOW live feed configured (normal notes, diagnostic only)
+5s SHADOW live: frames=..., notes=..., outcomes=..., effects=..., errors=..., last=ok
+SHADOW outcome note=... lane=... kind=... rank=... grade=... at=...ms input=...ms
+SHADOW effect note=... grade=... score=... combo=...->... overridden=...
+```
+
+This is a comparison feed, not a replacement judge. It still leaves the
+live-only `note+84 > 1`, velocity/gliss writer and AFP ABI questions
+fail-closed.
+
 ## Next integration stage
 
 1. Add a live chart/note-table adapter and feed `NativeMatchPolicy` in shadow

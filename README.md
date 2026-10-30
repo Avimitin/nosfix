@@ -19,8 +19,10 @@ observer. A `SongClock`/`ShadowClock` publication is tested and, with
 `native_shadow=true`, connected to the raw input observer, but it does not feed
 judgments. The experimental chart-time path is disabled in the distributed
 configuration by default. The merged native match/scoring, bucket-input,
-timed-UI and XAudio2/ASIO components are compiled and tested but remain
-dormant; no live hook reaches them.
+timed-UI and XAudio2/ASIO components are compiled and tested. The normal-note
+shadow feed can be enabled explicitly with `native_shadow_feed=true`, but it
+only logs comparisons; the original judge remains authoritative. No other live
+hook reaches these components.
 
 ## Build
 
@@ -85,9 +87,12 @@ During its live trial, `smooth_motion=false` and `smooth_ui=false` isolate it.
 song-clock snapshot for the raw input observer. It requires
 `precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
 logs mapped, unmapped and backward-mapping counters every five seconds. It
-does not feed judgments, scoring, rendering, or sound. `diagnostic_probe=true`
-emits read-only `PROBE` lines for the normal judge and gliss/velocity note
-updates; it is a diagnostic build aid, not a gameplay path. See
+does not feed judgments, scoring, rendering, or sound. `native_shadow_feed=true`
+runs the normal-note shadow judge over the live note objects and staging bucket,
+logging `SHADOW outcome`/`SHADOW effect` records without changing the original
+judge. It requires `precise_audio_clock=true`; `diagnostic_probe=true` emits
+read-only `PROBE` lines for the normal judge and gliss/velocity note updates.
+Both are diagnostic build aids, not gameplay paths. See
 [the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
 
 Hook sets are supplied as explicit module-relative RVAs and exact expected
@@ -239,10 +244,11 @@ rollback in an inert image, and replay clock timestamps under 60/90/120/144/
 165/240/360 Hz sampling schedules with jitter and a stall. These are clock-core
 and patch tests, not proof of frame-independent gameplay.
 
-All 49 tests pass in the current merged build. The round-2 native components
+All 50 tests pass in the current merged build. The round-2 native components
 (bucket table and shadow feed, staging-bucket input decoder, exact glissando
-anchor, libxact cue table and frame-gate scheduler) are compiled and tested but
-remain dormant; no config key or live hook reaches them. Tests also execute the original normal-note projection
+anchor, libxact cue table and frame-gate scheduler) are compiled and tested.
+The normal-note shadow feed is the only live consumer and is off unless
+`native_shadow_feed=true`; the other components remain dormant. Tests also execute the original normal-note projection
 in an isolated linear-scroll setup, checking its float argument ABI and use of
 millisecond chart time. The monitor-check test executes the original initializer
 and completion callback against a synthetic scene to verify the native transition,

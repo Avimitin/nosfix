@@ -25,6 +25,7 @@ NoteUpdate g_beats_update = nullptr;
 NoteUpdate g_glissando_update = nullptr;
 NoteUpdate g_trill_update = nullptr;
 NoteUpdate g_velocity_update = nullptr;
+ShadowNoteObserver g_shadow_note_observer = nullptr;
 PrimitiveDraw g_draw = nullptr;
 BufferFree g_free = nullptr;
 const std::byte* g_base = nullptr;
@@ -312,7 +313,11 @@ char UpdateNote(void* note, NoteUpdate original, const NoteLayout& layout) {
     return result;
 }
 
-char __fastcall NormalUpdate(void* note) { return UpdateNote(note, g_normal_update, kNormal); }
+char __fastcall NormalUpdate(void* note) {
+    const char result = UpdateNote(note, g_normal_update, kNormal);
+    if (g_shadow_note_observer) g_shadow_note_observer(note);
+    return result;
+}
 char __fastcall LongUpdate(void* note) { return UpdateNote(note, g_long_update, kLong); }
 char __fastcall BeatsUpdate(void* note) { return UpdateNote(note, g_beats_update, kBeats); }
 char __fastcall GlissandoUpdate(void* note) { return UpdateNote(note, g_glissando_update, kGlissando); }
@@ -459,6 +464,10 @@ void ConfigureMotion(HMODULE module, bool enabled) noexcept {
         g_motion.timed_cache.reset();
     }
     if (!enabled) g_motion.tracks.clear();
+}
+
+void SetShadowNoteObserver(ShadowNoteObserver observer) noexcept {
+    g_shadow_note_observer = observer;
 }
 
 void BeginMotionPresentation(double phase) noexcept {

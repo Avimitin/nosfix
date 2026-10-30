@@ -70,6 +70,7 @@ add_library(nosfix SHARED
     src/raw_input_capture.cpp
     src/scheduler.cpp
     src/shadow_clock.cpp
+    src/shadow_live.cpp
     src/song_clock.cpp
     src/song_clock_publication.cpp
     src/spice_binding_adapter.cpp
@@ -104,6 +105,11 @@ if(BUILD_TESTING)
     add_executable(nosfix_shadow_clock_tests tests/shadow_clock_tests.cpp
         src/shadow_clock.cpp src/song_clock.cpp src/song_clock_publication.cpp)
     add_test(NAME shadow_clock COMMAND nosfix_shadow_clock_tests)
+    add_executable(nosfix_shadow_live_tests tests/shadow_live_tests.cpp
+        src/shadow_live.cpp src/native_shadow_adapter.cpp src/native_match.cpp
+        src/native_scoring.cpp src/native_note_state.cpp src/normal_judgment.cpp
+        src/song_clock.cpp src/log.cpp src/config.cpp)
+    add_test(NAME shadow_live COMMAND nosfix_shadow_live_tests)
     add_executable(nosfix_input_normalizer_tests tests/input_normalizer_tests.cpp src/input_normalizer.cpp)
     add_test(NAME input_normalizer COMMAND nosfix_input_normalizer_tests)
     add_executable(nosfix_normal_judgment_tests tests/normal_judgment_tests.cpp src/normal_judgment.cpp)
@@ -323,7 +329,7 @@ if(BUILD_TESTING)
         src/native_note_types.cpp src/panb_pressure.cpp src/normal_judgment.cpp)
     add_test(NAME bucket_input COMMAND nosfix_bucket_input_tests)
 
-    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_shadow_clock_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_shadow_adapter_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_bucket_input_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
+    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_shadow_clock_tests nosfix_shadow_live_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_shadow_adapter_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_bucket_input_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
         target_compile_features(${target} PRIVATE cxx_std_20)
         target_include_directories(${target} PRIVATE include)
         if(MSVC)

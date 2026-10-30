@@ -9,6 +9,9 @@ namespace nosfix {
 // Added to the same verified, transactional hook set as the scheduler.
 void AppendMotionHooks(std::vector<HookSpec>& specs);
 void ConfigureMotion(HMODULE module, bool enabled) noexcept;
+// Optional live-shadow observer for normal-note updates. Null disables it.
+using ShadowNoteObserver = void (*)(void* note);
+void SetShadowNoteObserver(ShadowNoteObserver observer) noexcept;
 void BeginMotionPresentation(double phase) noexcept;
 void EndMotionPresentation() noexcept;
 void RetireMotionTick() noexcept;

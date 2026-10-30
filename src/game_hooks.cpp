@@ -13,6 +13,8 @@
 #include "nosfix/render_tail.hpp"
 #include "nosfix/raw_input_capture.hpp"
 #include "nosfix/scheduler.hpp"
+#include "nosfix/shadow_live.hpp"
+#include "nosfix/song_clock_publication.hpp"
 #include "nosfix/ui_hooks.hpp"
 #include "nosfix/timed_rendering.hpp"
 
@@ -262,6 +264,19 @@ void LogWindowMetrics(std::int64_t now) {
         Log(LogLevel::Info, line);
     }
 
+    if (ShadowLiveEnabled()) {
+        const auto shadow = TakeShadowLiveMetrics();
+        sprintf_s(line, "5s SHADOW live: frames=%llu, notes=%llu, outcomes=%llu, "
+            "effects=%llu, errors=%llu, last=%s",
+            static_cast<unsigned long long>(shadow.frames),
+            static_cast<unsigned long long>(shadow.observed_notes),
+            static_cast<unsigned long long>(shadow.outcomes),
+            static_cast<unsigned long long>(shadow.effects),
+            static_cast<unsigned long long>(shadow.feed_errors),
+            ShadowFeedStatusName(shadow.last_status));
+        Log(LogLevel::Info, line);
+    }
+
     const auto motion = TakeMotionMetrics();
     sprintf_s(line, "5s note motion: captures=%llu, predicted draws=%llu, song-time draws=%llu, guarded fallbacks=%llu",
         static_cast<unsigned long long>(motion.captures),
@@ -352,6 +367,15 @@ void IterationDispatch(void* opaque, std::int64_t late_by_qpc) {
     auto* context = static_cast<IterationContext*>(opaque);
     DrainRawInputDiagnostics(QpcNow());
     if (DiagnosticProbeEnabled()) ProbeInputStateDiff(g_module_base);
+    if (ShadowLiveEnabled() || ShadowLivePending()) {
+        const auto now = QpcNow();
+        const auto* publication = SongClockPublicationForInput();
+        SongClockSnapshot snapshot{};
+        if (publication && publication->TryRead(snapshot)) {
+            const auto mapped = snapshot.segment.Map(now);
+            if (mapped) ShadowLiveTick(mapped->microseconds, g_module_base);
+        }
+    }
     ++g_thread.tick_count;
     if (late_by_qpc >= g_thread.qpc_frequency / 4 &&
         !g_thread.long_stall_reported) {
@@ -452,7 +476,12 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         reason = "native_shadow requires precise_audio_clock";
         return false;
     }
-    if ((config.clock_motion || config.native_shadow) &&
+    if (config.native_shadow_feed && !config.precise_audio_clock) {
+        reason = "native_shadow_feed requires precise_audio_clock";
+        return false;
+    }
+    if ((config.clock_motion || config.native_shadow ||
+         config.native_shadow_feed) &&
         !PrepareTimedRendering(module, reason)) {
         if (reason.empty()) reason = "native timing preparation failed";
         return false;
@@ -492,7 +521,8 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
          reinterpret_cast<void*>(&RenderDetour),
          reinterpret_cast<void**>(&g_render)},
     };
-    if (config.smooth_motion || config.clock_motion || config.diagnostic_probe)
+    if (config.smooth_motion || config.clock_motion || config.diagnostic_probe ||
+        config.native_shadow_feed)
         AppendMotionHooks(specs);
     if (config.diagnostic_probe) {
         specs.push_back({"normal judge probe", kNormalJudgeRva, kNormalJudgeBytes,
@@ -559,10 +589,17 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     }
 
     ConfigureDiagnosticProbe(config.diagnostic_probe);
+    if (config.native_shadow_feed)
+        ConfigureShadowLive(reinterpret_cast<const std::byte*>(module), image_size,
+                            module);
+    else
+        DisableShadowLive();
+    SetShadowNoteObserver(config.native_shadow_feed
+        ? &ShadowLiveObserveNormalNote : nullptr);
     SetRuntimeActive(true);
     ConfigureMonitorCheck(module, config.skip_monitor_check);
     ConfigureTimedRendering(config.clock_motion);
-    ConfigureSongClock(config.native_shadow);
+    ConfigureSongClock(config.native_shadow || config.native_shadow_feed);
     ConfigureMotion(module, config.smooth_motion);
     ConfigureUiMotion(config.smooth_ui);
     if (config.capture_input) {
@@ -591,6 +628,8 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     }
     if (config.diagnostic_probe)
         Log(LogLevel::Info, "diagnostic PROBE enabled: normal judge and gliss/velocity note updates");
+    if (config.native_shadow_feed)
+        Log(LogLevel::Info, "SHADOW live feed requested; original judge remains authoritative");
     Log(LogLevel::Info, config.smooth_motion
         ? "bounded note-head and ribbon prediction enabled above 60 Hz"
         : "note prediction disabled by configuration");
@@ -604,6 +643,8 @@ void RemoveGameHooks() noexcept {
     g_input_pending.store(false, std::memory_order_release);
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
     ConfigureDiagnosticProbe(false);
+    SetShadowNoteObserver(nullptr);
+    DisableShadowLive();
     SetRuntimeActive(false);
     ConfigureMonitorCheck(nullptr, false);
     ConfigureSongClock(false);
