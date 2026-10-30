@@ -40,6 +40,20 @@ The DLL and adjacent `nosfix.ini` are written to `build/Release/` with the
 Visual Studio generator or `build/` with the local NMake script. CMake fetches
 the pinned MinHook source at configure time.
 
+## Packaging
+
+`scripts/package-release.ps1` assembles a release directory and zip. Every
+package contains `nosfix.dll`, `nosfix.ini`, `MinHook-LICENSE.txt`, and a
+`scripts\` folder with `nosfix-config.bat` and `nosfix-config-gui.ps1`. The
+configurator stays beside the ini it edits; do not ship a DLL/ini-only package.
+
+```powershell
+.\scripts\package-release.ps1 `
+  -PackageName microsecond-YYYYMMDD `
+  -ZipName nosfix-0.5.0-microsecond `
+  -ReadmePath analyze\MICROSECOND_BUILD.txt
+```
+
 ## Runtime behavior
 
 Spice calls the exported `spice_sdk_entry_point` synchronously, outside the
