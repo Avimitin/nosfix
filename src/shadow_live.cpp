@@ -2,6 +2,8 @@
 
 #include "nosfix/log.hpp"
 
+#include <Windows.h>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -15,6 +17,19 @@ namespace {
 constexpr std::size_t kMaxShadowNotes = 512;
 constexpr std::uint64_t kNoteIdleTicks = 240;
 constexpr std::size_t kOutcomeLogLimit = 2000;
+
+bool Readable(const void* address, std::size_t bytes) noexcept {
+    if (!address || bytes == 0) return false;
+    MEMORY_BASIC_INFORMATION info{};
+    if (VirtualQuery(address, &info, sizeof(info)) == 0) return false;
+    if (info.State != MEM_COMMIT) return false;
+    if ((info.Protect & (PAGE_NOACCESS | PAGE_GUARD)) != 0) return false;
+    const auto start = reinterpret_cast<std::uintptr_t>(address);
+    const auto end = start + bytes;
+    const auto region_end = reinterpret_cast<std::uintptr_t>(info.BaseAddress) +
+                            info.RegionSize;
+    return end >= start && end <= region_end;
+}
 
 template <class T>
 T Read(const void* base, std::size_t offset) noexcept {
@@ -190,9 +205,9 @@ bool ShadowLiveEnabled() noexcept { return g_enabled; }
 bool ShadowLivePending() noexcept { return g_pending; }
 
 void ShadowLiveObserveNormalNote(void* note) noexcept {
-    if (!g_enabled || !note) return;
+    if (!g_enabled || !Readable(note, 0xE0)) return;
     const auto* chart = Read<const void*>(note, 8);
-    if (!chart) return;
+    if (!chart || !Readable(chart, 0x68)) return;
     if (Read<std::int32_t>(note, 68) != 0) {
         // Keep the candidate for the final tick; done is reflected below.
     }
@@ -250,7 +265,7 @@ void ShadowLiveTick(double now_us, const void* module_base) noexcept {
     }
     const void* module = g_module ? g_module : module_base;
     const auto* staging = Read<const void*>(module, 0x13DEA10);
-    if (!staging) {
+    if (!staging || !Readable(staging, 784)) {
         ++g_metrics.feed_errors;
         return;
     }
