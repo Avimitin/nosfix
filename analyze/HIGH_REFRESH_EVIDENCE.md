@@ -37,6 +37,9 @@ raw extracts are in:
   - It then advances the tempo event index and computes the beat position.
 - The value is 32-bit signed. It is reset to `-200` for preroll, then counts
   up through the song.
+- The host code only reads it (`timed_rendering`, `motion_hooks`,
+  `diagnostics`); no `src/` path writes `0x70A610`. The native tick remains the
+  sole writer. This makes a single-writer cutover possible.
 
 Exactly three sites call the timeline tick:
 
@@ -76,14 +79,14 @@ converted together**. They do not each need a bespoke formula. The dangerous
 sites are the formula constants, the event-equality checks and the mixed-unit
 offsets.
 
-## 3. The â€œ60â€ global is a mutable tick-rate setting, not a literal
+## 3. The "60" global is a mutable tick-rate setting, not a literal
 
 The code does not use a hard-coded 60 in most places. It uses:
 
-- `qword_18070B2F8` â€” double tick rate;
-- `dword_18070B300` â€” float tick rate;
-- `dword_18070B304` â€” integer tick rate;
-- `dword_18070B308` â€” rate mode index.
+- `qword_18070B2F8` - double tick rate;
+- `dword_18070B300` - float tick rate;
+- `dword_18070B304` - integer tick rate;
+- `dword_18070B308` - rate mode index.
 
 The table at `0x18062FD80` contains two entries:
 
@@ -168,11 +171,20 @@ What is known:
 - `qword_181366908` is initialized to 0; its high dword has no native writer
   besides that initialization. It is currently always 0 in the native path.
 - `qword_181366914` is initialized to 2; its high dword is written by
-  `sub_180277000`, `sub_1803049D0` and `sub_180305B30`. The value comes from
-  chart/option data (chart record `+72` in `sub_180305B30`), and is used as an
-  offset in frame units.
-- `sub_1803049D0(int)` is a direct setter for `0x181366918`; its callers are
-  virtual/indirect, so the unit at the call site still needs runtime evidence.
+  `sub_180277000`, `sub_1803049D0` and `sub_180305B30`.
+- `sub_180277000` is the UI handler for the user timing control. It resolves
+  the `lock_tim_usr` / `num_tim_usr` child clips, clamps `a1+440` to `[-5, +5]`,
+  writes that value to `0x181366918`, and plays `se035_click`. The UI step is
+  therefore one frame at 60 Hz (16.667 ms), and the stored offset is in frame
+  units.
+- `sub_180305B30` seeds the same field from chart/option data (the value at
+  `sub_18018B090(...)+72`). `sub_1803049D0(int)` is a direct setter for
+  `0x181366918`; its callers are virtual/indirect, so the unit at the call
+  site still needs runtime evidence.
+- Consequence: the user timing offset is a **frame-domain control**, not a
+  generic scalar. In microseconds its range becomes about `[-83,333, +83,333]`
+  us and each UI step must become `16,667` us (or the documented rounded
+  value), not `1`.
 
 If the counter becomes microseconds but these offsets remain frames, every
 note comparison will be wrong by orders of magnitude. They must be converted
@@ -225,6 +237,35 @@ while (tempo_index < tempo_count && counter_us >= event_us) { ... }
 
 That is a correctness fix independent of input judgment.
 
+### 7.1 The controller can run the update zero, one or two times per frame
+
+`sub_1802FDB30` is not a simple once-per-frame dispatcher. It measures audio
+drift in `qword_18070A718` (milliseconds), keeps hold/catch-up counters, and:
+
+- at `0x1802FDF89` it increments `a1+1636`, then calls `sub_1802FF090` at
+  `0x1802FDF98` from the catch-up branch (drift `> 25 ms` and count `>= 5`);
+- at `0x1802FDFCC` it checks the hold flag. If held, it increments `a1+1640`
+  at `0x1802FDFDF` and does not call the update;
+- otherwise it calls `sub_1802FF090` at `0x1802FDFD8` as the normal update.
+
+So one display frame can contain zero, one or two `sub_1802FF090` calls. The
+exact consequence for the migration: **the timeline tick must not add elapsed
+time on every call**. The update can run twice in one display frame to catch up.
+The safe model is an absolute write:
+
+```
+song_time_us = clock.Now(qpc).microseconds;
+```
+
+not `song_time_us += elapsed_us`. Both calls then see the same time, and a
+skipped call does not lose time. The catch-up logic can later be deleted, but
+the absolute-write rule makes the transition safe even before it is removed.
+
+`qword_18070A718` is a drift value in milliseconds used by this controller and
+the main loop; it is adjacent to the timeline but not one of the 105 counter
+references. It should eventually be replaced by the microsecond clock error,
+not converted frame-to-frame.
+
 ## 8. Formula families and replacement rules
 
 | Current form | Sites | Microsecond replacement |
@@ -255,10 +296,14 @@ These are outside the 105 direct xrefs but are part of the same timeline:
 
 - `dword_18070A740` (frame adjustment): 6 references. `sub_1801C3FE0`
   converts it with `* 1000 / rate`; the tick path decrements it. It is in frame
-  units today.
+  units today. No positive writer was found, so its exact role still needs
+  runtime evidence.
 - `dword_18070A750` (clock correction state): 4 references. It gates the
   main-loop milliseconds calculation.
 - `dword_18070A614` (end frame): 5 references; copied from chart `+168`.
+- `qword_18070A718` (audio drift in ms): 26 references; read by the
+  hold/catch-up controller and the main loop. It is a drift measurement, not
+  song time; it should become a microsecond error after the clock migration.
 - `qword_18070B2F8` / `dword_18070B300`: rate selection, not time. They should
   remain only for frame pacing/output configuration, never for time conversion.
 - `HIDWORD(qword_181366908)` / `HIDWORD(qword_181366914)`: offsets described
@@ -270,6 +315,12 @@ The host side currently assumes frames as well:
 - `src/timed_rendering.cpp` computes `frame_adjust * 1000 / rate`;
 - `src/motion_hooks.cpp:298` reads `0x70A610` as `music_frame`;
 - `src/diagnostics.cpp:195` logs it as `frame=`;
+- `include/nosfix/native_match.hpp` defines `kProvenSongUnitsPerSecond = 60.0`
+  and `SongUnitsToUs` / `UsToSongUnits` helpers for the dormant native match
+  model. These are **model conversions**, not a permitted runtime adapter; the
+  live timeline must not call them.
+- `include/nosfix/timed_note_geometry.hpp:248` documents the `rate^2` angle
+  formula that the migration replaces.
 - `FrameScheduler::kLegacySimulationHz = 60` still schedules the native tail at
   60.
 
@@ -279,13 +330,16 @@ and prediction paths will be wrong even if the game is correct.
 
 ## 10. Open questions that need runtime evidence
 
-1. **Offset units:** `HIDWORD(qword_181366914)` is set from chart/option data,
-   but the setter callers are indirect. Need a live value paired with the chart
-   and audio position to confirm it is frames and not milliseconds.
-2. **Tick frequency:** confirm exactly one `sub_1802FC9D0` call per native
-   update. If any path calls it more than once, an elapsed write needs a
-   single-writer guard.
-3. **Counter width:** 32-bit signed microseconds spans about Â±35.8 minutes.
+1. **Offset units:** `HIDWORD(qword_181366914)` is the user timing offset,
+   clamped to `[-5, +5]` by `sub_180277000`; that confirms the frame-domain UI
+   step. The chart/option seed in `sub_180305B30` and the indirect
+   `sub_1803049D0` callers still need live confirmation. `HIDWORD(qword_181366908)`
+   has no native writer; confirm no external writer.
+2. **Tick frequency:** `sub_1802FDB30` can call `sub_1802FF090` zero, one or
+   two times in one display frame; each call reaches `sub_1802FC9D0`. Confirm
+   no other caller adds a third path. This is why the tick must write the
+   absolute song time rather than add elapsed time per call.
+3. **Counter width:** 32-bit signed microseconds spans about +/-35.8 minutes.
    Songs fit; service/menu sessions may not. The reset paths must be shown to
    run before that range matters.
 4. **Judgment-window mutation:** only the default writes were found. Confirm
@@ -312,6 +366,13 @@ Only then should the chart loader, tick and formula families be patched in one
 branch.
 
 ## Appendix: all 105 direct references
+
+The table is generated from `frame_counter_xrefs.csv`; the site count is 105 and
+the function count is 57. The replacement column is the default pattern for the
+instruction class, not a blind patch: preserve the original comparator
+direction, and use the role column to distinguish note time from chart-event or
+chart-marker time. `DELTA` rows that are not note comparisons still use the same
+unit conversion, but their event source is named in the role column.
 
 | # | Site | Function | Op | Class | Current | Replacement rule |
 |---:|---|---|---|---|---|---|

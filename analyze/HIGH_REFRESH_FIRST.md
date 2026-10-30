@@ -100,10 +100,11 @@ site.
 
 - Define the host-side `SongTimeUs` type with no implicit conversion to or
   from integers.
-- Sample QPC once per normal update; advance the song clock by the exact
-  elapsed microseconds. Audio-derived time may correct it, but there is still
-  one resulting value.
-- Replace `sub_1802FC9D0`'s `counter += 1` with the new clock write.
+- Sample QPC once per normal update and write the **absolute** song time. Do
+  not add elapsed time per call: the update can run zero, one or two times in
+  one display frame. A repeated call sees the same time; a skipped call loses
+  nothing.
+- Replace `sub_1802FC9D0`'s `counter += 1` with that absolute clock write.
 - Delete the frame-adjustment and hold/double catch-up semantics in
   `sub_1802FDB30`; it must consume time, not fabricate frames.
 
