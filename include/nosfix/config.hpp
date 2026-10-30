@@ -12,7 +12,6 @@ struct Config {
     bool capture_input = false; // Experimental raw event observation; no judgments yet.
     bool native_shadow = false; // Publish the shadow song clock; no judgments yet.
     bool diagnostic_probe = false; // Read-only PROBE log lines for live samples.
-    bool native_shadow_feed = false; // Live normal-note shadow comparison; no scoring effect.
     bool asio_output = false; // Experimental native ASIO route; off by default.
     std::string asio_driver_clsid;
     std::string asio_driver_name;

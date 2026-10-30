@@ -528,10 +528,6 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         reason = "the microsecond timeline requires precise_audio_clock";
         return false;
     }
-    if (config.native_shadow_feed) {
-        reason = "the native shadow feed is incompatible with the microsecond timeline";
-        return false;
-    }
     if (!PrepareTimedRendering(module, reason)) {
         if (reason.empty()) reason = "native timing preparation failed";
         return false;
@@ -701,8 +697,6 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     if (config.diagnostic_probe)
         Log(LogLevel::Info, "diagnostic PROBE enabled: normal judge updates");
     Log(LogLevel::Info, "HIGH REFRESH timeline active: native chart/ticks/windows use absolute microseconds; host prediction disabled");
-    if (config.native_shadow_feed)
-        Log(LogLevel::Warning, "native_shadow_feed is ignored: microsecond timeline is authoritative");
     Log(LogLevel::Info, "note prediction disabled: native microsecond timing is authoritative");
     Log(LogLevel::Info, "UI motion disabled: native microsecond timing is authoritative");
     return true;

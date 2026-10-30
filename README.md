@@ -73,8 +73,8 @@ Host note/UI prediction and the former `clock_motion` path are removed.
 song-clock snapshot for the raw input observer. It requires
 `precise_audio_clock=true` and `capture_input=true`; it maps captured QPCs and
 logs mapped, unmapped and backward-mapping counters every five seconds. It
-does not feed judgments, scoring, rendering, or sound. `native_shadow_feed` is
-rejected in this build: the microsecond timeline is authoritative.
+does not feed judgments, scoring, rendering, or sound. The normal-note shadow
+feed is not available in this build: the microsecond timeline is authoritative.
 `diagnostic_probe=true` emits read-only `PROBE` lines for the normal judge.
 The microsecond timeline is always enabled: chart times, note times, judgment
 windows, the timeline tick and beat/angle formulas use absolute microseconds,
@@ -194,15 +194,15 @@ rollback in an inert image, and replay clock timestamps under 60/90/120/144/
 165/240/360 Hz sampling schedules with jitter and a stall. These are clock-core
 and patch tests, not proof of frame-independent gameplay.
 
-All 50 tests pass in the current merged build. The round-2 native components
-(bucket table and shadow feed, staging-bucket input decoder, exact glissando
-anchor, libxact cue table and frame-gate scheduler) are compiled and tested.
-The normal-note shadow feed is the only live consumer and is off unless
-`native_shadow_feed=true`; the other components remain dormant. Tests also execute the original normal-note projection
-in an isolated linear-scroll setup, checking its float argument ABI and use of
-millisecond chart time. The monitor-check test executes the original initializer
-and completion callback against a synthetic scene to verify the native transition,
-legacy constants, disabled behavior, and hook rollback.
+All 52 tests pass in the current merged build. The round-2 native components
+(bucket table, staging-bucket input decoder, exact glissando anchor, libxact
+cue table) are compiled and tested but dormant. The normal-note shadow feed is
+not available in the microsecond-timeline build. Tests also execute the original
+normal-note projection in an isolated linear-scroll setup, checking its float
+argument ABI and use of millisecond chart time. The monitor-check test executes
+the original initializer and completion callback against a synthetic scene to
+verify the native transition, untouched rate globals, disabled behavior, and
+hook rollback.
 Input tests exercise batched reports, validation, queue overflow/recovery,
 1 kHz edges across a 1.53-second consumer stall, and a 100,000-event concurrent queue run.
 An isolated Windows test runs actual thread hooks, checks that peeking does not

@@ -58,8 +58,6 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.native_shadow = value == "1" || value == "true" || value == "yes";
         } else if (key == "diagnostic_probe") {
             config.diagnostic_probe = value == "1" || value == "true" || value == "yes";
-        } else if (key == "native_shadow_feed") {
-            config.native_shadow_feed = value == "1" || value == "true" || value == "yes";
         } else if (key == "asio_output") {
             config.asio_output = value == "1" || value == "true" || value == "yes";
         } else if (key == "asio_driver_clsid") {
