@@ -1,7 +1,7 @@
 # High-refresh correctness first - revised priority
 
 Updated 2026-10-30. This supersedes the previous "native judgment first"
-ordering. The primary goal is now:
+ordering and the earlier two-clock proposal. The primary goal is now:
 
 1. The game runs correctly at 60/90/120/144/165/240/360 Hz.
 2. Animation, menus, effects, note motion and timing stay correct at any rate.
@@ -26,6 +26,33 @@ Running the original update at 120 Hz without repairing the second category
 would make menus, animation, note motion and scoring run at the wrong speed.
 The target is an elapsed-time update with the original state machines retained,
 not merely interpolation.
+
+## No compatibility clock
+
+There will be no `legacy_frame` view, no permanent 60-units/second gameplay
+clock, and no dual write of a 60 Hz counter and a microsecond clock.
+
+A temporary compatibility view would be read by every unmigrated function,
+would become the path of least resistance, and would still be present after
+the high-refresh work. It is therefore excluded from the design.
+
+The single authoritative unit is **microseconds**:
+
+- one `SongTimeUs` value, written from QPC/audio elapsed time;
+- chart times converted from milliseconds to microseconds at load;
+- note timestamps, judgment windows, timers and effects expressed in
+  microseconds;
+- no code path derives a 1/60-second value at runtime.
+
+The old 60-unit frame counter is retired, not aliased. In the native image its
+32-bit global is repurposed as a song-scoped microsecond counter; 2^32
+microseconds is about 71 minutes, longer than any chart. Non-song/application
+timers that need a longer range use the 64-bit host clock. This is one scale
+with two storage widths, not two time bases.
+
+Judgment windows authored in 1/60-second frames are converted once, when the
+chart/window data is loaded, using exact integer rounding. That conversion is
+data preparation, not a runtime adapter.
 
 ## Current audit
 
@@ -54,45 +81,59 @@ The current `FrameScheduler` has `kLegacySimulationHz = 60`; it calls the
 original game tail update at 60 and the render routine at the display rate.
 That is why the rest of the game still advances at 60.
 
-## Proposed architecture
+## Direct cutover plan
 
-### One elapsed-time source
+This is a single-scale migration, not an incremental dual path. Every one of
+the 105 frame-counter sites must be accounted for before the branch merges.
+The old semantics are deleted in the same change that introduces microseconds;
+there is no fallback that keeps counting frames.
 
-Every normal update samples QPC once and exposes:
+### 0. Site inventory (blocking)
 
-- exact elapsed QPC ticks;
-- a 60 Hz-equivalent fractional game time (`elapsed_seconds * 60`);
-- a fractional second remainder for timers.
+Build an IDA-backed table of all 105 references: address, function, read or
+write, what the value means at that site, and the replacement expression.
+Classify each as clock read, note timestamp, judgment window, timer, visual
+phase, hash/comparison or dead code. No patch is written for an unclassified
+site.
 
-The native frame counter should no longer be incremented by the call count.
-It becomes an accumulator advanced from the same elapsed time. A sub-frame
-remainder must be retained; integer truncation would recreate 60 Hz steps.
+### 1. One clock
 
-### Two clocks, not one global speed-up
+- Define the host-side `SongTimeUs` type with no implicit conversion to or
+  from integers.
+- Sample QPC once per normal update; advance the song clock by the exact
+  elapsed microseconds. Audio-derived time may correct it, but there is still
+  one resulting value.
+- Replace `sub_1802FC9D0`'s `counter += 1` with the new clock write.
+- Delete the frame-adjustment and hold/double catch-up semantics in
+  `sub_1802FDB30`; it must consume time, not fabricate frames.
 
-- **Gameplay clock**: 60 units/second, fractional. Existing chart records,
-  judgment windows and note timestamps keep their frame units.
-- **Render/UI clock**: display rate, elapsed time. Animation, menus, effects
-  and note drawing consume elapsed time or the fractional gameplay clock.
+### 2. Chart and judgment data
 
-This lets the game run its render/UI work at 120/144/165/240/360 while the
-judge still sees its documented 60 Hz frame domain. It is the lowest-risk way
-to get high-refresh correctness without changing scoring rules.
+- Chart loader `sub_1801A43E0`: replace `60.0 / 1000.0` with exact
+  milliseconds-to-microseconds conversion.
+- Note records, chart events, BPM/stop data and long-note fields: store
+  microseconds consistently.
+- Judgment windows: convert frame-authored boundaries to microseconds once at
+  load; use rounded integer boundaries so behavior is deterministic.
+- No runtime multiplication by 60 and no fractional-frame accumulator.
 
-### Audit and conversion order
+### 3. Timers and animation
 
-1. `sub_1802FC9D0`: replace `counter += 1` with an elapsed-time accumulator;
-   preserve the fractional visual phase at `+280/+284/+292`.
-2. `sub_1802FDB30`: remove/parameterize the hold/double catch-up; make the
-   frame-gated cue comparison use the gameplay clock.
-3. AFP update in `sub_1801C3FE0`: replace the fixed animation delta with
-   elapsed time; audit the AFP ordinal that consumes it.
-4. Menu, scene, result, tutorial and service countdowns: convert call-count
-   thresholds to elapsed authored units, one owner at a time.
-5. Note spawn/removal, long-note hold state, hit effects, keysound scheduling
-   and chart event dispatch: ensure one crossing per event, not one per call.
-6. Presentation: retain the current high-refresh renderer; remove any
-   prediction path that becomes unnecessary once the update itself is smooth.
+- AFP delta in `sub_1801C3FE0`: replace the fixed per-call delta with elapsed
+  microseconds.
+- Menu, scene, result, tutorial and service countdowns: elapsed time, not call
+  counts.
+- Hit effects, note fade, long-note ribbon and keyflash: elapsed time or
+  absolute song time.
+- Note spawn/removal, hold state and keysound scheduling: fire on a time
+  crossing; a delayed update must not duplicate an event.
+
+### 4. Presentation
+
+- Render at the display rate from the same song clock.
+- Remove prediction/interpolation that only existed to hide the 60 Hz update.
+- Keep the existing high-refresh renderer only where it is still needed for
+  output smoothing.
 
 ### Validation
 
@@ -108,6 +149,19 @@ to get high-refresh correctness without changing scoring rules.
 The same input stream may be replayed at all rates, but judgment precision is
 not the acceptance criterion for this phase; state/timer correctness is.
 
+## Anti-drift gates
+
+- No type, field or function named `legacy_frame`, `frame60`, `kLegacy...` or
+  equivalent may exist in the merged timing path.
+- CI/search gate: the active timing path must not contain `counter += 1` for
+  song time, `60.0 / 1000.0`, or a runtime `* 60` conversion.
+- A migration table must show **105/105** frame-counter sites resolved.
+- No runtime switch that selects between 60-unit and microsecond semantics.
+  If an A/B flag is needed during development, it lives only on the feature
+  branch and is deleted before merge.
+- The old frame-counter semantics are removed in the same commit as the new
+  clock; no TODO is allowed to preserve them.
+
 ## What is deferred
 
 - ASIO engine replacement remains experimental and off.
@@ -118,7 +172,6 @@ not the acceptance criterion for this phase; state/timer correctness is.
 
 ## First code milestone
 
-Introduce the elapsed-time context and make the scheduler's simulation rate
-configurable, but keep the default at 60 until the frame-counter and timer
-patches are validated. Then convert `sub_1802FC9D0` and `sub_1802FDB30` behind
-a new opt-in high-refresh flag.
+Create the microsecond clock and complete the 105-site inventory. Then convert
+`sub_1802FC9D0`, `sub_1802FDB30` and the chart loader in one branch, deleting
+the frame increment and the 60 Hz rate constant as part of that change.
