@@ -96,8 +96,9 @@ read-only `PROBE` lines for the normal judge and gliss/velocity note updates.
 `timeline_probe=true` hooks the music timeline tick and emits a read-only
 `TIMELINE` line per tick with the frame delta, QPC delta, both timing offsets,
 end frame, frame adjustment, clock state, BPM/beat, tempo index and rate/mode.
-It resolves the high-refresh migration's live offset and call-cadence questions
-without changing playback. Both are diagnostic build aids, not gameplay paths.
+The migration design is recovered statically from IDA; this probe only confirms
+that the static model matches the running build. Both are diagnostic aids, not
+gameplay paths.
 See [the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
 
 `asio_output=true` is an experimental native route: it opens an exact ASIO

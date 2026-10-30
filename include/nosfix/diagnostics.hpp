@@ -4,9 +4,10 @@
 
 namespace nosfix {
 
-// Runtime diagnostic probes for the four remaining live-only questions.
-// Disabled by default; every probe is read-only and rate-limited. This is a
-// diagnostic build aid, not a gameplay path.
+// Read-only runtime probes for live validation. The high-refresh design is
+// recovered statically from the image; these probes only confirm that the
+// static model matches the running build. Disabled by default and rate-limited.
+// This is a diagnostic build aid, not a gameplay path.
 void ConfigureDiagnosticProbe(bool enabled) noexcept;
 [[nodiscard]] bool DiagnosticProbeEnabled() noexcept;
 

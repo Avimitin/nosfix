@@ -166,21 +166,29 @@ These offsets are not optional. The xref counts are:
 - `0x18136690C`: **80 references**;
 - `0x181366918`: **59 references**.
 
-What is known:
+Static proof:
 
-- `qword_181366908` is initialized to 0; its high dword has no native writer
-  besides that initialization. It is currently always 0 in the native path.
+- `qword_181366908` has exactly one writer: `sub_1800CB9A0` at
+  `0x1800CC184` does `mov cs:qword_181366908, rdi`. Its prologue at
+  `0x1800CB9AA` is `xor edi, edi`, so the stored value is always `0`. The low
+  dword is later used as a combo counter; a carry into the high dword would
+  require 2^32 combo increments, which cannot occur in a song. Therefore
+  `HIDWORD(qword_181366908)` is **provably 0** in the native path.
 - `qword_181366914` is initialized to 2; its high dword is written by
   `sub_180277000`, `sub_1803049D0` and `sub_180305B30`.
-- `sub_180277000` is the UI handler for the user timing control. It resolves
-  the `lock_tim_usr` / `num_tim_usr` child clips, clamps `a1+440` to `[-5, +5]`,
-  writes that value to `0x181366918`, and plays `se035_click`. The UI step is
-  therefore one frame at 60 Hz (16.667 ms), and the stored offset is in frame
-  units.
-- `sub_180305B30` seeds the same field from chart/option data (the value at
-  `sub_18018B090(...)+72`). `sub_1803049D0(int)` is a direct setter for
-  `0x181366918`; its callers are virtual/indirect, so the unit at the call
-  site still needs runtime evidence.
+- `sub_180305B30` at `0x180305BEB` copies `PlayerSettingData+72` into
+  `0x181366918`. The settings parser `sub_180189F10` proves the field identity:
+  - line 401 reads the property string `judge_delay_offset`;
+  - line 420 stores that property's value in `v115`;
+  - line 674 writes `*(_DWORD *)(a1 + 72) = v115`.
+  So `PlayerSettingData+72` is **`judge_delay_offset`**, not an unnamed scalar.
+- `sub_180277000` is the UI handler for `lock_tim_usr` / `num_tim_usr`. It
+  clamps `a1+440` to `[-5, +5]`, writes that value to `0x181366918`, and plays
+  `se035_click`. The step is one frame at 60 Hz (16.667 ms); the runtime offset
+  is in frame units.
+- `sub_1803049D0(int)` is a direct setter for `0x181366918`, but it has **no
+  xrefs, no data pointer, and no export** in this image. It is dead in this
+  build. The only live writers are the settings seed and the UI handler.
 - Consequence: the user timing offset is a **frame-domain control**, not a
   generic scalar. In microseconds its range becomes about `[-83,333, +83,333]`
   us and each UI step must become `16,667` us (or the documented rounded
@@ -205,7 +213,10 @@ in the same change.
 | `dword_1813668EC` | -6 | -100 ms |
 | `dword_1813668E4` | -11 | -183.3 ms |
 
-Only one write was found for each default. They are compared directly against
+Only one write was found for each default, and the only caller of
+`sub_1800CB9A0` is the static initializer `sub_1800741C0` (which also registers
+`atexit`). The windows are therefore fixed at module load; there is no
+per-song or per-scene native mutation. They are compared directly against
 `note_time - counter - offsets`. At 120 Hz, leaving them as frame counts would
 halve every window. They become microsecond boundaries in the same load-time
 conversion as the notes.
@@ -237,10 +248,23 @@ while (tempo_index < tempo_count && counter_us >= event_us) { ... }
 
 That is a correctness fix independent of input judgment.
 
-### 7.1 The controller can run the update zero, one or two times per frame
+### 7.1 The controllers can run the update zero, one or two times per frame
 
-`sub_1802FDB30` is not a simple once-per-frame dispatcher. It measures audio
-drift in `qword_18070A718` (milliseconds), keeps hold/catch-up counters, and:
+All three scene/gameplay controllers use the same control-flow pattern:
+
+| Controller | Update function | Catch-up call | Normal call | Hold counter |
+|---|---|---|---|---|
+| `sub_180196390` | `sub_180197330` | `0x180196700` | `0x180196747` | `[rbp+668h]` at `0x18019674E` |
+| `sub_1801ABFA0` | `sub_1801AD660` | `0x1801AC362` | `0x1801AC3A7` | `[rbp+668h]` at `0x1801AC3AE` |
+| `sub_1802FDB30` | `sub_1802FF090` | `0x1802FDF98` | `0x1802FDFD8` | `[rbp+668h]` at `0x1802FDFDF` |
+
+In each, the catch-up branch increments a separate counter and calls the update
+once; the normal branch then either calls the update again or increments the
+hold counter. Therefore one display frame can contain **zero, one or two**
+update calls, and each update call reaches `sub_1802FC9D0`.
+
+For `sub_1802FDB30` specifically, it measures audio drift in
+`qword_18070A718` (milliseconds), keeps hold/catch-up counters, and:
 
 - at `0x1802FDF89` it increments `a1+1636`, then calls `sub_1802FF090` at
   `0x1802FDF98` from the catch-up branch (drift `> 25 ms` and count `>= 5`);
@@ -248,10 +272,9 @@ drift in `qword_18070A718` (milliseconds), keeps hold/catch-up counters, and:
   at `0x1802FDFDF` and does not call the update;
 - otherwise it calls `sub_1802FF090` at `0x1802FDFD8` as the normal update.
 
-So one display frame can contain zero, one or two `sub_1802FF090` calls. The
-exact consequence for the migration: **the timeline tick must not add elapsed
-time on every call**. The update can run twice in one display frame to catch up.
-The safe model is an absolute write:
+The exact consequence for the migration: **the timeline tick must not add
+elapsed time on every call**. The update can run twice in one display frame to
+catch up. The safe model is an absolute write:
 
 ```
 song_time_us = clock.Now(qpc).microseconds;
@@ -296,10 +319,16 @@ These are outside the 105 direct xrefs but are part of the same timeline:
 
 - `dword_18070A740` (frame adjustment): 6 references. `sub_1801C3FE0`
   converts it with `* 1000 / rate`; the tick path decrements it. It is in frame
-  units today. No positive writer was found, so its exact role still needs
-  runtime evidence.
-- `dword_18070A750` (clock correction state): 4 references. It gates the
-  main-loop milliseconds calculation.
+  units today. It has no positive writer in the image: the only writes are the
+  two resets to 0 and three `dec` sites, so it is always `<= 0` in the native
+  path. Its exact purpose is still odd (an unbounded negative would eventually
+  dominate the audio-lapse subtraction); do not copy this state into the new
+  clock.
+- `dword_18070A750` (clock correction countdown): 4 references. It is reset to
+  0 in the two timeline resets; the only other write decrements it when it is
+  already `>= 1`. No native path ever sets it above 0, so the `16*n+10` drift
+  branch is dead in this build. Treat it as a legacy countdown, not a live
+  clock input.
 - `dword_18070A614` (end frame): 5 references; copied from chart `+168`.
 - `qword_18070A718` (audio drift in ms): 26 references; read by the
   hold/catch-up controller and the main loop. It is a drift measurement, not
@@ -328,33 +357,46 @@ These must be changed in the same branch. If the native counter becomes
 microseconds while these readers still treat it as frames, the host diagnostic
 and prediction paths will be wrong even if the game is correct.
 
-## 10. Open questions that need runtime evidence
+## 10. Static conclusions
 
-1. **Offset units:** `HIDWORD(qword_181366914)` is the user timing offset,
-   clamped to `[-5, +5]` by `sub_180277000`; that confirms the frame-domain UI
-   step. The chart/option seed in `sub_180305B30` and the indirect
-   `sub_1803049D0` callers still need live confirmation. `HIDWORD(qword_181366908)`
-   has no native writer; confirm no external writer.
-2. **Tick frequency:** `sub_1802FDB30` can call `sub_1802FF090` zero, one or
-   two times in one display frame; each call reaches `sub_1802FC9D0`. Confirm
-   no other caller adds a third path. This is why the tick must write the
-   absolute song time rather than add elapsed time per call.
-3. **Counter width:** 32-bit signed microseconds spans about +/-35.8 minutes.
-   Songs fit; service/menu sessions may not. The reset paths must be shown to
-   run before that range matters.
-4. **Judgment-window mutation:** only the default writes were found. Confirm
-   there is no external/virtual writer that changes the windows at runtime.
-5. **59.977 mode:** chart frames are currently rate-dependent. The
-   microsecond conversion should make both 59.977 and 60.0 modes use the same
-   song time; validate note boundaries against the current 60.0 behavior.
-6. **`qword_181366908` high dword:** no native writer outside initialization.
-   Confirm no external module writes it before treating it as permanently 0.
+The image resolves the questions that were previously marked “runtime”:
+
+1. **Offset identity:** `HIDWORD(qword_181366914)` is
+   `PlayerSettingData+72`, proven to be `judge_delay_offset` by the settings
+   parser (`sub_180189F10`: string at line 401, value at line 420, store at
+   line 674). `sub_180277000` adjusts it by +/-1 frame. `sub_1803049D0` is
+   dead (no xrefs, no pointer, no export). The offset is frame-domain.
+2. **Other offset:** `HIDWORD(qword_181366908)` is provably 0: the only qword
+   writer is preceded by `xor edi,edi`; the low dword is a combo counter whose
+   2^32 carry cannot occur in a song.
+3. **Tick count:** all three controllers (`sub_180196390`, `sub_1801ABFA0`,
+   `sub_1802FDB30`) contain the same catch-up + normal-call + hold pattern.
+   Zero, one or two update calls per frame is proven by control flow, not by
+   observation.
+4. **Judgment windows:** each default has exactly one native write in
+   `sub_1800CB9A0`; no other native writer exists.
+5. **Rate mode:** the only rate table is at `0x18062FD80` with 59.977 and 60.0;
+   `sub_180218AA0` rejects values outside `[59.0, 60.0]`. The 59.977/60.0
+   distinction is static and disappears once chart times are microseconds.
+6. **Counter width:** 32-bit signed microseconds spans about +/-35.8 minutes.
+   The counter is reset to its preroll value at every song/timeline start; a
+   chart is far below that bound. Any service-mode use must be checked
+   separately, but it does not affect song playback.
+7. **Frame adjustment / countdown:** `0x70A740` has no positive writer and is
+   always `<= 0`; `0x70A750` is never set above 0, so its countdown branch is
+   dead in this build.
+
+The only thing the image cannot prove is whether an **injected module** writes
+these globals directly. `nosfix` does not: the host code only reads
+`0x70A610`. That is an integration invariant to enforce, not a reason to keep a
+runtime probe as the primary source.
 
 ## 11. Next step
 
-The read-only probe is implemented as `timeline_probe` (commit `f19ca3b`).
-It hooks `sub_1802FC9D0` and emits one `TIMELINE` line per tick, up to 1200
-ticks, with:
+The read-only probe is still useful as a validation check, but it is no longer
+required to decide the design. It is implemented as `timeline_probe`
+(commit `f19ca3b`) and emits one `TIMELINE` line per tick for comparison with
+the static model:
 
 - QPC and QPC delta;
 - counter before/after/delta;
