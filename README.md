@@ -10,7 +10,8 @@ geometry from chart time; velocity zones and beat lines remain on the legacy
 path. It does **not** yet implement timestamped input judgments, fully
 time-based UI animation, or a hardware-validated ASIO output route. The new work targets an
 audio-referenced timeline with QPC input timestamps, independent of display
-cadence. See [the integration contracts and remaining work](analyze/NATIVE_TIMING.txt).
+cadence. See [the integration contracts and remaining work](analyze/NATIVE_TIMING.txt)
+and [the DLL change map](analyze/DLL_CHANGE_MAP.md).
 
 Version 0.4 adds a guarded correction to libxact's cue-clock arithmetic,
 chart-time note projection sampled from that clock, and a startup
