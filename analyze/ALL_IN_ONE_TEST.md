@@ -1,5 +1,11 @@
 # All-in-one test plan - 2026-10-30
 
+> Historical test plan. The `smooth_motion`, `smooth_ui`, `clock_motion`,
+> `timeline_probe`, `high_refresh_timeline` and `native_shadow_feed` switches
+> have been removed. The microsecond timeline is mandatory and host prediction
+> is not installed. Use `analyze/HIGH_REFRESH_FIRST.md` and the current
+> `nosfix.ini` for the current build.
+
 Build under test: `out/all-in-one-20261030/`
 DLL SHA-256: `D271D6A26338FCB54E39001CECAFD6C6C3A8CED224464EEA4DC8E707010DE72E`
 

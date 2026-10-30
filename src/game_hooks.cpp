@@ -301,19 +301,9 @@ void LogWindowMetrics(std::int64_t now) {
     }
 
     const auto motion = TakeMotionMetrics();
-    sprintf_s(line, "5s note motion: captures=%llu, predicted draws=%llu, song-time draws=%llu, guarded fallbacks=%llu",
-        static_cast<unsigned long long>(motion.captures),
-        static_cast<unsigned long long>(motion.predicted_draws),
-        static_cast<unsigned long long>(motion.timed_draws),
-        static_cast<unsigned long long>(motion.fallback_draws));
-    Log(LogLevel::Info, line);
-
+    (void)motion; // Host prediction is not installed in the microsecond path.
     const auto ui = TakeUiMetrics();
-    sprintf_s(line, "5s UI motion: captures=%llu, predicted draws=%llu, guarded fallbacks=%llu",
-        static_cast<unsigned long long>(ui.captures),
-        static_cast<unsigned long long>(ui.predicted_draws),
-        static_cast<unsigned long long>(ui.fallback_draws));
-    Log(LogLevel::Info, line);
+    (void)ui;
 
     g_thread.metrics_start = now;
     g_thread.tick_count = 0;

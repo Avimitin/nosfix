@@ -1,5 +1,10 @@
 # Shadow integration - stage 1
 
+> Historical shadow-stage document. The microsecond timeline is now mandatory.
+> The `clock_motion`, `smooth_motion`, `smooth_ui` and `native_shadow_feed`
+> switches have been removed; use only `native_shadow` and `capture_input` for
+> the remaining diagnostic publication path.
+
 Updated 2026-10-30. This document describes what is actually wired into the
 live DLL after the first four implementation streams were merged. It is not a
 claim of frame-independent judgement.

@@ -1,5 +1,9 @@
 # nosfix DLL change map - 2026-10-30
 
+> Historical sections 2 and 3 describe host note/UI prediction. Those paths
+> are no longer installed; the native microsecond timeline is authoritative.
+> See `analyze/HIGH_REFRESH_FIRST.md` for the current runtime.
+
 This document describes what the injected `nosfix.dll` changes in the game
 process, how each change is installed, why it exists, and what remains
 untouched. It is a behavior map, not a claim that the native timing migration
