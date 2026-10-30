@@ -16,6 +16,12 @@ struct Config {
     bool native_shadow = false; // Publish the shadow song clock; no judgments yet.
     bool diagnostic_probe = false; // Read-only PROBE log lines for live samples.
     bool native_shadow_feed = false; // Live normal-note shadow comparison; no scoring effect.
+    bool asio_output = false; // Experimental native ASIO route; off by default.
+    std::string asio_driver_clsid;
+    std::string asio_driver_name;
+    std::string asio_output_channels = "0,1";
+    unsigned asio_sample_rate = 44100;
+    unsigned asio_buffer_frames = 128;
     unsigned target_hz = 0; // 0 selects the primary display's current rate.
     int log_level = 2;
 };

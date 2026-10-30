@@ -1,6 +1,7 @@
 #include "nosfix/game_hooks.hpp"
 #include "nosfix/audio_clock_patch.hpp"
 
+#include "nosfix/asio_route.hpp"
 #include "nosfix/config.hpp"
 #include "nosfix/call_patch.hpp"
 #include "nosfix/diagnostics.hpp"
@@ -588,6 +589,21 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         return false;
     }
 
+    if (config.asio_output) {
+        ModuleIdentity xact;
+        std::wstring guard_reason;
+        std::string asio_reason;
+        if (!VerifyLibxactModule(xact, guard_reason)) {
+            for (const wchar_t c : guard_reason)
+                asio_reason.push_back(c <= 127 ? static_cast<char>(c) : '?');
+        } else if (!ConfigureAsioRoute(config, xact.module, asio_reason)) {
+            // ASIO is optional: keep the original libxact engine on failure.
+        }
+        if (!asio_reason.empty())
+            Log(LogLevel::Warning, "ASIO route inactive: " + asio_reason);
+    } else {
+        DisableAsioRoute();
+    }
     ConfigureDiagnosticProbe(config.diagnostic_probe);
     if (config.native_shadow_feed)
         ConfigureShadowLive(reinterpret_cast<const std::byte*>(module), image_size,
@@ -643,6 +659,7 @@ void RemoveGameHooks() noexcept {
     g_input_pending.store(false, std::memory_order_release);
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
     ConfigureDiagnosticProbe(false);
+    DisableAsioRoute();
     SetShadowNoteObserver(nullptr);
     DisableShadowLive();
     SetRuntimeActive(false);

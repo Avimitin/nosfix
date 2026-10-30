@@ -66,6 +66,26 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.diagnostic_probe = value == "1" || value == "true" || value == "yes";
         } else if (key == "native_shadow_feed") {
             config.native_shadow_feed = value == "1" || value == "true" || value == "yes";
+        } else if (key == "asio_output") {
+            config.asio_output = value == "1" || value == "true" || value == "yes";
+        } else if (key == "asio_driver_clsid") {
+            config.asio_driver_clsid = value;
+        } else if (key == "asio_driver_name") {
+            config.asio_driver_name = value;
+        } else if (key == "asio_output_channels") {
+            if (!value.empty()) config.asio_output_channels = value;
+        } else if (key == "asio_sample_rate") {
+            try {
+                const auto rate = static_cast<unsigned>(std::stoul(value));
+                if (rate >= 8000 && rate <= 384000) config.asio_sample_rate = rate;
+            } catch (...) {
+            }
+        } else if (key == "asio_buffer_frames") {
+            try {
+                const auto frames = static_cast<unsigned>(std::stoul(value));
+                if (frames >= 16 && frames <= 8192) config.asio_buffer_frames = frames;
+            } catch (...) {
+            }
         } else if (key == "target_hz") {
             if (value == "auto" || value == "0") {
                 config.target_hz = 0;

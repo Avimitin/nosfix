@@ -8,7 +8,7 @@ The current runtime still has a 60 Hz simulation and independent presentation.
 The `clock_motion` path evaluates normal, long, trill and glissando note
 geometry from chart time; velocity zones and beat lines remain on the legacy
 path. It does **not** yet implement timestamped input judgments, fully
-time-based UI animation, or ASIO output. The new work targets an
+time-based UI animation, or a hardware-validated ASIO output route. The new work targets an
 audio-referenced timeline with QPC input timestamps, independent of display
 cadence. See [the integration contracts and remaining work](analyze/NATIVE_TIMING.txt).
 
@@ -94,6 +94,14 @@ judge. It requires `precise_audio_clock=true`; `diagnostic_probe=true` emits
 read-only `PROBE` lines for the normal judge and gliss/velocity note updates.
 Both are diagnostic build aids, not gameplay paths. See
 [the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
+
+`asio_output=true` is an experimental native route: it opens an exact ASIO
+driver and replaces libxact's XAudio2 engine creation with the bridge engine.
+Set either `asio_driver_clsid` or the exact `asio_driver_name`, plus
+`asio_output_channels`, `asio_sample_rate` and `asio_buffer_frames`. The route
+is fail-closed: if the driver, rate, buffer, channels or hook bytes do not
+match, it logs the reason and leaves the original engine in place. It has not
+been validated on real hardware.
 
 Hook sets are supplied as explicit module-relative RVAs and exact expected
 instruction bytes. The installer validates the complete set before creating
@@ -199,8 +207,9 @@ descriptor decoder, binding adapter, bounded `InputPipeline` and
 `SongClockPublication` are implemented and tested; the live game still uses
 only the diagnostic drain. With `native_shadow=true` the corrected song clock
 is published to the capture and packet QPCs are mapped for diagnostics, not
-judgment. `capture_input=false` is the default. ASIO and key-sound dispatch
-remain unchanged.
+judgment. `capture_input=false` is the default. An experimental ASIO route
+exists (`asio_output=true`) but is off by default and has not been validated on
+a real driver; key-sound dispatch remains on the original path without it.
 
 The portable timing kernels are built and tested: decoded-control
 normalization with held-state recovery, continuous-time normal-note judgment,
@@ -284,8 +293,9 @@ Prediction counters should become nonzero during moving notes above 60 Hz;
 they count drawing calls, not unique notes or display frames.
 
 Scoring windows, the existing audio drift correction, keysound dispatch, and
-audio output remain on the original paths. ASIO is unchanged and is not enabled
-by this DLL. Immediate presentation is requested so vblank blocking does not
+audio output remain on the original paths. The experimental `asio_output` route
+is off by default and not hardware-validated; without it, audio remains on the
+original engine. Immediate presentation is requested so vblank blocking does not
 own simulation pacing; tearing may be visible. The D3D driver may also block or
 reject a selected mode, so the logged render rate is an attempted rate and
 must be measured on the target display.

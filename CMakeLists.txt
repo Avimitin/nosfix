@@ -35,6 +35,7 @@ target_compile_definitions(minhook PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 add_library(nosfix SHARED
     src/asio_audio_host.cpp
     src/asio_output.cpp
+    src/asio_route.cpp
     src/audio_mixer.cpp
     src/audio_clock_patch.cpp
     src/audio_timeline.cpp
