@@ -66,6 +66,8 @@ Config LoadConfig(const std::filesystem::path& path) {
             config.diagnostic_probe = value == "1" || value == "true" || value == "yes";
         } else if (key == "timeline_probe") {
             config.timeline_probe = value == "1" || value == "true" || value == "yes";
+        } else if (key == "high_refresh_timeline") {
+            config.high_refresh_timeline = value == "1" || value == "true" || value == "yes";
         } else if (key == "native_shadow_feed") {
             config.native_shadow_feed = value == "1" || value == "true" || value == "yes";
         } else if (key == "asio_output") {

@@ -58,6 +58,9 @@ add_library(nosfix SHARED
     src/motion_hooks.cpp
     src/monitor_check.cpp
     src/native_gameplay.cpp
+    src/native_timeline.cpp
+    src/native_timeline_patch.cpp
+    src/native_timeline_runtime.cpp
     src/native_match.cpp
     src/native_note_state.cpp
     src/native_note_types.cpp
@@ -145,6 +148,9 @@ if(BUILD_TESTING)
         src/chart_event_cursor.cpp src/normal_judgment.cpp src/song_clock.cpp
         src/input_normalizer.cpp)
     add_test(NAME native_gameplay COMMAND nosfix_native_gameplay_tests)
+    add_executable(nosfix_native_timeline_tests
+        tests/native_timeline_tests.cpp src/native_timeline.cpp)
+    add_test(NAME native_timeline COMMAND nosfix_native_timeline_tests)
     add_executable(nosfix_raw_input_tests tests/raw_input_capture_tests.cpp
         src/raw_input_capture.cpp src/song_clock_publication.cpp)
     target_compile_definitions(nosfix_raw_input_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -330,7 +336,7 @@ if(BUILD_TESTING)
         src/native_note_types.cpp src/panb_pressure.cpp src/normal_judgment.cpp)
     add_test(NAME bucket_input COMMAND nosfix_bucket_input_tests)
 
-    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_shadow_clock_tests nosfix_shadow_live_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_shadow_adapter_tests nosfix_native_gameplay_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_bucket_input_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
+    foreach(target nosfix_motion_tests nosfix_primitive_motion_tests nosfix_motion_hook_tests nosfix_ui_motion_tests nosfix_ui_hook_tests nosfix_song_clock_tests nosfix_shadow_clock_tests nosfix_shadow_live_tests nosfix_audio_clock_tests nosfix_timed_normal_tests nosfix_timed_rendering_tests nosfix_timed_note_geometry_tests nosfix_timed_ui_timeline_tests nosfix_timed_ui_adapter_tests nosfix_timed_note_geometry_native_tests nosfix_motion_hook_timed_tests nosfix_monitor_check_tests nosfix_raw_input_tests nosfix_raw_input_windows_tests nosfix_input_decoder_tests nosfix_input_pipeline_tests nosfix_spice_binding_adapter_tests nosfix_gameplay_clock_tests nosfix_native_note_state_tests nosfix_native_scoring_tests nosfix_native_match_tests nosfix_native_shadow_adapter_tests nosfix_native_gameplay_tests nosfix_native_timeline_tests nosfix_native_note_types_tests nosfix_panb_pressure_tests nosfix_bucket_input_tests nosfix_input_normalizer_tests nosfix_normal_judgment_tests nosfix_chart_event_cursor_tests nosfix_timing_pipeline_tests)
         target_compile_features(${target} PRIVATE cxx_std_20)
         target_include_directories(${target} PRIVATE include)
         if(MSVC)
@@ -415,6 +421,23 @@ if(BUILD_TESTING)
             COMMAND nosfix_call_patch_tests
                     "${CMAKE_CURRENT_SOURCE_DIR}/analyze/nostalgia.dll"
                     "${CMAKE_CURRENT_SOURCE_DIR}/analyze/afp-core.dll")
+    endif()
+
+    add_executable(nosfix_timeline_patch_tests
+        tests/timeline_patch_tests.cpp
+        src/native_timeline_patch.cpp
+    )
+    target_compile_features(nosfix_timeline_patch_tests PRIVATE cxx_std_20)
+    target_compile_definitions(nosfix_timeline_patch_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+    target_include_directories(nosfix_timeline_patch_tests PRIVATE include)
+    if(MSVC)
+        target_compile_options(nosfix_timeline_patch_tests PRIVATE /W4 /permissive- /EHsc /utf-8)
+        target_link_options(nosfix_timeline_patch_tests PRIVATE /MANIFEST:NO)
+    endif()
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/analyze/nostalgia.dll")
+        add_test(NAME real_image_timeline_patch
+            COMMAND nosfix_timeline_patch_tests
+                    "${CMAKE_CURRENT_SOURCE_DIR}/analyze/nostalgia.dll")
     endif()
 endif()
 

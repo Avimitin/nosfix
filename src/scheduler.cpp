@@ -16,13 +16,18 @@ bool IsSupportedRate(unsigned hz) noexcept {
 
 bool FrameScheduler::Start(std::int64_t qpc_frequency,
                            unsigned presentation_hz,
-                           std::int64_t qpc_now) noexcept {
-    if (qpc_frequency <= 0 || !IsSupportedRate(presentation_hz)) return false;
+                           std::int64_t qpc_now,
+                           unsigned simulation_hz,
+                           bool render_with_simulation) noexcept {
+    if (qpc_frequency <= 0 || !IsSupportedRate(presentation_hz) ||
+        !IsSupportedRate(simulation_hz)) return false;
     qpc_frequency_ = qpc_frequency;
     epoch_qpc_ = qpc_now;
     simulation_index_ = 1;
     presentation_index_ = 0;
     presentation_hz_ = presentation_hz;
+    simulation_hz_ = simulation_hz;
+    render_with_simulation_ = render_with_simulation;
     running_ = true;
     return true;
 }
@@ -56,13 +61,13 @@ std::int64_t FrameScheduler::FirstSlotAfter(std::int64_t qpc_now) const noexcept
 
 std::int64_t FrameScheduler::NextSimulationBoundary() const noexcept {
     if (!running_) return 0;
-    return Boundary(kLegacySimulationHz, simulation_index_);
+    return Boundary(simulation_hz_, simulation_index_);
 }
 
 double FrameScheduler::SimulationPhase(std::int64_t qpc_now) const noexcept {
     if (!running_) return 0.0;
-    const auto begin = Boundary(kLegacySimulationHz, simulation_index_ - 1);
-    const auto end = Boundary(kLegacySimulationHz, simulation_index_);
+    const auto begin = Boundary(simulation_hz_, simulation_index_ - 1);
+    const auto end = Boundary(simulation_hz_, simulation_index_);
     if (end <= begin || qpc_now <= begin) return 0.0;
     if (qpc_now >= end) return 1.0;
     return static_cast<double>(qpc_now - begin) / static_cast<double>(end - begin);
@@ -72,17 +77,26 @@ ScheduleStep FrameScheduler::Next(std::int64_t qpc_now) noexcept {
     if (!running_) return {ScheduleAction::TickComplete, qpc_now, 0};
 
     const std::int64_t simulation_boundary =
-        Boundary(kLegacySimulationHz, simulation_index_);
+        Boundary(simulation_hz_, simulation_index_);
+    const std::int64_t presentation_boundary =
+        Boundary(presentation_hz_, presentation_index_);
+
     if (qpc_now >= simulation_boundary) {
+        // At equal rates the display slot and the native tail share a
+        // boundary. Serve one render first, then retire the update on the next
+        // loop so the native tail runs after the frame it belongs to. A render
+        // that overruns into later boundaries does not render again for the
+        // same update.
+        if (SameRate() && presentation_index_ <= simulation_index_ &&
+            presentation_boundary <= qpc_now) {
+            presentation_index_ = FirstSlotAfter(qpc_now);
+            return {ScheduleAction::Render, qpc_now, 0};
+        }
         const std::int64_t late_by = qpc_now - simulation_boundary;
-        ++simulation_index_; // Retire exactly one legacy iteration per call.
-        // Leave the next presentation slot pending. The next simulation update
-        // runs before the display; its render call may consume one late slot.
+        ++simulation_index_; // Retire exactly one native iteration per call.
         return {ScheduleAction::TickComplete, simulation_boundary, late_by};
     }
 
-    const std::int64_t presentation_boundary =
-        Boundary(presentation_hz_, presentation_index_);
     if (presentation_boundary < simulation_boundary &&
         presentation_boundary <= qpc_now) {
         // One due slot can be served now. Any additional elapsed slots are

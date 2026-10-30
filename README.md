@@ -99,7 +99,13 @@ end frame, frame adjustment, clock state, BPM/beat, tempo index and rate/mode.
 The migration design is recovered statically from IDA; this probe only confirms
 that the static model matches the running build. Both are diagnostic aids, not
 gameplay paths.
-See [the shadow integration notes](analyze/SHADOW_INTEGRATION.md).
+`high_refresh_timeline=true` enables the experimental native microsecond
+cutover: chart times, note times, judgment windows, the timeline tick and the
+beat/angle formulas switch to absolute microseconds, and the scheduler retires
+one native update per display frame. It requires `precise_audio_clock=true`;
+host note/UI prediction is disabled automatically. Set `target_hz` to the
+desired display rate and keep `timeline_probe=false` while evaluating it.
+See [the high-refresh notes](analyze/HIGH_REFRESH_FIRST.md).
 
 `asio_output=true` is an experimental native route: it opens an exact ASIO
 driver and replaces libxact's XAudio2 engine creation with the bridge engine.

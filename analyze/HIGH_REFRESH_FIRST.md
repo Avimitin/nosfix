@@ -173,6 +173,23 @@ not the acceptance criterion for this phase; state/timer correctness is.
 
 ## First code milestone
 
-Create the microsecond clock and complete the 105-site inventory. Then convert
-`sub_1802FC9D0`, `sub_1802FDB30` and the chart loader in one branch, deleting
-the frame increment and the 60 Hz rate constant as part of that change.
+Implemented in the current branch:
+
+- `NativeTimeline` microsecond tick core with an analytic tempo-map test.
+- Real-image conversion manifest: 43 float `rate*rate` sites, 16 double-rate
+  reads, 6 counter resets, 8 judgment windows, and the `-160` stage threshold.
+- Guarded prepare/commit/rollback engine, including a real-image test.
+- `timeline_probe` read-only validation hook.
+- `high_refresh_timeline` runtime:
+  - absolute microsecond tick driven by the published cue clock or QPC fallback;
+  - `sub_180305B30` / `sub_180277000` judge-offset conversion from frames to us;
+  - scheduler simulation rate follows presentation rate and renders before the
+    native tail at equal rates.
+
+Still required before calling it complete:
+
+- audit `dword_18070A740` / frame-unit audio adjustment;
+- validate live at 60/120/144/165/240/360 Hz, including pause/seek/retry;
+- remove the dormant host frame readers (`timed_rendering`, `motion_hooks`,
+  diagnostics) or gate them off permanently;
+- then delete the old frame-unit semantics and the feature flag.

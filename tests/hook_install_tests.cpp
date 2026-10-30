@@ -13,7 +13,8 @@ namespace {
     std::exit(1);
 }
 std::intptr_t __fastcall UnusedDetour(void*) { return 0; }
-constexpr std::array<DWORD, 4> kTargets{0x1C31C0, 0x355CD0, 0x355170, 0x2FC9D0};
+constexpr std::array<DWORD, 6> kTargets{0x1C31C0, 0x355CD0, 0x355170, 0x2FC9D0,
+                                       0x305B30, 0x277000};
 }
 
 // Never runs any game instruction or resolves its imported dependencies. This

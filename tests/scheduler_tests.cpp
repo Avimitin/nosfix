@@ -187,6 +187,34 @@ void TestRenderTailDispatch() {
     Check(*reinterpret_cast<unsigned char*>(list.data() + 84) == 0);
 }
 
+void TestEqualRateRenderThenDispatch() {
+    constexpr unsigned hz = 120;
+    nosfix::FrameScheduler scheduler;
+    Check(scheduler.Start(kQpcFrequency, hz, 0, hz, true));
+    Check(scheduler.SimulationHz() == hz);
+    std::int64_t now = 0;
+    unsigned renders = 0;
+    unsigned ticks = 0;
+    while (ticks < hz) {
+        const auto step = scheduler.Next(now);
+        switch (step.action) {
+        case nosfix::ScheduleAction::Render:
+            ++renders;
+            break;
+        case nosfix::ScheduleAction::Wait:
+            now = step.deadline_qpc;
+            break;
+        case nosfix::ScheduleAction::TickComplete:
+            ++ticks;
+            now = std::max(now, step.deadline_qpc);
+            now += kQpcFrequency / 10000; // 100 us update work
+            break;
+        }
+    }
+    Check(renders >= ticks);
+    Check(renders <= ticks + 1);
+}
+
 void TestFractionalSimulationPhase() {
     nosfix::FrameScheduler scheduler;
     Check(scheduler.SimulationPhase(0) == 0.0);
@@ -213,5 +241,6 @@ int main() {
     TestStallAdvancesOneTickAtATime();
     for (const auto hz : kRates) TestDispatchExactlyOnce(hz);
     TestRenderTailDispatch();
+    TestEqualRateRenderThenDispatch();
     TestFractionalSimulationPhase();
 }

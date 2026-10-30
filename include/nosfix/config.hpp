@@ -16,6 +16,7 @@ struct Config {
     bool native_shadow = false; // Publish the shadow song clock; no judgments yet.
     bool diagnostic_probe = false; // Read-only PROBE log lines for live samples.
     bool timeline_probe = false; // Read-only per-tick timeline/offset probe.
+    bool high_refresh_timeline = false; // Experimental microsecond native timeline cutover.
     bool native_shadow_feed = false; // Live normal-note shadow comparison; no scoring effect.
     bool asio_output = false; // Experimental native ASIO route; off by default.
     std::string asio_driver_clsid;

@@ -10,6 +10,8 @@
 #include "nosfix/module_guard.hpp"
 #include "nosfix/motion_hooks.hpp"
 #include "nosfix/monitor_check.hpp"
+#include "nosfix/native_timeline_patch.hpp"
+#include "nosfix/native_timeline_runtime.hpp"
 #include "nosfix/presentation.hpp"
 #include "nosfix/render_tail.hpp"
 #include "nosfix/raw_input_capture.hpp"
@@ -40,10 +42,16 @@ using NormalJudgeFunction = std::int64_t(__fastcall*)(int*, std::int64_t,
                                                        unsigned char,
                                                        std::int64_t);
 using TimelineTickFunction = std::int64_t(__fastcall*)(void*);
+using SeedJudgeOffsetFunction = std::int64_t(__fastcall*)(void*, std::int64_t,
+                                                           std::int64_t, char*,
+                                                           char, char);
+using UiJudgeOffsetFunction = std::int64_t(__fastcall*)(void*, int);
 
 constexpr DWORD kRenderRva = 0x1C31C0;
 constexpr DWORD kNormalJudgeRva = 0x2F6800;
 constexpr DWORD kTimelineTickRva = 0x2FC9D0;
+constexpr DWORD kSeedJudgeOffsetRva = 0x305B30;
+constexpr DWORD kUiJudgeOffsetRva = 0x277000;
 constexpr DWORD kHasEntryRva = 0x355CD0;
 constexpr DWORD kProcessDispatchRva = 0x355170;
 constexpr DWORD kTransitionRva = 0x356010;
@@ -68,6 +76,12 @@ constexpr std::array<unsigned char, 24> kNormalJudgeBytes{
 constexpr std::array<unsigned char, 24> kTimelineTickBytes{
     0x44,0x8B,0x19,0x4C,0x63,0x81,0x3C,0x01,0x00,0x00,0x41,0x8D,
     0x53,0x01,0x89,0x11,0x44,0x3B,0x81,0x38,0x01,0x00,0x00,0x7D};
+constexpr std::array<unsigned char, 24> kSeedJudgeOffsetBytes{
+    0x40,0x53,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,
+    0x57,0x48,0x81,0xEC,0x48,0x03,0x00,0x00,0x48,0xC7,0x84,0x24};
+constexpr std::array<unsigned char, 24> kUiJudgeOffsetBytes{
+    0x48,0x8B,0xC4,0x55,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,
+    0x48,0x8B,0xEC,0x48,0x83,0xEC,0x70,0x48,0xC7,0x45,0xD0,0xFE};
 constexpr std::array<unsigned char, 5> kHasEntryCall{
     0xE8,0x48,0x24,0x19,0x00};
 constexpr std::array<unsigned char, 5> kDispatchCall{
@@ -76,6 +90,7 @@ constexpr std::array<unsigned char, 5> kDispatchCall{
 std::atomic<bool> g_runtime_active{false};
 std::atomic<bool> g_input_observation{false};
 std::atomic<bool> g_input_pending{false};
+std::atomic<bool> g_high_refresh_simulation{false};
 unsigned char* g_module_base = nullptr;
 RenderFunction g_render = nullptr;
 HasEntryFunction g_has_entry = nullptr;
@@ -83,6 +98,8 @@ ProcessDispatchFunction g_process_dispatch = nullptr;
 TransitionFunction g_transition = nullptr;
 NormalJudgeFunction g_normal_judge = nullptr;
 TimelineTickFunction g_timeline_tick = nullptr;
+SeedJudgeOffsetFunction g_seed_judge_offset = nullptr;
+UiJudgeOffsetFunction g_ui_judge_offset = nullptr;
 thread_local bool g_in_render = false;
 
 struct ThreadState {
@@ -410,8 +427,14 @@ std::intptr_t __fastcall RenderDetour(void* app) {
 
     if (!g_thread.scheduled) {
         LARGE_INTEGER frequency{};
+        const unsigned presentation_hz = PresentationRate();
+        const bool high_refresh = g_high_refresh_simulation.load(
+            std::memory_order_acquire);
+        const unsigned simulation_hz = high_refresh && presentation_hz != 0
+            ? presentation_hz : FrameScheduler::kLegacySimulationHz;
         if (!QueryPerformanceFrequency(&frequency) ||
-            !g_thread.scheduler.Start(frequency.QuadPart, PresentationRate(), QpcNow())) {
+            !g_thread.scheduler.Start(frequency.QuadPart, presentation_hz,
+                                      QpcNow(), simulation_hz, high_refresh)) {
             Log(LogLevel::Error, "cannot start the fixed phase QPC scheduler");
             return g_render(app);
         }
@@ -474,6 +497,38 @@ std::int64_t __fastcall TimelineTickProbe(void* timeline) {
     return result;
 }
 
+std::int64_t __fastcall TimelineTickRuntime(void* timeline) {
+    if (NativeTimelineRuntimeEnabled()) return NativeTimelineTick(timeline);
+    return g_timeline_tick ? g_timeline_tick(timeline) : 0;
+}
+
+void ScaleJudgeOffsetToMicroseconds() noexcept {
+    if (!g_module_base) return;
+    std::int32_t value = 0;
+    std::memcpy(&value, g_module_base + 0x1366918, sizeof(value));
+    // The native setting and UI are frame-domain and clamped to [-5, +5].
+    // Ignore values already in microseconds so a repeated init does not scale
+    // the same offset twice.
+    if (value < -5 || value > 5) return;
+    value *= 16'667;
+    std::memcpy(g_module_base + 0x1366918, &value, sizeof(value));
+}
+
+std::int64_t __fastcall SeedJudgeOffsetDetour(void* a1, std::int64_t a2,
+                                               std::int64_t a3, char* a4,
+                                               char a5, char a6) {
+    const auto result = g_seed_judge_offset
+        ? g_seed_judge_offset(a1, a2, a3, a4, a5, a6) : 0;
+    ScaleJudgeOffsetToMicroseconds();
+    return result;
+}
+
+std::int64_t __fastcall UiJudgeOffsetDetour(void* a1, int a2) {
+    const auto result = g_ui_judge_offset ? g_ui_judge_offset(a1, a2) : 0;
+    ScaleJudgeOffsetToMicroseconds();
+    return result;
+}
+
 void SetRuntimeActive(bool active) noexcept {
     g_runtime_active.store(active, std::memory_order_release);
 }
@@ -495,8 +550,16 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         reason = "native_shadow_feed requires precise_audio_clock";
         return false;
     }
+    if (config.high_refresh_timeline && !config.precise_audio_clock) {
+        reason = "high_refresh_timeline requires precise_audio_clock";
+        return false;
+    }
+    if (config.high_refresh_timeline && config.native_shadow_feed) {
+        reason = "high_refresh_timeline cannot run the native shadow feed";
+        return false;
+    }
     if ((config.clock_motion || config.native_shadow ||
-         config.native_shadow_feed) &&
+         config.native_shadow_feed || config.high_refresh_timeline) &&
         !PrepareTimedRendering(module, reason)) {
         if (reason.empty()) reason = "native timing preparation failed";
         return false;
@@ -531,20 +594,42 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
 
     if (!PreparePresentation(module, config, reason)) return false;
 
+    const bool host_motion = config.smooth_motion && !config.high_refresh_timeline;
+    const bool host_ui = config.smooth_ui && !config.high_refresh_timeline;
+    if (config.high_refresh_timeline &&
+        !PrepareTimelineConversionPatches(module, reason)) {
+        RollbackPresentation();
+        return false;
+    }
+
     std::vector<HookSpec> specs{
         {"Render", kRenderRva, kRenderBytes,
          reinterpret_cast<void*>(&RenderDetour),
          reinterpret_cast<void**>(&g_render)},
     };
-    if (config.smooth_motion || config.clock_motion || config.diagnostic_probe ||
-        config.native_shadow_feed)
+    if (host_motion || (config.clock_motion && !config.high_refresh_timeline) ||
+        config.native_shadow_feed ||
+        (config.diagnostic_probe && !config.high_refresh_timeline))
         AppendMotionHooks(specs);
     if (config.diagnostic_probe) {
         specs.push_back({"normal judge probe", kNormalJudgeRva, kNormalJudgeBytes,
             reinterpret_cast<void*>(&NormalJudgeProbe),
             reinterpret_cast<void**>(&g_normal_judge)});
     }
-    if (config.timeline_probe) {
+    if (config.high_refresh_timeline) {
+        specs.push_back({"timeline microsecond tick", kTimelineTickRva,
+            kTimelineTickBytes,
+            reinterpret_cast<void*>(&TimelineTickRuntime),
+            reinterpret_cast<void**>(&g_timeline_tick)});
+        specs.push_back({"timeline judge offset seed", kSeedJudgeOffsetRva,
+            kSeedJudgeOffsetBytes,
+            reinterpret_cast<void*>(&SeedJudgeOffsetDetour),
+            reinterpret_cast<void**>(&g_seed_judge_offset)});
+        specs.push_back({"timeline judge offset UI", kUiJudgeOffsetRva,
+            kUiJudgeOffsetBytes,
+            reinterpret_cast<void*>(&UiJudgeOffsetDetour),
+            reinterpret_cast<void**>(&g_ui_judge_offset)});
+    } else if (config.timeline_probe) {
         specs.push_back({"timeline tick probe", kTimelineTickRva,
             kTimelineTickBytes,
             reinterpret_cast<void*>(&TimelineTickProbe),
@@ -558,38 +643,52 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         {"render-tail dispatch", 0x1C390C, kDispatchCall,
          reinterpret_cast<void*>(&ProcessDispatchCallsite)},
     };
-    if (config.smooth_ui) {
+    if (host_ui) {
         ModuleIdentity afp;
         std::wstring guard_reason;
         if (!VerifyAfpModule(afp, guard_reason)) {
             reason.clear();
             for (const wchar_t c : guard_reason)
                 reason.push_back(c <= 127 ? static_cast<char>(c) : '?');
+            RollbackTimelineConversionPatches();
             RollbackPresentation();
             return false;
         }
         if (!PrepareUiMotion(afp.module, true, calls, reason)) {
+            RollbackTimelineConversionPatches();
             RollbackPresentation();
             return false;
         }
     }
     if (config.precise_audio_clock && !PrepareAudioClockPatch(reason)) {
+        RollbackTimelineConversionPatches();
         RollbackPresentation();
         return false;
     }
     if (!InstallHooks(module, specs, reason)) {
+        RollbackTimelineConversionPatches();
         RollbackAudioClockPatch();
         RollbackPresentation();
         return false;
     }
     if (!InstallCallPatches(module, calls, reason)) {
+        RollbackTimelineConversionPatches();
         RollbackAudioClockPatch();
+        RemoveHooks();
+        RollbackPresentation();
+        return false;
+    }
+    if (config.high_refresh_timeline && !CommitTimelineConversionPatches(reason)) {
+        RollbackTimelineConversionPatches();
+        RollbackAudioClockPatch();
+        RemoveCallPatches();
         RemoveHooks();
         RollbackPresentation();
         return false;
     }
     if ((config.precise_audio_clock && !CommitAudioClockPatch(reason)) ||
         !CommitPresentation(reason)) {
+        RollbackTimelineConversionPatches();
         RollbackAudioClockPatch();
         RemoveCallPatches();
         RemoveHooks();
@@ -602,6 +701,7 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
                                 GET_MODULE_HANDLE_EX_FLAG_PIN,
                             reinterpret_cast<LPCWSTR>(&InstallGameHooks), &self)) {
         reason = "cannot pin nosfix.dll while detours are installed";
+        RollbackTimelineConversionPatches();
         RollbackAudioClockPatch();
         RemoveCallPatches();
         RemoveHooks();
@@ -625,7 +725,8 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         DisableAsioRoute();
     }
     ConfigureDiagnosticProbe(config.diagnostic_probe);
-    ConfigureTimelineProbe(config.timeline_probe);
+    ConfigureTimelineProbe(config.timeline_probe && !config.high_refresh_timeline);
+    ConfigureNativeTimelineRuntime(config.high_refresh_timeline);
     if (config.native_shadow_feed)
         ConfigureShadowLive(reinterpret_cast<const std::byte*>(module), image_size,
                             module);
@@ -633,12 +734,15 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
         DisableShadowLive();
     SetShadowNoteObserver(config.native_shadow_feed
         ? &ShadowLiveObserveNormalNote : nullptr);
+    g_high_refresh_simulation.store(config.high_refresh_timeline,
+                                     std::memory_order_release);
     SetRuntimeActive(true);
     ConfigureMonitorCheck(module, config.skip_monitor_check);
-    ConfigureTimedRendering(config.clock_motion);
-    ConfigureSongClock(config.native_shadow || config.native_shadow_feed);
-    ConfigureMotion(module, config.smooth_motion);
-    ConfigureUiMotion(config.smooth_ui);
+    ConfigureTimedRendering(config.clock_motion && !config.high_refresh_timeline);
+    ConfigureSongClock(config.native_shadow || config.native_shadow_feed ||
+                       config.high_refresh_timeline);
+    ConfigureMotion(module, host_motion);
+    ConfigureUiMotion(host_ui);
     if (config.capture_input) {
         ModuleIdentity spice;
         std::wstring guard_reason;
@@ -665,14 +769,16 @@ bool InstallGameHooks(HMODULE module, const Config& config, std::string& reason)
     }
     if (config.diagnostic_probe)
         Log(LogLevel::Info, "diagnostic PROBE enabled: normal judge and gliss/velocity note updates");
-    if (config.timeline_probe)
+    if (config.timeline_probe && !config.high_refresh_timeline)
         Log(LogLevel::Info, "TIMELINE probe enabled: per-tick frame/offset/rate values; read-only");
+    if (config.high_refresh_timeline)
+        Log(LogLevel::Info, "HIGH REFRESH timeline active: native chart/ticks/windows use absolute microseconds; host prediction disabled");
     if (config.native_shadow_feed)
         Log(LogLevel::Info, "SHADOW live feed requested; original judge remains authoritative");
-    Log(LogLevel::Info, config.smooth_motion
+    Log(LogLevel::Info, host_motion
         ? "bounded note-head and ribbon prediction enabled above 60 Hz"
         : "note prediction disabled by configuration");
-    Log(LogLevel::Info, config.smooth_ui
+    Log(LogLevel::Info, host_ui
         ? "bounded AFP UI translation prediction enabled above 60 Hz"
         : "UI motion disabled by configuration");
     return true;
@@ -683,6 +789,8 @@ void RemoveGameHooks() noexcept {
     if (g_input_observation.exchange(false, std::memory_order_acq_rel)) StopRawInputCapture();
     ConfigureDiagnosticProbe(false);
     ConfigureTimelineProbe(false);
+    ConfigureNativeTimelineRuntime(false);
+    g_high_refresh_simulation.store(false, std::memory_order_release);
     DisableAsioRoute();
     SetShadowNoteObserver(nullptr);
     DisableShadowLive();
@@ -695,6 +803,7 @@ void RemoveGameHooks() noexcept {
     RollbackAudioClockPatch();
     RemoveCallPatches();
     RemoveHooks();
+    RollbackTimelineConversionPatches();
     RollbackPresentation();
 }
 
