@@ -352,18 +352,24 @@ and prediction paths will be wrong even if the game is correct.
 
 ## 11. Next step
 
-Add a **read-only** diagnostic around the timeline tick that logs, once per
-native update:
+The read-only probe is implemented as `timeline_probe` (commit `f19ca3b`).
+It hooks `sub_1802FC9D0` and emits one `TIMELINE` line per tick, up to 1200
+ticks, with:
 
-- QPC delta and tick-call count;
-- `dword_18070A610`, `dword_18070A614`;
-- both offset high dwords;
-- `dword_18070A740`, `dword_18070A750`;
-- the current rate globals and mode.
+- QPC and QPC delta;
+- counter before/after/delta;
+- end frame, both offset high dwords, frame adjustment and clock state;
+- BPM, beat, tempo index/count;
+- float/double rate and mode.
 
-That resolves the open questions without introducing a second timing path.
-Only then should the chart loader, tick and formula families be patched in one
-branch.
+It changes no playback state. The diagnostic package is at
+`out/timeline-probe-20261030/` with `timeline_probe=true`; the run instructions
+are in `README-TIMELINE-PROBE.txt` there.
+
+Use the log to confirm the offset cadence, the 0/1/2 update pattern, and the
+rate/mode values. The chart loader, tick and formula families are then patched
+in one branch; the probe can remain available for validation and should be
+removed from the final production configuration.
 
 ## Appendix: all 105 direct references
 
