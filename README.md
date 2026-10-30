@@ -103,7 +103,9 @@ is fail-closed: if the driver, rate, buffer, channels or hook bytes do not
 match, it logs the reason and leaves the original engine in place. It has not
 been validated on real hardware.
 
-Use `scripts\nosfix-config-gui.ps1` to edit the adjacent ini in a small WinForms
+Double-click `scripts\nosfix-config.bat` to open the configurator; it launches
+`nosfix-config-gui.ps1` from the same folder. Use `scripts\nosfix-config-gui.ps1`
+to edit the adjacent ini in a small WinForms
 window. It lists the registered ASIO drivers from `HKLM\SOFTWARE\ASIO` and
 saves the selected driver by CLSID, so the name does not need to be copied from
 regedit. `-ListDrivers` prints the registry entries without opening the GUI;
